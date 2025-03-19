@@ -1,0 +1,143 @@
+<?xml version="1.0" ?>
+
+<robot name="shadowhand_motor"
+   xmlns:controller="http://playerstage.sourceforge.net/gazebo/xmlschema/#controller"
+   xmlns:interface="http://playerstage.sourceforge.net/gazebo/xmlschema/#interface"
+   xmlns:sensor="http://playerstage.sourceforge.net/gazebo/xmlschema/#sensor">
+
+    <material name="Blue">  
+      <color rgba="0.0 0.0 0.8 1.0"/>
+   </material>
+
+   <material name="Green">
+      <color rgba="0.0 0.8 0.0 1.0"/>
+   </material>
+
+   <material name="BiotacGreen">
+      <color rgba="0.31 0.85 0.42 1.0"/>
+   </material>
+
+   <material name="Grey">
+      <color rgba="0.2 0.2 0.2 1.0"/>
+   </material>
+
+   <material name="LightGrey">
+      <color rgba="0.6 0.6 0.6 1.0"/>
+   </material>
+
+   <material name="Red">
+      <color rgba="0.8 0.0 0.0 1.0"/>
+   </material>
+
+   <material name="White">
+      <color rgba="1.0 1.0 1.0 1.0"/>
+   </material>
+
+    <link name="world"/>
+
+    <joint name="rh_world_joint" type="fixed">
+      <parent link="world"/>
+      <child link="rh_forearm"/>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+   </joint>
+
+   <link name="rh_forearm">
+      <inertial>
+         <origin rpy="0 0 0" xyz="0 0 0.09"/>
+         <mass value="3.0"/>
+         <inertia ixx="0.0138" ixy="0.0" ixz="0.0" iyy="0.0138" iyz="0.0" izz="0.00744"/>
+      </inertial>
+      <visual>
+         <origin rpy="0 0 0" xyz="0 0 0.0"/>
+         <geometry name="rh_forearm_visual">
+            <mesh filename="package://sr_description/meshes/components/forearm/forearm_E3M5.dae"  scale = "0.001 0.001 0.001"/>
+         </geometry>
+         <material name="light_grey">
+            <color rgba="0.90000 0.90000 0.90000 1.0"/>
+         </material>
+      </visual>
+      <collision>
+         <origin rpy="0 0 0" xyz="0 0 0.0"/>
+         <geometry name="rh_forearm_collision">
+            <mesh filename="package://sr_description/meshes/components/forearm/forearm_collision_E3M5.dae"  scale = "0.001 0.001 0.001"/>
+         </geometry>
+      </collision>      <!-- wrist mount -->
+      <collision>
+         <origin rpy="0 0.78 0" xyz="0 -0.01 0.181"/>
+         <geometry>
+            <box size="0.07 0.07 0.07"/>
+         </geometry>
+      </collision>      
+      <!-- TODO: Make a decision on whether to add the connector or not -->      
+      <!--visual>
+        <origin rpy="0 -1.57 -1.57" xyz="0.0 0.067 0.0045"/>
+        <geometry name="${prefix}cable_extr_visualisation">
+          <mesh filename="package://sr_description/meshes/components/cable_connector/cable_connector_base_${hand_version}.dae" scale="0.001 0.001 0.001" />
+        </geometry>
+      </visual-->
+   </link>
+
+   <gazebo reference="rh_forearm">
+      <selfCollide>false</selfCollide>
+   </gazebo>
+
+   <link name="rh_wrist">
+      <inertial>
+         <origin rpy="0 0 0" xyz="0 0 0.029"/>
+         <mass value="0.1"/>
+         <inertia ixx="0.000035" ixy="0.0" ixz="0.0" iyy="0.000064" iyz="0.0" izz="0.0000438"/>
+      </inertial>
+      <visual>
+         <origin rpy="0 0 0" xyz="0 0 0"/>
+         <geometry name="rh_wrist_visual">
+            <mesh filename="package://sr_description/meshes/components/wrist/wrist_E3M5_no_rot.dae" scale = "0.001 0.001 0.001"/>
+         </geometry>
+         <material name="LightGrey"/>
+      </visual>
+      <collision>
+         <origin rpy="1.5708 1.5708 0" xyz="0 0 0"/>
+         <geometry name="rh_wrist_collision_geom">
+            <cylinder length="0.030" radius="0.0135"/>
+         </geometry>
+      </collision>
+      <collision>
+         <origin rpy="0 1.5708 0" xyz="-0.026 0 0.034"/>
+         <geometry>
+            <cylinder length="0.010" radius="0.011"/>
+         </geometry>
+      </collision>
+      <collision>
+         <origin rpy="0 1.5708 0" xyz="0.031 0 0.034"/>
+         <geometry>
+            <cylinder length="0.010" radius="0.011"/>
+         </geometry>
+      </collision>
+      <collision>
+         <origin rpy="0 0.7854 0" xyz="-0.021 0 0.011"/>
+         <geometry>
+            <box size="0.027 0.018 0.010"/>
+         </geometry>
+      </collision>
+      <collision>
+         <origin rpy="0 -0.7854 0" xyz="0.026 0 0.010"/>
+         <geometry>
+            <box size="0.027 0.018 0.010"/>
+         </geometry>
+      </collision>
+   </link>
+
+   <gazebo reference="rh_wrist">
+      <material>Gazebo/White</material>
+      <selfCollide>false</selfCollide>
+   </gazebo>
+
+   <joint name="rh_WRJ2" type="revolute">
+      <parent link="rh_forearm"/>
+      <child link="rh_wrist"/>
+      <origin rpy="0 0 0" xyz="0 -0.010 0.21301"/>
+      <axis xyz="0 1 0"/>
+      <limit effort="10" lower="-0.5235987755982988" upper="0.17453292519943295" velocity="2.0"/>
+      <dynamics damping="0.1"/>
+   </joint>
+
+</robot>

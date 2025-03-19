@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<launch>
+
+
+  <!-- We resume the logic in empty_world.launch -->
+   <include file="$(find gazebo_ros)/launch/empty_world.launch"> 
+    <arg name="paused" value="false"/>
+  </include>
+
+  <!-- Load the URDF into the ROS Parameter Server -->
+  <param name="robot_description" command="cat '$(find my_package)/urdf/sr_hand_vm_compatible_position_controlled.urdf'"/>
+	 
+  <!-- Start Rviz -->  
+   <!--<node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" ></node>-->
+   <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" /> 
+   <node name="rviz" pkg="rviz" type="rviz" args="-d '$(find my_package)/rviz/robot_config.rviz'" />
+
+
+  <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
+   <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+	args="-urdf -model my_robot -param robot_description"/> 
+
+  <!-- ROS CONTROL-->
+  <rosparam file="$(find my_package)/config/motors_config_position_control.yaml" command="load" ns="/my_robot" />
+
+  <node name="controller_spawner" pkg="controller_manager" type="spawner" output="screen" args="--namespace=/my_robot
+      joint_state_controller
+      rh_WRJ1_position_controller
+      rh_WRJ2_position_controller
+      rh_FFJ1_position_controller
+      rh_FFJ2_position_controller
+      rh_FFJ3_position_controller
+      rh_FFJ4_position_controller
+      rh_MFJ1_position_controller
+      rh_MFJ2_position_controller
+      rh_MFJ3_position_controller
+      rh_MFJ4_position_controller
+      rh_RFJ1_position_controller
+      rh_RFJ2_position_controller
+      rh_RFJ3_position_controller
+      rh_RFJ4_position_controller
+      rh_LFJ1_position_controller
+      rh_LFJ2_position_controller
+      rh_LFJ3_position_controller
+      rh_LFJ4_position_controller
+      rh_LFJ5_position_controller
+      rh_THJ1_position_controller
+      rh_THJ2_position_controller
+      rh_THJ3_position_controller
+      rh_THJ4_position_controller
+      rh_THJ5_position_controller
+      --shutdown-timeout 3">
+  </node>
+
+</launch>

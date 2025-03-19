@@ -1,0 +1,41 @@
+<sdf version='1.7'>
+<world name="default">
+  <!-- Define the physics properties -->
+  <physics type="ode">
+    <gravity x="0" y="0" z="-9.81"/> <!-- Default gravity for other objects -->
+  </physics>
+
+  <include>
+      <uri>model://sun</uri>
+  </include>
+    <!-- A ground plane -->
+  <include>
+      <uri>model://ground_plane</uri>
+  </include>
+
+  <!-- Define the sphere model -->
+  <model name="non_gravity_sphere">
+    <pose>0 -0.06 0.32 0 0 0</pose> <!-- Position the sphere at coordinates (0, 0, 1) -->
+    <static>false</static> <!-- Make the sphere movable -->
+    <link name="link1">
+      <collision name="collision1">
+        <geometry>
+          <sphere>
+            <radius>0.035</radius> <!-- Set the radius of the sphere -->
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="visual1">
+        <geometry>
+          <sphere>
+            <radius>0.035</radius> <!-- Same radius as the collision -->
+          </sphere>
+        </geometry>
+      </visual>
+      <gravity>false</gravity>
+    </link>
+    <gravity>false</gravity> <!-- Disable gravity for this sphere -->
+  </model>
+
+</world>
+</sdf>

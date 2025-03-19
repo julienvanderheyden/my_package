@@ -1,0 +1,127 @@
+  joint_state_controller:
+    type: joint_state_controller/JointStateController
+    publish_rate: 50
+
+  rh_WRJ1_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_WRJ1
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_WRJ2_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_WRJ2
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_FFJ1_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_FFJ1
+    pid: {p: 2.0, i: 0.0, d: 0.0}  
+
+  rh_FFJ2_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_FFJ2
+    pid: {p: 2.0, i: 0.0, d: 0.0} 
+
+  rh_FFJ3_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_FFJ3
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_FFJ4_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_FFJ4
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_MFJ1_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_MFJ1
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_MFJ2_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_MFJ2
+    pid: {p: 2.0, i: 0.0, d: 0.0} 
+
+  rh_MFJ3_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_MFJ3
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_MFJ4_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_MFJ4
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_RFJ1_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_RFJ1
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_RFJ2_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_RFJ2
+    pid: {p: 2.0, i: 0.0, d: 0.0} 
+
+  rh_RFJ3_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_RFJ3
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_RFJ4_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_RFJ4
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_LFJ1_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_LFJ1
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_LFJ2_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_LFJ2
+    pid: {p: 2.0, i: 0.0, d: 0.0} 
+
+  rh_LFJ3_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_LFJ3
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_LFJ4_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_LFJ4
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_LFJ5_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_LFJ5
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_THJ1_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_THJ1
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_THJ2_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_THJ2
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_THJ3_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_THJ3
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_THJ4_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_THJ4
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+  rh_THJ5_position_controller:
+    type: position_controllers/JointPositionController
+    joint: rh_THJ5
+    pid: {p: 2.0, i: 0.0, d: 0.0}
+
+
+
+
