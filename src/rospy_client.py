@@ -209,6 +209,7 @@ def forward_state_to_julia(socket_manager, ros_manager):
     socket_manager.send_robot_state(time.time_ns(), msg_vec) # Send to julia
 
 def send_recv_send_recv_wait(socket_manager, ros_manager, set_zero=False):
+    print(time.time())
     if ros_manager.new_msg is not None: # New msg received from ROS subscriber
         forward_state_to_julia(socket_manager, ros_manager)
     command = socket_manager.recv_joint_command() 
@@ -238,9 +239,7 @@ def loop_warmup(socket_manager, ros_manager):
 def loop_active(socket_manager, ros_manager):
     print("State: ACTIVE")
     while not rospy.is_shutdown():
-        t = time.time()
         command = socket_manager.command_stream.readline()
-        print(f"Time to get commands : {time.time() - t}")
         if command == "":
             send_recv_send_recv_wait(socket_manager, ros_manager)
         elif command == "STOP\n":
