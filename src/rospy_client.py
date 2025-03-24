@@ -223,9 +223,7 @@ def send_recv_send_recv_wait(socket_manager, ros_manager, set_zero=False):
 def loop_warmup(socket_manager, ros_manager):
     print("State: WARMUP")
     while not rospy.is_shutdown():
-        t = time.time()
         command = socket_manager.command_stream.readline()
-        print(f"Time to get commands : {time.time() - t}")
         if command == "":
             # Send zero torques only during warmup
             send_recv_send_recv_wait(socket_manager, ros_manager, set_zero=True)
@@ -240,7 +238,9 @@ def loop_warmup(socket_manager, ros_manager):
 def loop_active(socket_manager, ros_manager):
     print("State: ACTIVE")
     while not rospy.is_shutdown():
+        t = time.time()
         command = socket_manager.command_stream.readline()
+        print(f"Time to get commands : {time.time() - t}")
         if command == "":
             send_recv_send_recv_wait(socket_manager, ros_manager)
         elif command == "STOP\n":
