@@ -211,7 +211,6 @@ def forward_state_to_julia(socket_manager, ros_manager):
 def send_recv_send_recv_wait(socket_manager, ros_manager, set_zero=False):
     if ros_manager.new_msg is not None: # New msg received from ROS subscriber
         forward_state_to_julia(socket_manager, ros_manager)
-        print(time.time())
     command = socket_manager.recv_joint_command() 
     if command is not None: # New torque command received from julia
         if set_zero:
@@ -224,7 +223,9 @@ def send_recv_send_recv_wait(socket_manager, ros_manager, set_zero=False):
 def loop_warmup(socket_manager, ros_manager):
     print("State: WARMUP")
     while not rospy.is_shutdown():
+        t = time.time()
         command = socket_manager.command_stream.readline()
+        print(f"Time to get commands : {time.time() - t}")
         if command == "":
             # Send zero torques only during warmup
             send_recv_send_recv_wait(socket_manager, ros_manager, set_zero=True)
