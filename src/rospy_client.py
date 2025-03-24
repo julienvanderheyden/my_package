@@ -211,7 +211,7 @@ def forward_state_to_julia(socket_manager, ros_manager):
 def send_recv_send_recv_wait(socket_manager, ros_manager, set_zero=False):
     if ros_manager.new_msg is not None: # New msg received from ROS subscriber
         forward_state_to_julia(socket_manager, ros_manager)
-        return time.time()
+        print(time.time())
     command = socket_manager.recv_joint_command() 
     if command is not None: # New torque command received from julia
         if set_zero:
@@ -220,7 +220,6 @@ def send_recv_send_recv_wait(socket_manager, ros_manager, set_zero=False):
             ros_manager.joint_command_message.data = command.torques
         ros_manager.publisher.publish(ros_manager.joint_command_message) # Publish via ROS
     ros_manager.rate.sleep()
-    return None
 
 def loop_warmup(socket_manager, ros_manager):
     print("State: WARMUP")
@@ -240,13 +239,9 @@ def loop_warmup(socket_manager, ros_manager):
 def loop_active(socket_manager, ros_manager):
     print("State: ACTIVE")
     while not rospy.is_shutdown():
-        last_sent_packet_time = time.time()
         command = socket_manager.command_stream.readline()
         if command == "":
-            send_time = send_recv_send_recv_wait(socket_manager, ros_manager)
-            if send_time is not None :
-                print(f"UDP packet interval is {send_time - last_sent_packet_time}")
-                last_sent_packet_time = send_time
+            send_recv_send_recv_wait(socket_manager, ros_manager)
         elif command == "STOP\n":
             return STATE_STOPPED
         else:
