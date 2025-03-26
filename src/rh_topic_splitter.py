@@ -64,7 +64,7 @@ class DynamicRouter:
                 self.publishers[i].publish(Float64(limited_value))            
 
             else :
-                limited_value = self.clamp(data[j], self.joints_limits[i][0], self.joints_limits[i][1])
+                limited_value = self.clamp(data[j], self.joints_limits[j][0], self.joints_limits[j][1])
                 self.joint_states[j] = limited_value
                 j = j+1
                 self.publishers[i].publish(Float64(limited_value))
