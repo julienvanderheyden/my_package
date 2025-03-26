@@ -33,7 +33,7 @@ class ROSManager:
         self.publisher_topic = publisher_topic
         self.joint_command_size = joint_command_size
         self.joint_state_size = joint_state_size
-        rospy.Subscriber(subscriber_topic, JointState, self._subscriber_callback)
+        rospy.Subscriber(subscriber_topic, JointState, self._subscriber_callback, tcp_nodelay=True)
         self.publisher = rospy.Publisher(publisher_topic, Float64MultiArray, queue_size=1)
         self.joint_command_message = Float64MultiArray()
         dim = MultiArrayDimension()
