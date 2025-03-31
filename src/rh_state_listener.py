@@ -21,8 +21,6 @@ class StateListener:
         # Publisher to send reordered joint positions
         self.pub = rospy.Publisher(self.output_topic, JointState, queue_size=10)
 
-        self.counter = 0
-
         # Subscriber to listen to joint states
         rospy.Subscriber("/joint_states", JointState, self.callback)
 
@@ -33,10 +31,6 @@ class StateListener:
         Callback function to process JointState messages.
         It reorders the joint positions according to the target_joint_order.
         """
-
-        self.counter += 1 
-        if self.counter < 10 :
-            return 
         
         self.counter = 0
         new_joint_state = JointState()
