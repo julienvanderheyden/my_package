@@ -36,6 +36,10 @@ class DynamicRouter:
         self.rate = rospy.Rate(2)  # Print state 2 times per second
         self.joint_states = [0.0] * len(self.joints_names)
 
+        # Send only 1 message every n message to reduce the control frequency
+        self.counter = 0  
+        self.publish_every_n = 1  
+
         rospy.loginfo(f"Subscribed to: {self.sub_topic}")
         rospy.loginfo(f"Publishing to: {self.pub_topics}")
 
@@ -43,6 +47,11 @@ class DynamicRouter:
         return max(min(value, max_val), min_val)
 
     def callback(self, msg):
+
+        self.counter += 1
+        if self.counter % self.publish_every_n != 0:
+            return  # Skip publishing unless it's the n-th message
+        
         data = msg.data  # Extract array from Float64MultiArray
 
         # Ensure the received data length matches the number of publishers
