@@ -7,6 +7,16 @@ from std_msgs.msg import Float64
 from std_msgs.msg import Float64MultiArray
 from sensor_msgs.msg import JointState
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 class ShadowHandBridge :
     def __init__ (self, store_data, csv_filename, row_limit):
         rospy.init_node('shadowhand_ros_bridge', anonymous=True)
@@ -163,7 +173,7 @@ class ShadowHandBridge :
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("store_data", type=bool, help="Boolean flag to enable or disable data storage")
+    parser.add_argument("store_data", type=str2bool, help="Boolean flag to enable or disable data storage")
     parser.add_argument("--csv_filename", type=str, default="shadowhand_joint_data.csv", help="Optional CSV filename")
     parser.add_argument("--row_limit", type=int, default=1000, help="Optional limit for the number of rows")
     args = parser.parse_args()
