@@ -180,6 +180,7 @@ if __name__ == "__main__":
     
     try:
         node = ShadowHandBridge(args.store_data, args.csv_filename, args.row_limit)
+        node.print_joint_states()
         rospy.spin()
     except rospy.ROSInterruptException:
         pass
