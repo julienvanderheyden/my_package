@@ -178,6 +178,7 @@ if __name__ == "__main__":
     parser.add_argument("--row_limit", type=int, default=1000, help="Optional limit for the number of rows")
     args = parser.parse_args()
     
+    
     try:
         node = ShadowHandBridge(args.store_data, args.csv_filename, args.row_limit)
         node.print_joint_states()
