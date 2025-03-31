@@ -141,7 +141,7 @@ class ShadowHandBridge :
 
         # Publish each float to the corresponding topic
         j = 0
-        for i in range(len(self.pub_topics)):
+        for i in range(len(self.joint_command_publishers)):
             if i in self.coupled_fingers : # Check if joints are coupled
                 j1_value = self.clamp(data[j], self.joints_limits[j][0], self.joints_limits[j][1])
                 self.joint_states[j] = j1_value
