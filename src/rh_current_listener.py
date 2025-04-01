@@ -41,7 +41,7 @@ class CurrentListener:
 
                 for value in status.values:
                     if value.key == "Measured Current":
-                        currents.append(value.value)  # Add the current value to the list
+                        currents.append(Float64(value.value))  # Add the current value to the list
 
         # If we have found any currents, publish them
         if currents:
