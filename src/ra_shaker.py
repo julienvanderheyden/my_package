@@ -22,6 +22,15 @@ def send_shake_trajectory():
 
     time_stages = [3.0, 2.0, 1.0]  # seconds between shakes
 
+    # Send empty trajectory to initialize
+    empty_traj = JointTrajectory()
+    empty_traj.joint_names = joint_names
+    empty_traj.header.stamp = rospy.Time.now() + rospy.Duration(0.1)
+
+    pub.publish(empty_traj)
+    rospy.sleep(0.5)  # give the controller time to react
+    rospy.loginfo("Initialized empty trajectory.")
+
     for stage_index, time_step in enumerate(time_stages):
         rospy.loginfo(f"Starting shake stage {stage_index + 1} with time_step = {time_step:.2f}s")
 
