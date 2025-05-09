@@ -19,8 +19,8 @@ def send_shake_trajectory():
 
     grasping_position = [-0.07, -0.93, 1.764, -0.651, 1.771, -0.898]
     lifting_position = [0.0, -0.92, 1.6, -0.72, 1.6, -1.5]
-    shake_left = [0.2, -0.92, 1.6, -0.72, 1.6, -1.5]  
-    shake_right = [-0.2, -0.92, 1.6, -0.72, 1.6, -1.5]
+    shake_left = [grasping_position[1] + 0.2, -0.92, 1.6, -0.72, 1.6, -1.5]  
+    shake_right = [grasping_position[1]-0.2, -0.92, 1.6, -0.72, 1.6, -1.5]
 
     time_stages = [3.0, 1.0, 0.5]  # seconds between shakes
 
@@ -43,6 +43,8 @@ def send_shake_trajectory():
     traj.header.stamp = rospy.Time.now() + rospy.Duration(0.1)
     pub.publish(traj)
     rospy.sleep(2.0)  # give the controller time to lift
+    rospy.loginfo("object lifted : waiting 5 seconds")
+    rospy.sleep(5.0)  # wait for 5 seconds
     rospy.loginfo("Lifting test complete.")
 
     for stage_index, time_step in enumerate(time_stages):
