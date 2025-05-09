@@ -87,7 +87,7 @@ class CurrentListener:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("store_data", type=str2bool, help="Boolean flag to enable or disable data storage")
-    parser.add_argument("--csv_filename", type=str, default="shadowhand_currentt_data.csv", help="Optional CSV filename")
+    parser.add_argument("--csv_filename", type=str, default="shadowhand_current_data.csv", help="Optional CSV filename")
     args = parser.parse_args()
 
     try:
