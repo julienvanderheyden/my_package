@@ -17,10 +17,11 @@ def send_shake_trajectory():
     joint_names = ['ra_shoulder_pan_joint', 'ra_shoulder_lift_joint', 'ra_elbow_joint',
                     'ra_wrist_1_joint', 'ra_wrist_2_joint', 'ra_wrist_3_joint']
 
-    grasping_position = [-0.07, -0.93, 1.764, -0.651, 1.771, -0.898]
-    lifting_position = [0.0, -0.92, 1.6, -0.72, 1.6, -1.5]
-    shake_left = [grasping_position[1] + 0.2, -0.92, 1.6, -0.72, 1.6, -1.5]  
-    shake_right = [grasping_position[1]-0.2, -0.92, 1.6, -0.72, 1.6, -1.5]
+    pregrasp_position = [-0.4528, -0.997, 2.278, 1.2558, 1.1071, -1.564]
+    grasping_position = [-0.28, -0.74, 1.66, -0.89, 1.27, -1.55]
+    lifting_position = [-0.285, -1.048, 1.575, -0.503, 1.27, -1.55]
+    shake_left = [-0.258+0.2, -1.048, 1.575, -0.503, 1.27, -1.55]
+    shake_right = [-0.258-0.2, -1.048, 1.575, -0.503, 1.27, -1.55]
 
     time_stages = [3.0, 1.0, 0.5]  # seconds between shakes
 
