@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rospy
 from std_msgs.msg import Float64
+import time 
 
 class HandReset:
     def __init__(self):
@@ -21,6 +22,9 @@ class HandReset:
         self.rate = rospy.Rate(10)  # 10 Hz
         
     def publish_zero_commands(self):
+        rospy.loginfo("Waiting for 10 seconds before publishing zero commands...")
+        time.sleep(10)  # Wait for 10 seconds before sending the reset commands
+        
         rospy.loginfo("Publishing zero commands to all hand joints...")
         zero_msg = Float64(0.0)
         while not rospy.is_shutdown():
