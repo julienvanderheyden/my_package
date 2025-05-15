@@ -40,11 +40,14 @@ class HandPreShape:
             return positions
         elif mode == 2:
             # POWER SPHERE : TODO
-            return [0.2 for _ in self.pub_topics]
+            positions = [0.2 for _ in self.pub_topics]
+            return positions
         elif mode == 3:
             # lateral pinch
-            positions = [0.0, 0.0, 1.57, 1.0, 0.0, 1.57, 1.57, 0.0, 1.57, 1.57, 0.0, 1.57, 1.57, 0.0, 0.0, 0.0, -0.7, 0.0, 0.0, 0.0] 
-            return [0.8 for _ in self.pub_topics]
+            positions = [0.0, 0.0, 1.57, 1.0, 0.0, 
+                         1.57, 1.57, 0.0, 1.57, 1.57, 0.0, 1.57, 1.57, 0.0, 0.0, 
+                         0.0, -0.7, 0.0, 0.0, 0.0] 
+            return positions
         else:
             rospy.logwarn(f"Unknown mode: {mode}. Defaulting to zeros.")
             return [0.0 for _ in self.pub_topics]
