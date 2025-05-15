@@ -66,7 +66,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
         mode = int(sys.argv[1])
-        if mode not in (1, 2, 3):
+        if mode not in (0, 1, 2, 3):
             print("Invalid mode. Must be 0, 1, 2, or 3.")
             sys.exit(1)
 
