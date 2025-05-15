@@ -36,16 +36,14 @@ class HandPreShape:
         if mode == 1:
             # Medium Wrap
             positions = np.zeros(len(self.pub_topics))
-            positions[21-1] = 1.2 #THJ4
+            positions[19] = 1.2 #THJ4
             return positions
         elif mode == 2:
             # POWER SPHERE : TODO
             return [0.2 for _ in self.pub_topics]
         elif mode == 3:
             # lateral pinch
-            positions = [0.0, 0.0, 0.0, 1.0, 1.57, 0.0, 0.0, 1.4, 1.57, 1.57, 
-                        0.0, 1.4, 1.57, 1.57, 0.0, 0.0, 1.4, 1.57, 1.57, 0.0, 
-                        0.0, 0.0, -0.7, 0.0] 
+            positions = [0.0, 0.0, 1.57, 1.0, 0.0, 1.57, 1.57, 0.0, 1.57, 1.57, 0.0, 1.57, 1.57, 0.0, 0.0, 0.0, -0.7, 0.0, 0.0, 0.0] 
             return [0.8 for _ in self.pub_topics]
         else:
             rospy.logwarn(f"Unknown mode: {mode}. Defaulting to zeros.")
