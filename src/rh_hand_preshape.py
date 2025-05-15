@@ -36,7 +36,7 @@ class HandPreShape:
         if mode == 1:
             # Medium Wrap
             positions = np.zeros(len(self.pub_topics))
-            positions[19] = 1.2 #THJ4
+            positions[18] = 1.2 #THJ4
             return positions
         elif mode == 2:
             # POWER SPHERE : TODO
