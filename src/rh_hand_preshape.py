@@ -39,8 +39,10 @@ class HandPreShape:
             positions[18] = 1.2 #THJ4
             return positions
         elif mode == 2:
-            # POWER SPHERE : TODO
-            positions = [0.2 for _ in self.pub_topics]
+            # POWER SPHERE 
+            positions = [0.0, 0.0, 0.0, 0.0, -0.35, 
+                         0.0, 0.0, -0.12, 0.0, 0.0, -0.12, 0.0, 0.0, -0.35, 0.0,
+                         0.0, 0.0, 0.0, 1.22, 0.0]
             return positions
         elif mode == 3:
             # lateral pinch
@@ -65,7 +67,7 @@ class HandPreShape:
 if __name__ == "__main__":
     try:
         if len(sys.argv) < 2:
-            print("Usage: rosrun <package> hand_reset.py <mode: 0|1|2|3>")
+            print("Usage: rosrun <package> rh_hand_preshape.py <mode: 0|1|2|3>")
             sys.exit(1)
 
         mode = int(sys.argv[1])
