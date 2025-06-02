@@ -16,8 +16,10 @@ class ShakeTestNode:
         self.pregrasp_position = [-0.4528, -0.997, 2.278, 1.2558, 1.1071, -1.564]
         self.grasping_position = [-0.28, -0.74, 1.66, -0.89, 1.27, -1.55]
         self.lifting_position = [-0.285, -1.048, 1.575, -0.503, 1.27, -1.55]
-        self.shake_left = [-0.258+0.2, -1.048, 1.575, -0.503, 1.27, -1.55]
-        self.shake_right = [-0.258-0.2, -1.048, 1.575, -0.503, 1.27, -1.55]
+        self.shake_left = [-0.258, -1.048, 1.575, -0.503, 1.47, -1.55]
+        self.shake_right = [-0.258, -1.048, 1.575, -0.503, 1.07, -1.55]
+        self.shake_up = [-0.258, -1.048, 1.575, -0.403, 1.27, -1.55]
+        self.shake_down = [-0.258, -1.048, 1.575, -0.603, 1.27, -1.55]
 
         self.time_stages = [3.0, 1.0, 0.5]
 
@@ -25,7 +27,8 @@ class ShakeTestNode:
 
         # Subscribers for triggering actions
         rospy.Subscriber('/start_grasping', Empty, self.callback_grasping)
-        rospy.Subscriber('/start_testing', Empty, self.callback_testing)
+        rospy.Subscriber('/start_testing_x', Empty, self.callback_testing_x)
+        rospy.Subscriber('/start_testing_z', Empty, self.callback_testing_z)
 
         rospy.loginfo("Waiting for controller publisher...")
         while self.pub.get_num_connections() == 0 and not rospy.is_shutdown():
@@ -61,18 +64,30 @@ class ShakeTestNode:
         self.send_trajectory(self.grasping_position, 2.0)
         rospy.loginfo("Grasping movement complete.")
 
-    def callback_testing(self, msg):
-        rospy.loginfo("Received start_testing signal.")
-        self.run_test_sequence()
+    def callback_testing_x(self, msg):
+        rospy.loginfo("Received start_testing_x signal.")
+        self.run_test_sequence(direction='x')
 
-    def run_test_sequence(self):
+    def callback_testing_z(self, msg):
+        rospy.loginfo("Received start_testing_z signal.")
+        self.run_test_sequence(direction='z')
+
+    def run_test_sequence(self, direction='x'):
         rospy.loginfo("Lifting object...")
         self.send_trajectory(self.lifting_position, 2.0)
         rospy.loginfo("Waiting 5 seconds...")
         rospy.sleep(5.0)
 
+        if direction == 'x':
+            pos1, pos2 = self.shake_left, self.shake_right
+        elif direction == 'z':
+            pos1, pos2 = self.shake_up, self.shake_down
+        else:
+            rospy.logwarn(f"Unknown direction '{direction}', skipping test.")
+            return
+
         for stage_index, time_step in enumerate(self.time_stages):
-            rospy.loginfo(f"Shake stage {stage_index + 1} with time_step = {time_step:.2f}s")
+            rospy.loginfo(f"Shake stage {stage_index + 1} on {direction}-axis with time_step = {time_step:.2f}s")
             traj = JointTrajectory()
             traj.joint_names = self.joint_names
             traj.points = []
@@ -80,13 +95,13 @@ class ShakeTestNode:
             current_time = 0.0
             for _ in range(3):
                 p1 = JointTrajectoryPoint()
-                p1.positions = self.shake_left
+                p1.positions = pos1
                 current_time += time_step
                 p1.time_from_start = rospy.Duration(current_time)
                 traj.points.append(p1)
 
                 p2 = JointTrajectoryPoint()
-                p2.positions = self.shake_right
+                p2.positions = pos2
                 current_time += time_step
                 p2.time_from_start = rospy.Duration(current_time)
                 traj.points.append(p2)
