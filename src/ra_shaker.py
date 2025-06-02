@@ -37,8 +37,8 @@ class ShakeTestNode:
 
         self.send_empty_trajectory()
         self.send_trajectory(self.lifting_position, 2.0)
-        #self.send_trajectory(self.pregrasp_position, 2.0)
-        rospy.loginfo("Moved to pregrasp position.")
+        self.send_trajectory(self.grasping_position, 2.0)
+        rospy.loginfo("Moved to grasp position.")
 
     def send_empty_trajectory(self):
         empty_traj = JointTrajectory()
