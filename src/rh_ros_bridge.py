@@ -142,7 +142,11 @@ class ShadowHandBridge :
         # Publish each float to the corresponding topic
         j = 0
         for i in range(len(self.joint_command_publishers)):
-            if i in self.coupled_fingers : # Check if joints are coupled
+
+            if self.joints_command_topics[i] == "/sh_rh_rfj0_position_controller/command" :
+                self.joint_command_publishers[i].publish(Float64(0.0)) # Reset RFJ0 to 0.0
+
+            elif i in self.coupled_fingers : # Check if joints are coupled
                 j1_value = self.clamp(data[j], self.joints_limits[j][0], self.joints_limits[j][1])
                 self.joint_states[j] = j1_value
                 j = j +1
