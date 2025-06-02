@@ -16,12 +16,12 @@ class ShakeTestNode:
         self.pregrasp_position = [-0.4528, -0.997, 2.278, 1.2558, 1.1071, -1.564]
         self.grasping_position = [-0.28, -0.74, 1.66, -0.89, 1.27, -1.55]
         self.lifting_position = [-0.285, -1.048, 1.575, -0.503, 1.27, -1.55]
-        self.shake_left = [-0.258, -1.048, 1.575, -0.503, 1.47, -1.55]
-        self.shake_right = [-0.258, -1.048, 1.575, -0.503, 1.07, -1.55]
-        self.shake_up = [-0.258, -1.048, 1.575, -0.403, 1.27, -1.55]
-        self.shake_down = [-0.258, -1.048, 1.575, -0.603, 1.27, -1.55]
+        self.shake_left = [-0.258, -1.048, 1.575, -0.503, 1.27 + 0.2, -1.55]
+        self.shake_right = [-0.258, -1.048, 1.575, -0.503, 1.27 - 0.2, -1.55]
+        self.shake_up = [-0.258, -1.048, 1.575, -0.503 + 0.2, 1.27, -1.55]
+        self.shake_down = [-0.258, -1.048, 1.575, -0.503 - 0.2, 1.27, -1.55]
 
-        self.time_stages = [3.0, 1.0, 0.5]
+        self.time_stages = [2.0, 0.5, 0.25]
 
         self.pub = rospy.Publisher('/ra_trajectory_controller/command', JointTrajectory, queue_size=10)
 
