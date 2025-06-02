@@ -145,7 +145,7 @@ class ShadowHandBridge :
 
             if self.joints_command_topics[i] == "/sh_rh_rfj0_position_controller/command" :
                 self.joint_command_publishers[i].publish(Float64(0.0)) # Reset RFJ0 to 0.0
-                j = j + 1
+                j = j + 2
 
             elif i in self.coupled_fingers : # Check if joints are coupled
                 j1_value = self.clamp(data[j], self.joints_limits[j][0], self.joints_limits[j][1])
