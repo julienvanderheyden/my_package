@@ -17,9 +17,9 @@ class ShakeTestNode:
         # Medium wrap :
         # self.grasping_position = [-0.28, -0.74, 1.66, -0.89, 1.27, -1.55] 
         # power sphere : 
-        self.grasping_position = [-0.308, -0.875, 1.549, -0.697, 1.2, -3.146]  # Adjusted for power sphere
+        # self.grasping_position = [-0.308, -0.875, 1.549, -0.697, 1.2, -3.146]  # Adjusted for power sphere
         # lateral pinch : 
-        #self.grasping_position = [-0.363, -0.805, 1.91, -1.177, 1.1, -1.535] # Adjusted for lateral pinch
+        self.grasping_position = [-0.363, -0.805, 1.91, -1.177, 1.1, -1.535] # Adjusted for lateral pinch
         self.lifting_position = [-0.285, -1.048, 1.575, -0.503, 1.27, -1.55]
         self.shake_left = [-0.258, -1.048, 1.575, -0.503, 1.27 + 0.3, -1.55]
         self.shake_right = [-0.258, -1.048, 1.575, -0.503, 1.27 - 0.3, -1.55]
