@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import rospy
+import argparse
 from std_msgs.msg import Empty
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 class ShakeTestNode:
-    def __init__(self):
+    def __init__(self, grasp_type):
         rospy.init_node('shake_test')
 
         self.joint_names = [
@@ -14,12 +15,19 @@ class ShakeTestNode:
         ]
 
         self.pregrasp_position = [-0.4528, -0.997, 2.278, 1.2558, 1.1071, -1.564]
-        # Medium wrap :
-        # self.grasping_position = [-0.28, -0.74, 1.66, -0.89, 1.27, -1.55] 
-        # power sphere : 
-        # self.grasping_position = [-0.308, -0.875, 1.549, -0.697, 1.2, -3.146]  # Adjusted for power sphere
-        # lateral pinch : 
-        self.grasping_position = [-0.363, -0.805, 1.91, -1.177, 1.1, -1.535] # Adjusted for lateral pinch
+
+        # Define grasping types
+        grasp_types = {
+            1: [-0.28, -0.74, 1.66, -0.89, 1.27, -1.55],     # Medium wrap
+            2: [-0.308, -0.875, 1.549, -0.697, 1.2, -3.146],  # Power sphere
+            3: [-0.363, -0.805, 1.91, -1.177, 1.1, -1.535],   # Lateral pinch
+        }
+
+        if grasp_type not in grasp_types:
+            raise ValueError(f"Invalid grasp_type: {grasp_type}. Choose 1 (medium wrap), 2 (power sphere), or 3 (lateral pinch).")
+
+        self.grasping_position = grasp_types[grasp_type]
+
         self.lifting_position = [-0.285, -1.048, 1.575, -0.503, 1.27, -1.55]
         self.shake_left = [-0.258, -1.048, 1.575, -0.503, 1.27 + 0.3, -1.55]
         self.shake_right = [-0.258, -1.048, 1.575, -0.503, 1.27 - 0.3, -1.55]
@@ -119,8 +127,15 @@ class ShakeTestNode:
         self.send_trajectory(self.grasping_position, 2.0)
 
 if __name__ == '__main__':
+    import sys
+
+    parser = argparse.ArgumentParser(description="Shake test node for robotic grasp evaluation.")
+    parser.add_argument("grasp_type", type=int, choices=[1, 2, 3],
+                        help="Grasp type: 1 = medium wrap, 2 = power sphere, 3 = lateral pinch")
+    args = parser.parse_args(rospy.myargv(argv=sys.argv)[1:])  # Use rospy.myargv to ignore ROS args
+
     try:
-        node = ShakeTestNode()
+        node = ShakeTestNode(args.grasp_type)
         rospy.spin()
     except rospy.ROSInterruptException:
         pass
