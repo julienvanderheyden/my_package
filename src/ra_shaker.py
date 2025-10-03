@@ -24,7 +24,7 @@ class ShakeTestNode:
         }
 
         if grasp_type not in grasp_types:
-            raise ValueError(f"Invalid grasp_type: {grasp_type}. Choose 1 (medium wrap), 2 (power sphere), or 3 (lateral pinch).")
+            raise ValueError(f"Invalid grasp_type: {grasp_type}. Choose 1 (medium wrap), 2 (power sphere), or 3 (lateral pinch)")
 
         self.grasping_position = grasp_types[grasp_type]
 
