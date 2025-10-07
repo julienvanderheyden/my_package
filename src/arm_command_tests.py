@@ -20,9 +20,9 @@ def main():
 
     # Define a reachable pose (modify if needed)
     target_pose = geometry_msgs.msg.Pose()
-    target_pose.position.x = 0.3
+    target_pose.position.x = 1.0
     target_pose.position.y = 0.0
-    target_pose.position.z = 0.5
+    target_pose.position.z = 1.2
 
     roll, pitch, yaw = 0, pi/2, 0
     q = quaternion_from_euler(roll, pitch, yaw)
