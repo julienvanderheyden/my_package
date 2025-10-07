@@ -20,11 +20,46 @@ def main():
 
     # Define a reachable pose (modify if needed)
     target_pose = geometry_msgs.msg.Pose()
+    target_pose.position.x = 0.724
+    target_pose.position.y = 0.173
+    target_pose.position.z = 1.07
+
+    roll, pitch, yaw = 1.5*pi, 0, 0
+    q = quaternion_from_euler(roll, pitch, yaw)
+    target_pose.orientation.x = q[0]
+    target_pose.orientation.y = q[1]
+    target_pose.orientation.z = q[2]
+    target_pose.orientation.w = q[3]
+
+    move_group.set_pose_target(target_pose, eef_link)
+
+    rospy.loginfo("Planning trajectory to target pose...")
+    plan_result = move_group.plan()
+
+    # Handle MoveIt versions returning tuples
+    if isinstance(plan_result, tuple):
+        plan = plan_result[1] if len(plan_result) > 1 else plan_result[0]
+    else:
+        plan = plan_result
+
+    if not hasattr(plan, 'joint_trajectory') or len(plan.joint_trajectory.points) == 0:
+        rospy.logerr("Planning failed!")
+        return
+
+    rospy.loginfo("Executing trajectory...")
+    move_group.execute(plan, wait=True)
+
+    move_group.stop()
+    move_group.clear_pose_targets()
+    rospy.loginfo("Motion complete.")
+    
+    # Define a reachable pose (modify if needed)
+    target_pose = geometry_msgs.msg.Pose()
     target_pose.position.x = 1.0
     target_pose.position.y = 0.0
-    target_pose.position.z = 1.2
+    target_pose.position.z = 1.0
 
-    roll, pitch, yaw = 0, pi/2, 0
+    roll, pitch, yaw = 1.5*pi, 0, 0
     q = quaternion_from_euler(roll, pitch, yaw)
     target_pose.orientation.x = q[0]
     target_pose.orientation.y = q[1]
