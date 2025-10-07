@@ -47,7 +47,7 @@ def main():
         return
 
     rospy.loginfo("Executing trajectory...")
-    #move_group.execute(plan, wait=True)
+    move_group.execute(plan, wait=True)
 
     move_group.stop()
     move_group.clear_pose_targets()
