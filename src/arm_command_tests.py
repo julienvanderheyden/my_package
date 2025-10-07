@@ -89,7 +89,7 @@ if __name__ == "__main__":
     position = [0.724, 0.173, 1.07]
     orientation = [1.5 * pi, 0, 0]
 
-    controller.reach(position, orientation, execute=True)
+    controller.reach(position, orientation)
 
     # Print current pose
     current_pose = controller.get_current_pose()
