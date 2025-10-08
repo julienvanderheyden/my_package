@@ -129,8 +129,9 @@ class UR10eMoveItController:
             rospy.logwarn(f"Cartesian path only {fraction*100:.1f}% complete!")
 
         rospy.loginfo("Executing Cartesian path...")
-        self.move_group.set_max_velocity_scaling_factor(0.01)
-        self.move_group.set_max_acceleration_scaling_factor(0.01)
+        # Scale trajectory
+        for point in plan.joint_trajectory.points:
+            point.time_from_start *= 5.0  # scale by factor >1 to slow down
         self.move_group.execute(plan, wait=True)
         self.move_group.stop()
         self.move_group.clear_pose_targets()
