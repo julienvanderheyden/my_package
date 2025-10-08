@@ -90,7 +90,7 @@ class UR10eMoveItController:
         """Return the current end-effector pose (geometry_msgs/Pose)."""
         return self.move_group.get_current_pose(self.eef_link).pose
 
-    def reach_cartesian(self, position, orientation, eef_step=0.01):
+    def reach_cartesian(self, position, orientation, eef_step=0.005):
         """
         Move the end-effector to a target position using a smooth Cartesian path.
 
@@ -129,9 +129,13 @@ class UR10eMoveItController:
             rospy.logwarn(f"Cartesian path only {fraction*100:.1f}% complete!")
 
         rospy.loginfo("Executing Cartesian path...")
-        # Scale trajectory
+        slow_factor = 5.0
         for point in plan.joint_trajectory.points:
-            point.time_from_start *= 5.0  # scale by factor >1 to slow down
+            point.time_from_start *= slow_factor
+            # Scale velocities and accelerations accordingly
+            point.velocities = [v / slow_factor for v in point.velocities]
+            point.accelerations = [a / (slow_factor**2) for a in point.accelerations]
+
         self.move_group.execute(plan, wait=True)
         self.move_group.stop()
         self.move_group.clear_pose_targets()
