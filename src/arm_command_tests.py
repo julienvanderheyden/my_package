@@ -129,7 +129,8 @@ class UR10eMoveItController:
             rospy.logwarn(f"Cartesian path only {fraction*100:.1f}% complete!")
 
         rospy.loginfo("Executing Cartesian path...")
-        slow_factor = 2.0
+        
+        slow_factor = 1.0
         for point in plan.joint_trajectory.points:
             point.time_from_start *= slow_factor
             # Scale velocities and accelerations accordingly
