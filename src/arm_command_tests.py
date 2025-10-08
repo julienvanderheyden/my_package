@@ -138,7 +138,7 @@ class UR10eMoveItController:
             rospy.loginfo(f"Received command: {command} → moving to pose {command}")
             position = self.positions[command - 1]
             orientation = self.orientations[command - 1]
-            success = self.reach(position, orientation)
+            success = self.reach_cartesian(position, orientation)
             if success:
                 rospy.sleep(0.5)  # small delay before publishing back
                 rospy.loginfo("Publishing 0 to indicate completion.")
