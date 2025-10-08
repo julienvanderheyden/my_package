@@ -88,7 +88,7 @@ class UR10eMoveItController:
 
     def get_current_pose(self):
         """Return the current end-effector pose (geometry_msgs/Pose)."""
-        return self.move_group.get_current_pose(self.eef_link).pos
+        return self.move_group.get_current_pose(self.eef_link).pose
 
     def reach_cartesian(self, position, orientation, eef_step=0.01):
         """
