@@ -27,18 +27,18 @@ class UR10eMoveItController:
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.positions = [
-            [0.6, 0.0, 1.0],
-            [0.7, 0.2, 1.0],
-            [0.7, -0.2, 1.0],
-            [0.8, 0.0, 1.1],
-            [0.7, 0.0, 1.2],
+            [0.724, 0.173, 1.07],
+            [1.0, 0.173, 1.07],
+            [1.0, 0.0, 1.07],
+            [1.0, 0.2, 1.07],
+            [1.0, 0.4, 1.07],
         ]
         self.orientations = [
-            [pi, 0, 0],
-            [pi, 0.1, 0],
-            [pi, -0.1, 0],
-            [pi, 0, 0.1],
-            [pi, 0, -0.1],
+            [1.5*pi, 0, 0],
+            [1.5*pi, 0, 0],
+            [1.5*pi, 0, 0],
+            [1.5*pi, 0, 0],
+            [1.5*pi, 0, 0],
         ]
 
         self.planning_frame = self.move_group.get_planning_frame()
