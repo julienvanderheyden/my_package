@@ -63,6 +63,7 @@ class UR10eMoveItController:
         target_pose.orientation.z = q[2]
         target_pose.orientation.w = q[3]
 
+        self.move_group.set_start_state_to_current_state()
         self.move_group.set_pose_target(target_pose, self.eef_link)
         rospy.loginfo(f"Planning trajectory to pose {position}...")
 
