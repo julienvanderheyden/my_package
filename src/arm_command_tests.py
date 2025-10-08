@@ -86,6 +86,10 @@ class UR10eMoveItController:
     #     rospy.loginfo("Motion complete.")
     #     return True
 
+    def get_current_pose(self):
+        """Return the current end-effector pose (geometry_msgs/Pose)."""
+        return self.move_group.get_current_pose(self.eef_link).pos
+
     def reach_cartesian(self, position, orientation, eef_step=0.01):
         """
         Move the end-effector to a target position using a smooth Cartesian path.
