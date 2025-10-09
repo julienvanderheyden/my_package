@@ -141,6 +141,7 @@ class UR10eMoveItController:
         self.move_group.stop()
         self.move_group.clear_pose_targets()
         rospy.loginfo("Motion complete.")
+        return True
 
 
     def sync_callback(self, msg):
