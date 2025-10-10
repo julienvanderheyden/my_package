@@ -7,6 +7,7 @@ from math import pi
 from tf.transformations import quaternion_from_euler
 from std_msgs.msg import Int32
 from copy import deepcopy
+import numpy as np
 
 
 class UR10eMoveItController:
@@ -51,6 +52,9 @@ class UR10eMoveItController:
             [1.5*pi, 0, 0],
             [1.5*pi, 0, 0],
         ]
+
+        self.position_sigma = 0.01
+        self.orientation_sigma = 0.0
 
         ##############################################
 
@@ -143,9 +147,17 @@ class UR10eMoveItController:
             rospy.logerr("Failed to reach the second phase position.")
             return False
         
-        # third phase : the arm moves to the correct x position
-        final_position = self.positions[command]
-        final_orientation = self.orientations[command]
+        # third phase : the arm moves to the correct x position (can be perturbed)
+        if self.position_sigma > 0:
+            final_position = np.array(self.positions[command]) + np.random.normal(0, self.position_sigma, 3)
+        else:
+            final_position = self.positions[command]
+
+        if self.orientation_sigma > 0:
+            final_orientation = np.array(self.orientations[command]) + np.random.normal(0, self.orientation_sigma, 3)  
+        else :
+            final_orientation = self.orientations[command]
+
         success = self.reach_cartesian(final_position, final_orientation)
         rospy.sleep(0.5)
 
