@@ -8,6 +8,7 @@ from tf.transformations import quaternion_from_euler
 from std_msgs.msg import Int32
 from copy import deepcopy
 import numpy as np
+import tf.transformations as tf
 
 
 class UR10eMoveItController:
@@ -45,12 +46,12 @@ class UR10eMoveItController:
             [1.0, 0.6, 1.07], # 6 : leftmost position
         ]
         self.orientations = [
-            [1.5*pi, 0, 0],
-            [1.5*pi, 0, 0],
-            [1.5*pi, 0, 0],
-            [1.5*pi, 0, 0],
-            [1.5*pi, 0, 0],
-            [1.5*pi, 0, 0],
+            [pi, pi/2, 0],
+            [pi, pi/2, 0],
+            [pi, pi/2, 0],
+            [pi, pi/2, 0],
+            [pi, pi/2, 0],
+            [pi, pi/2, 0],
         ]
 
         self.position_sigma = 0.01
@@ -74,55 +75,73 @@ class UR10eMoveItController:
 
     def reach_cartesian(self, position, orientation, eef_step=0.005):
         """
-        Move the end-effector to a target position using a smooth Cartesian path.
-
+        Move the end-effector (palm frame) to a target position using a smooth Cartesian path.
+        Internally, this computes the corresponding flange pose from the known fixed transform.
         Args:
-            position: (x, y, z) in meters
-            orientation: (roll, pitch, yaw) in radians
+            position: (x, y, z) desired palm position in meters (in base frame)
+            orientation: (roll, pitch, yaw) desired palm orientation in radians (in base frame)
             eef_step: distance between waypoints in meters
         """
 
+        # --- Fixed transform (ra_flange -> rh_palm) measured with tf_echo ---
+        # Translation in meters
+        t_flange_palm = [0.247, 0.000, 0.010]
+        # Rotation (in radians) from tf_echo: [-1.575, 0.000, -1.563]
+        r_flange_palm = [-1.575, 0.000, -1.563]
+        T_flange_palm = tf.euler_matrix(*r_flange_palm)
+        T_flange_palm[0:3, 3] = t_flange_palm
+
+        # Compute the inverse transform: palm -> flange
+        T_palm_flange = tf.inverse_matrix(T_flange_palm)
+
+        # --- Desired palm pose (input) ---
+        T_base_palm = tf.euler_matrix(*orientation)
+        T_base_palm[0:3, 3] = position
+
+        # --- Compute corresponding flange pose in base frame ---
+        T_base_flange = T_base_palm @ T_palm_flange
+
+        flange_position = tf.translation_from_matrix(T_base_flange)
+        flange_quat = tf.quaternion_from_matrix(T_base_flange)
+        flange_rpy = tf.euler_from_quaternion(flange_quat)
+
+        # --- Now perform the actual Cartesian motion using the flange pose ---
         current_pose = deepcopy(self.get_current_pose())
         target_pose = deepcopy(current_pose)
 
-        # Set target position
-        target_pose.position.x = position[0]
-        target_pose.position.y = position[1]
-        target_pose.position.z = position[2]
+        target_pose.position.x = flange_position[0]
+        target_pose.position.y = flange_position[1]
+        target_pose.position.z = flange_position[2]
 
-        # Set orientation
-        roll, pitch, yaw = orientation
-        q = quaternion_from_euler(roll, pitch, yaw)
+        q = tf.quaternion_from_euler(*flange_rpy)
         target_pose.orientation.x = q[0]
         target_pose.orientation.y = q[1]
         target_pose.orientation.z = q[2]
         target_pose.orientation.w = q[3]
 
-        # Generate waypoints
         waypoints = [target_pose]
 
-        # Compute Cartesian path
         (plan, fraction) = self.move_group.compute_cartesian_path(
             waypoints,
-            eef_step=eef_step,  # e.g., 1 cm per step
-            jump_threshold=0.0  # prevents IK jumps
+            eef_step=eef_step,
+            jump_threshold=0.0
         )
 
         if fraction < 1.0:
             rospy.logwarn(f"Cartesian path only {fraction*100:.1f}% complete!")
-        
+
         slow_factor = 1.0
         for point in plan.joint_trajectory.points:
             point.time_from_start *= slow_factor
-            # Scale velocities and accelerations accordingly
             point.velocities = [v / slow_factor for v in point.velocities]
             point.accelerations = [a / (slow_factor**2) for a in point.accelerations]
 
         self.move_group.execute(plan, wait=True)
         self.move_group.stop()
         self.move_group.clear_pose_targets()
-        
+
         return True
+
 
     def reach(self, command): 
         starting_command = self.current_pose
@@ -199,11 +218,15 @@ class UR10eMoveItController:
 
             if self.current_pose != 0:
                 self.lift()
-                rospy.sleep(0.5)
 
             self.preshape_pub.publish(Int32(self.grasp_type))
-            rospy.sleep(1)  # wait for the hand to preshape
-            success = self.reach(command - 1)
+            rospy.sleep(0.5)  # wait for the hand to preshape
+
+            if command == 1:
+                success = self.reach_cartesian(self.positions[0], self.orientations[0])
+            else : 
+                success = self.reach(command - 1)
+
             if success:
                 rospy.sleep(0.5)  # small delay before publishing back
                 self.sync_pub.publish(Int32(0))
