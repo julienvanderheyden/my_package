@@ -50,13 +50,11 @@ class HandPreShape:
 
     def publish_for_duration(self, positions, duration=1.0):
         """Publish the given joint positions at 10 Hz for `duration` seconds."""
-        rospy.loginfo(f"Publishing preshape for {duration} second(s)...")
         start_time = time.time()
         while not rospy.is_shutdown() and (time.time() - start_time < duration):
             for pub, val in zip(self.publishers, positions):
                 pub.publish(Float64(val))
             self.rate.sleep()
-        rospy.loginfo("Publishing completed.")
 
     def preshape_callback(self, msg):
         mode = msg.data
@@ -64,7 +62,7 @@ class HandPreShape:
             rospy.logwarn(f"Ignoring invalid preshape mode: {mode}")
             return
 
-        rospy.loginfo(f"Received preshape command: {self.mode_names[mode]}")
+        rospy.loginfo(f"Publishing preshape {self.mode_names[mode]} for 1 second")
         positions = self.get_joint_positions(mode)
         self.publish_for_duration(positions, duration=1.0)
 
