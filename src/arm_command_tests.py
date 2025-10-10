@@ -41,7 +41,7 @@ class UR10eMoveItController:
             [1.0, 0.0, 1.07], # 3
             [1.0, 0.2, 1.07], # 4 
             [1.0, 0.4, 1.07], # 5 
-            [1.0, 0.6, 1.07], # 6 : rightmost position
+            [1.0, 0.6, 1.07], # 6 : leftmost position
         ]
         self.orientations = [
             [1.5*pi, 0, 0],
@@ -61,6 +61,7 @@ class UR10eMoveItController:
         rospy.loginfo(f"Planning frame: {self.planning_frame}")
         rospy.loginfo(f"End effector link: {self.eef_link}")
 
+        self.reach_cartesian(self.positions[0], self.orientations[0]) #going to home position
         rospy.loginfo("UR10eMoveItController initialized and listening for commands...")
 
     def get_current_pose(self):
@@ -183,7 +184,7 @@ class UR10eMoveItController:
         command = int(msg.data)
         if 1 <= command <= 6:
             rospy.loginfo(f"Received command: {command} ")
-            
+
             if self.current_pose != 0:
                 self.lift()
                 rospy.sleep(0.5)
