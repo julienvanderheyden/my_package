@@ -4,16 +4,20 @@ import rospy
 import moveit_commander
 import geometry_msgs.msg
 from math import pi
+import argparse
 from tf.transformations import quaternion_from_euler
 from std_msgs.msg import Int32
 from copy import deepcopy
 
 
 class UR10eMoveItController:
-    def __init__(self, group_name="right_arm"):
+    def __init__(self, grasp_type, group_name="right_arm"):
         # Initialize MoveIt Commander and ROS node
         moveit_commander.roscpp_initialize(sys.argv)
         rospy.init_node("ur10e_cartesian_goal", anonymous=True)
+
+        #grasp type 
+        self.grasp_type = grasp_type
 
         # Initialize Move Group
         self.move_group = moveit_commander.MoveGroupCommander(group_name)
@@ -52,42 +56,6 @@ class UR10eMoveItController:
 
         rospy.loginfo("UR10eMoveItController initialized and listening for commands...")
 
-    # def reach(self, position, orientation):
-    #     """Plan and execute trajectory to target pose."""
-    #     target_pose = geometry_msgs.msg.Pose()
-    #     target_pose.position.x = position[0]
-    #     target_pose.position.y = position[1]
-    #     target_pose.position.z = position[2]
-
-    #     roll, pitch, yaw = orientation
-    #     q = quaternion_from_euler(roll, pitch, yaw)
-    #     target_pose.orientation.x = q[0]
-    #     target_pose.orientation.y = q[1]
-    #     target_pose.orientation.z = q[2]
-    #     target_pose.orientation.w = q[3]
-
-    #     self.move_group.set_start_state_to_current_state()
-    #     self.move_group.set_pose_target(target_pose, self.eef_link)
-    #     rospy.loginfo(f"Planning trajectory to pose {position}...")
-
-    #     plan_result = self.move_group.plan()
-    #     plan = (
-    #         plan_result[1]
-    #         if isinstance(plan_result, tuple) and len(plan_result) > 1
-    #         else plan_result
-    #     )
-
-    #     if not hasattr(plan, "joint_trajectory") or len(plan.joint_trajectory.points) == 0:
-    #         rospy.logerr("Planning failed!")
-    #         return False
-
-    #     rospy.loginfo("Planning successful. Executing...")
-    #     self.move_group.execute(plan, wait=True)
-    #     self.move_group.stop()
-    #     self.move_group.clear_pose_targets()
-    #     rospy.loginfo("Motion complete.")
-    #     return True
-
     def get_current_pose(self):
         """Return the current end-effector pose (geometry_msgs/Pose)."""
         return self.move_group.get_current_pose(self.eef_link).pose
@@ -101,7 +69,7 @@ class UR10eMoveItController:
             orientation: (roll, pitch, yaw) in radians
             eef_step: distance between waypoints in meters
         """
-        self.preshape_pub.publish(Int32(1))  # Set hand to medium wrap preshape
+        
 
         current_pose = deepcopy(self.get_current_pose())
         target_pose = deepcopy(current_pose)
@@ -153,6 +121,8 @@ class UR10eMoveItController:
         command = int(msg.data)
         if 1 <= command <= 5:
             rospy.loginfo(f"Received command: {command} → moving to pose {command}")
+            self.preshape_pub.publish(Int32(self.grasp_type))
+            rospy.sleep(1)  # wait for the hand to preshape
             position = self.positions[command - 1]
             orientation = self.orientations[command - 1]
             success = self.reach_cartesian(position, orientation)
@@ -171,8 +141,13 @@ class UR10eMoveItController:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Arm motion and hand preshape control node")
+    parser.add_argument("grasp_type", type=int, choices=[1, 2, 3],
+                        help="Grasp type: 1 = medium wrap, 2 = power sphere, 3 = lateral pinch")
+    args = parser.parse_args(rospy.myargv(argv=sys.argv)[1:])  # Use rospy.myargv to ignore ROS args
+
     try:
-        controller = UR10eMoveItController()
+        controller = UR10eMoveItController(args.grasp_type)
         rospy.spin()
     except rospy.ROSInterruptException:
         pass
