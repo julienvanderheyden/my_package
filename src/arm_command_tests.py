@@ -7,7 +7,6 @@ from math import pi
 from tf.transformations import quaternion_from_euler
 from std_msgs.msg import Int32
 from copy import deepcopy
-import logging
 
 
 class UR10eMoveItController:
@@ -15,7 +14,6 @@ class UR10eMoveItController:
         # Initialize MoveIt Commander and ROS node
         moveit_commander.roscpp_initialize(sys.argv)
         rospy.init_node("ur10e_cartesian_goal", anonymous=True)
-        logging.getLogger("move_group_command_wrappers").setLevel(logging.ERROR)
 
 
         # Initialize Move Group
@@ -155,13 +153,36 @@ class UR10eMoveItController:
         rospy.loginfo("Motion complete.")
         self.current_pose = command
         return True
+    
+    def lift(self):
+        lifting_position = (self.positions[self.current_pose][0], self.positions[self.current_pose][1], self.positions[self.current_pose][2] + 0.2)
+        lifting_orientation = self.orientations[self.current_pose]
+        success = self.reach_cartesian(lifting_position, lifting_orientation)
+        rospy.sleep(3.0)
+        if not success:
+            rospy.logerr("Failed to reach the lifting position.")
+            return False
+        
+        back_position = self.positions[self.current_pose]
+        back_orientation = self.orientations[self.current_pose]
+        success = self.reach_cartesian(back_position, back_orientation)
+        rospy.sleep(0.5)
+        if not success:
+            rospy.logerr("Failed to return to the original position after lifting.")
+            return False
+        
+        rospy.loginfo("Lifting complete.")
+        return True
+
 
 
     def sync_callback(self, msg):
         """Callback for incoming messages from Julia."""
         command = int(msg.data)
         if 1 <= command <= 5:
-            rospy.loginfo(f"Received command: {command} → moving to pose {command}")
+            rospy.loginfo(f"Received command: {command} → lifting → moving to pose {command}")
+            self.lift()
+            rospy.sleep(0.5)
             self.preshape_pub.publish(Int32(self.grasp_type))
             rospy.sleep(1)  # wait for the hand to preshape
             success = self.reach(command - 1)
