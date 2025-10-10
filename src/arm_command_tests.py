@@ -125,6 +125,7 @@ class UR10eMoveItController:
         first_phase_position = (self.positions[0][0], self.positions[starting_command][1], self.positions[starting_command][2])
         first_phase_orientation = self.orientations[starting_command]
         success = self.reach_cartesian(first_phase_position, first_phase_orientation)
+        rospy.sleep(0.5)
 
         if not success:
             rospy.logerr("Failed to reach the first phase position.")
@@ -135,6 +136,7 @@ class UR10eMoveItController:
         second_phase_position = (self.positions[0][0], self.positions[command][1], self.positions[command][2])
         second_phase_orientation = self.orientations[command]
         success = self.reach_cartesian(second_phase_position, second_phase_orientation)
+        rospy.sleep(0.5)
 
         if not success:
             rospy.logerr("Failed to reach the second phase position.")
@@ -142,9 +144,11 @@ class UR10eMoveItController:
         
         # third phase : the arm moves to the correct x position
         rospy.loginfo("Moving to the final position...")
-        final_position = self.positions
+        final_position = self.positions[command]
         final_orientation = self.orientations[command]
         success = self.reach_cartesian(final_position, final_orientation)
+        rospy.sleep(0.5)
+
         if not success:
             rospy.logerr("Failed to reach the final position.")
             return False
@@ -166,6 +170,7 @@ class UR10eMoveItController:
                 rospy.sleep(0.5)  # small delay before publishing back
                 rospy.loginfo("Publishing 0 to indicate completion.")
                 self.sync_pub.publish(Int32(0))
+
         elif command == 0:
             rospy.loginfo("Received 0 — no action.")
         else:
