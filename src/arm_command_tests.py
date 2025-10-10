@@ -7,6 +7,7 @@ from math import pi
 from tf.transformations import quaternion_from_euler
 from std_msgs.msg import Int32
 from copy import deepcopy
+import logging
 
 
 class UR10eMoveItController:
@@ -14,6 +15,7 @@ class UR10eMoveItController:
         # Initialize MoveIt Commander and ROS node
         moveit_commander.roscpp_initialize(sys.argv)
         rospy.init_node("ur10e_cartesian_goal", anonymous=True)
+        logging.getLogger("moveit_commander").setLevel(logging.ERROR)
 
 
         # Initialize Move Group
