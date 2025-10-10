@@ -38,20 +38,20 @@ class UR10eMoveItController:
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.positions = [
-            [0.724, 0.173, 1.07], # 1 : home position
-            [1.0, -0.2, 1.07], # 2 : leftmost position
-            [1.0, 0.0, 1.07], # 3
-            [1.0, 0.2, 1.07], # 4 
-            [1.0, 0.4, 1.07], # 5 
-            [1.0, 0.6, 1.07], # 6 : leftmost position
+            [0.971, 0.173, 1.07], # 1 : home position
+            [1.3, -0.2, 1.07], # 2 : leftmost position
+            [1.3, 0.0, 1.07], # 3
+            [1.3, 0.2, 1.07], # 4 
+            [1.3, 0.4, 1.07], # 5 
+            [1.3, 0.6, 1.07], # 6 : leftmost position
         ]
         self.orientations = [
             [pi, -pi/2, 0],
-            [pi, pi/2, 0],
-            [pi, pi/2, 0],
-            [pi, pi/2, 0],
-            [pi, pi/2, 0],
-            [pi, pi/2, 0],
+            [pi, -pi/2, 0],
+            [pi, -pi/2, 0],
+            [pi, -pi/2, 0],
+            [pi, -pi/2, 0],
+            [pi, -pi/2, 0],
         ]
 
         self.position_sigma = 0.01
