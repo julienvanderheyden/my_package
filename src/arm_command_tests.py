@@ -26,6 +26,8 @@ class UR10eMoveItController:
             "/ros_julia_synchronization", Int32, queue_size=10
         )
 
+        self.preshape_pub = rospy.Publisher("/preshape", Int32, queue_size=10)
+
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.positions = [
             [0.724, 0.173, 1.07],
@@ -99,6 +101,8 @@ class UR10eMoveItController:
             orientation: (roll, pitch, yaw) in radians
             eef_step: distance between waypoints in meters
         """
+        self.preshape_pub.publish(Int32(1))  # Set hand to medium wrap preshape
+
         current_pose = deepcopy(self.get_current_pose())
         target_pose = deepcopy(current_pose)
 
