@@ -36,13 +36,15 @@ class UR10eMoveItController:
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.positions = [
-            [0.724, 0.173, 1.07],
-            [1.0, 0.173, 1.07],
-            [1.0, 0.0, 1.07],
-            [1.0, 0.2, 1.07],
-            [1.0, 0.4, 1.07],
+            [0.724, 0.173, 1.07], # 1 : home position
+            [1.0, -0.2, 1.07], # 2 : leftmost position
+            [1.0, 0.0, 1.07], # 3
+            [1.0, 0.2, 1.07], # 4 
+            [1.0, 0.4, 1.07], # 5 
+            [1.0, 0.6, 1.07], # 6 : rightmost position
         ]
         self.orientations = [
+            [1.5*pi, 0, 0],
             [1.5*pi, 0, 0],
             [1.5*pi, 0, 0],
             [1.5*pi, 0, 0],
@@ -179,16 +181,20 @@ class UR10eMoveItController:
     def sync_callback(self, msg):
         """Callback for incoming messages from Julia."""
         command = int(msg.data)
-        if 1 <= command <= 5:
-            rospy.loginfo(f"Received command: {command} → lifting → moving to pose {command}")
-            self.lift()
-            rospy.sleep(0.5)
+        if 1 <= command <= 6:
+            rospy.loginfo(f"Received command: {command} ")
+            
+            if self.current_pose != 0:
+                self.lift()
+                rospy.sleep(0.5)
+
             self.preshape_pub.publish(Int32(self.grasp_type))
             rospy.sleep(1)  # wait for the hand to preshape
             success = self.reach(command - 1)
             if success:
                 rospy.sleep(0.5)  # small delay before publishing back
                 self.sync_pub.publish(Int32(0))
+                
 
         elif command == 0:
             pass
