@@ -103,8 +103,6 @@ class UR10eMoveItController:
 
         if fraction < 1.0:
             rospy.logwarn(f"Cartesian path only {fraction*100:.1f}% complete!")
-
-        rospy.loginfo("Executing Cartesian path...")
         
         slow_factor = 1.0
         for point in plan.joint_trajectory.points:
@@ -116,30 +114,44 @@ class UR10eMoveItController:
         self.move_group.execute(plan, wait=True)
         self.move_group.stop()
         self.move_group.clear_pose_targets()
-        rospy.loginfo("Motion complete.")
+        
         return True
 
     def reach(self, command): 
         starting_command = self.current_pose
 
-        # first phase : the arm comes back close to the robot 
+        # first phase : the arm comes back close to the robot
+        rospy.loginfo("Moving to the first phase position...") 
         first_phase_position = (self.positions[0][0], self.positions[starting_command][1], self.positions[starting_command][2])
         first_phase_orientation = self.orientations[starting_command]
-        self.reach_cartesian(first_phase_position, first_phase_orientation)
+        success = self.reach_cartesian(first_phase_position, first_phase_orientation)
+
+        if not success:
+            rospy.logerr("Failed to reach the first phase position.")
+            return False
 
         # second phase : the arm moves to the correct y and z position, and the right orientation
+        rospy.loginfo("Moving to the second phase position...")
         second_phase_position = (self.positions[0][0], self.positions[command][1], self.positions[command][2])
         second_phase_orientation = self.orientations[command]
-        self.reach_cartesian(second_phase_position, second_phase_orientation)
+        success = self.reach_cartesian(second_phase_position, second_phase_orientation)
 
+        if not success:
+            rospy.logerr("Failed to reach the second phase position.")
+            return False
+        
         # third phase : the arm moves to the correct x position
+        rospy.loginfo("Moving to the final position...")
         final_position = self.positions
         final_orientation = self.orientations[command]
-        self.reach_cartesian(final_position, final_orientation)
-        
-        self.current_pose = command
-        pass
+        success = self.reach_cartesian(final_position, final_orientation)
+        if not success:
+            rospy.logerr("Failed to reach the final position.")
+            return False
 
+        rospy.loginfo("Motion complete.")
+        self.current_pose = command
+        return True
 
 
     def sync_callback(self, msg):
@@ -149,9 +161,7 @@ class UR10eMoveItController:
             rospy.loginfo(f"Received command: {command} → moving to pose {command}")
             self.preshape_pub.publish(Int32(self.grasp_type))
             rospy.sleep(1)  # wait for the hand to preshape
-            position = self.positions[command - 1]
-            orientation = self.orientations[command - 1]
-            success = self.reach_cartesian(position, orientation)
+            success = self.reach(command - 1)
             if success:
                 rospy.sleep(0.5)  # small delay before publishing back
                 rospy.loginfo("Publishing 0 to indicate completion.")
