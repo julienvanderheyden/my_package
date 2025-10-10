@@ -4,20 +4,17 @@ import rospy
 import moveit_commander
 import geometry_msgs.msg
 from math import pi
-import argparse
 from tf.transformations import quaternion_from_euler
 from std_msgs.msg import Int32
 from copy import deepcopy
 
 
 class UR10eMoveItController:
-    def __init__(self, grasp_type, group_name="right_arm"):
+    def __init__(self, group_name="right_arm"):
         # Initialize MoveIt Commander and ROS node
         moveit_commander.roscpp_initialize(sys.argv)
         rospy.init_node("ur10e_cartesian_goal", anonymous=True)
 
-        #grasp type 
-        self.grasp_type = grasp_type
 
         # Initialize Move Group
         self.move_group = moveit_commander.MoveGroupCommander(group_name)
@@ -31,6 +28,11 @@ class UR10eMoveItController:
         )
 
         self.preshape_pub = rospy.Publisher("/preshape", Int32, queue_size=10)
+
+        ### THIS SHOULD BE CHANGED FOR EACH TEST ###
+    
+        #grasp type 
+        self.grasp_type = 1 # medium wrap
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.positions = [
@@ -47,6 +49,8 @@ class UR10eMoveItController:
             [1.5*pi, 0, 0],
             [1.5*pi, 0, 0],
         ]
+
+        ##############################################
 
         self.planning_frame = self.move_group.get_planning_frame()
         self.eef_link = self.move_group.get_end_effector_link()
@@ -141,13 +145,9 @@ class UR10eMoveItController:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Arm motion and hand preshape control node")
-    parser.add_argument("grasp_type", type=int, choices=[1, 2, 3],
-                        help="Grasp type: 1 = medium wrap, 2 = power sphere, 3 = lateral pinch")
-    args = parser.parse_args(rospy.myargv(argv=sys.argv)[1:])  # Use rospy.myargv to ignore ROS args
 
     try:
-        controller = UR10eMoveItController(args.grasp_type)
+        controller = UR10eMoveItController()
         rospy.spin()
     except rospy.ROSInterruptException:
         pass
