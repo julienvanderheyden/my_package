@@ -15,7 +15,7 @@ class UR10eMoveItController:
         # Initialize MoveIt Commander and ROS node
         moveit_commander.roscpp_initialize(sys.argv)
         rospy.init_node("ur10e_cartesian_goal", anonymous=True)
-        logging.getLogger("moveit_commander").setLevel(logging.ERROR)
+        logging.getLogger("move_group_command_wrappers").setLevel(logging.ERROR)
 
 
         # Initialize Move Group
