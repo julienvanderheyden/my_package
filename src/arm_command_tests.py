@@ -54,6 +54,7 @@ class UR10eMoveItController:
 
         self.planning_frame = self.move_group.get_planning_frame()
         self.eef_link = self.move_group.get_end_effector_link()
+        self.current_pose = 0 
 
         rospy.loginfo(f"Planning frame: {self.planning_frame}")
         rospy.loginfo(f"End effector link: {self.eef_link}")
@@ -73,7 +74,6 @@ class UR10eMoveItController:
             orientation: (roll, pitch, yaw) in radians
             eef_step: distance between waypoints in meters
         """
-        
 
         current_pose = deepcopy(self.get_current_pose())
         target_pose = deepcopy(current_pose)
@@ -118,6 +118,28 @@ class UR10eMoveItController:
         self.move_group.clear_pose_targets()
         rospy.loginfo("Motion complete.")
         return True
+
+    def reach(self, command): 
+        starting_command = self.current_pose
+
+        # first phase : the arm comes back close to the robot 
+        first_phase_position = (self.positions[0][0], self.positions[starting_command][1], self.positions[starting_command][2])
+        first_phase_orientation = self.orientations[starting_command]
+        self.reach_cartesian(first_phase_position, first_phase_orientation)
+
+        # second phase : the arm moves to the correct y and z position, and the right orientation
+        second_phase_position = (self.positions[0][0], self.positions[command][1], self.positions[command][2])
+        second_phase_orientation = self.orientations[command]
+        self.reach_cartesian(second_phase_position, second_phase_orientation)
+
+        # third phase : the arm moves to the correct x position
+        final_position = self.positions
+        final_orientation = self.orientations[command]
+        self.reach_cartesian(final_position, final_orientation)
+        
+        self.current_pose = command
+        pass
+
 
 
     def sync_callback(self, msg):
