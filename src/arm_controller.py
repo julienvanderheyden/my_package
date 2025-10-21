@@ -36,7 +36,7 @@ class UR10eMoveItController:
         #grasp type 
         self.grasp_type = 1 # medium wrap
 
-        self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025] # parameters for the different grasps
+        self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # parameters for the different grasps
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.reference_positions = [
@@ -45,10 +45,16 @@ class UR10eMoveItController:
             [1.218, 0.618, 0.866], # 3
             [1.218, 0.499, 0.866], # 4 
             [1.218, 0.379, 0.866], # 5 
-            [1.218, 0.258, 0.866], # 6 : rightmost position
+            [1.218, 0.258, 0.866], # 6 
+            [1.218, 0.139, 0.866], # 7
+            [1.218, 0.023, 0.866], # 8
+            [1.218, -0.098, 0.866], # 9 : rightmost position
         ]
 
         self.orientations = [
+            [pi, -pi/2, 0],
+            [pi, -pi/2, 0],
+            [pi, -pi/2, 0],
             [pi, -pi/2, 0],
             [pi, -pi/2, 0],
             [pi, -pi/2, 0],
@@ -249,7 +255,7 @@ class UR10eMoveItController:
     def sync_callback(self, msg):
         """Callback for incoming messages from Julia."""
         command = int(msg.data)
-        if 1 <= command <= 6:
+        if 1 <= command <= 10:
             rospy.loginfo(f"Received command: {command} ")
 
             if self.current_pose != 0:
