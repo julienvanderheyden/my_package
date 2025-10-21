@@ -89,7 +89,7 @@ class UR10eMoveItController:
 
             if radius >= 0.015 : 
                 # y position: palm tangent to the cylinder
-                y = ref_position[1] - radius - 0.01 
+                y = ref_position[1] - radius - 0.02 
                 # x position: thumb tangent to the cylinder
                 x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.03
 
