@@ -40,7 +40,7 @@ class UR10eMoveItController:
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.reference_positions = [
-            [0.9, 0.173, 1.07], # 1 : home position
+            [0.85, 0.173, 1.07], # 1 : home position
             [1.218, 0.738, 0.866], # 2 : leftmost position
             [1.218, 0.618, 0.866], # 3
             [1.218, 0.499, 0.866], # 4 
