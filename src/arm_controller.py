@@ -36,15 +36,18 @@ class UR10eMoveItController:
         #grasp type 
         self.grasp_type = 1 # medium wrap
 
+        self.parameters = [0.02, 0.03, 0.04, 0.045, 0.05] # parameters for the different grasps
+
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
-        self.positions = [
+        self.reference_positions = [
             [0.971, 0.173, 1.07], # 1 : home position
-            [1.3, -0.2, 1.07], # 2 : leftmost position
-            [1.3, 0.0, 1.07], # 3
-            [1.3, 0.2, 1.07], # 4 
-            [1.3, 0.4, 1.07], # 5 
-            [1.3, 0.6, 1.07], # 6 : leftmost position
+            [1.218, 0.738, 0.866], # 2 : leftmost position
+            [1.218, 0.618, 0.866], # 3
+            [1.218, 0.499, 0.866], # 4 
+            [1.218, 0.379, 0.866], # 5 
+            [1.218, 0.258, 0.866], # 6 : rightmost position
         ]
+
         self.orientations = [
             [pi, -pi/2, 0],
             [pi, -pi/2, 0],
@@ -59,6 +62,13 @@ class UR10eMoveItController:
 
         ##############################################
 
+        # Compute palm position based on the reference points
+        self.positions = [self.reference_positions[0]]  # Start with the home position
+
+        for i in range(1, len(self.parameters)) :
+            palm_position = self.compute_palm_position(self.reference_positions[i], self.parameters[i-1])
+            self.positions.append(palm_position)
+
         self.planning_frame = self.move_group.get_planning_frame()
         self.eef_link = self.move_group.get_end_effector_link()
         self.current_pose = 0 
@@ -68,6 +78,25 @@ class UR10eMoveItController:
 
         self.reach_cartesian(self.positions[0], self.orientations[0]) #going to home position
         rospy.loginfo("UR10eMoveItController initialized and listening for commands...")
+
+    def compute_palm_position(self, ref_position, parameter):
+        if self.grasp_type == 1:  # medium wrap
+            radius = parameter  # radius of the cylinder
+            alpha = 1.31       # angle between thumb and palm at preshape
+
+            # z position: small vertical offset from cylinder center
+            z = ref_position[2] + 0.1  
+
+            # y position: palm tangent to the cylinder
+            y = ref_position[1] + radius + 0.01  
+
+            # x position: thumb tangent to the cylinder
+            x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.03
+
+            return [x, y, z]
+
+        # optional: handle other grasp types explicitly
+        return None
 
     def get_current_pose(self):
         """Return the current end-effector pose (geometry_msgs/Pose)."""
@@ -187,6 +216,7 @@ class UR10eMoveItController:
         rospy.loginfo("Motion complete.")
         self.current_pose = command
         return True
+
     
     def lift(self):
         lifting_position = (self.positions[self.current_pose][0], self.positions[self.current_pose][1], self.positions[self.current_pose][2] + 0.2)
