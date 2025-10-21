@@ -36,7 +36,7 @@ class UR10eMoveItController:
         #grasp type 
         self.grasp_type = 1 # medium wrap
 
-        self.parameters = [0.02, 0.03, 0.04, 0.045, 0.05] # parameters for the different grasps
+        self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025] # parameters for the different grasps
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.reference_positions = [
@@ -65,7 +65,7 @@ class UR10eMoveItController:
         # Compute palm position based on the reference points
         self.positions = [self.reference_positions[0]]  # Start with the home position
 
-        for i in range(1, len(self.parameters)) :
+        for i in range(1, len(self.parameters) + 1) :
             palm_position = self.compute_palm_position(self.reference_positions[i], self.parameters[i-1])
             self.positions.append(palm_position)
 
@@ -87,11 +87,17 @@ class UR10eMoveItController:
             # z position: small vertical offset from cylinder center
             z = ref_position[2] + 0.09  
 
-            # y position: palm tangent to the cylinder
-            y = ref_position[1] - radius - 0.01  
+            if radius >= 0.015 : 
+                # y position: palm tangent to the cylinder
+                y = ref_position[1] - radius - 0.01 
+                # x position: thumb tangent to the cylinder
+                x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.03
 
-            # x position: thumb tangent to the cylinder
-            x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.03
+            else : 
+                # y position : 3cm offset 
+                y = ref_position[1] - 0.03
+                # x position : 9.5 cm offset 
+                x = ref_position[0] - 0.095
 
             return [x, y, z]
 
