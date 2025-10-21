@@ -40,7 +40,7 @@ class UR10eMoveItController:
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.reference_positions = [
-            [0.971, 0.173, 1.07], # 1 : home position
+            [0.9, 0.173, 1.07], # 1 : home position
             [1.218, 0.738, 0.866], # 2 : leftmost position
             [1.218, 0.618, 0.866], # 3
             [1.218, 0.499, 0.866], # 4 
@@ -85,10 +85,10 @@ class UR10eMoveItController:
             alpha = 1.31       # angle between thumb and palm at preshape
 
             # z position: small vertical offset from cylinder center
-            z = ref_position[2] + 0.1  
+            z = ref_position[2] + 0.09  
 
             # y position: palm tangent to the cylinder
-            y = ref_position[1] + radius + 0.01  
+            y = ref_position[1] - radius - 0.01  
 
             # x position: thumb tangent to the cylinder
             x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.03
