@@ -53,7 +53,7 @@ class UR10eMoveItController:
         ]
 
         self.orientations = [
-            [pi, -pi/2, 0],
+            [pi/2, -pi/2, 0],
             [pi, -pi/2, 0],
             [pi, -pi/2, 0],
             [pi, -pi/2, 0],
@@ -76,6 +76,8 @@ class UR10eMoveItController:
         for i in range(1, len(self.parameters) + 1) :
             palm_position = self.compute_palm_position(self.reference_positions[i], self.parameters[i-1])
             self.positions.append(palm_position)
+
+        
 
         self.planning_frame = self.move_group.get_planning_frame()
         self.eef_link = self.move_group.get_end_effector_link()
