@@ -53,7 +53,7 @@ class UR10eMoveItController:
         ]
 
         self.orientations = [
-            [pi, 0, 0],
+            [pi, -pi/2, 0],
             [pi, -pi/2, 0],
             [pi, -pi/2, 0],
             [pi, -pi/2, 0],
