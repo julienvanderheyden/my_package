@@ -48,10 +48,12 @@ class UR10eMoveItController:
             [1.218, 0.258, 0.866], # 6 
             [1.218, 0.139, 0.866], # 7
             [1.218, 0.023, 0.866], # 8
-            [1.218, -0.098, 0.866], # 9 : rightmost position
+            [1.218, -0.098, 0.866], # 9 
+            [1.218, -0.219, 0.866], # 10 : rightmost position
         ]
 
         self.orientations = [
+            [pi, -pi/2, 0],
             [pi, -pi/2, 0],
             [pi, -pi/2, 0],
             [pi, -pi/2, 0],
