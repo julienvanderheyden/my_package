@@ -57,8 +57,8 @@ class UR10eMoveItController:
             [pi, -pi/2, 0],
         ]
 
-        self.position_sigma = 0.01
-        self.orientation_sigma = 0.1
+        self.position_sigma = 0.0
+        self.orientation_sigma = 0.0
 
         ##############################################
 
