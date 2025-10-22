@@ -53,7 +53,7 @@ class UR10eMoveItController:
         ]
 
         self.orientations = [
-            [pi/2, 0, pi/2],
+            #[pi/2, 0, pi/2],
             [pi, -pi/2, 0],
             [pi, -pi/2, 0],
             [pi, -pi/2, 0],
@@ -77,7 +77,11 @@ class UR10eMoveItController:
             palm_position = self.compute_palm_position(self.reference_positions[i], self.parameters[i-1])
             self.positions.append(palm_position)
 
-        
+        if self.grasp_type != 2: #medium wrap, lateral pinch
+            self.orientations = np.repeat([[pi, -pi/2, 0]], len(self.positions), axis=0).tolist()
+
+        else : #power sphere
+            self.orientations = np.repeat([[pi/2, 0, pi/2]], len(self.positions), axis=0).tolist()
 
         self.planning_frame = self.move_group.get_planning_frame()
         self.eef_link = self.move_group.get_end_effector_link()
@@ -191,8 +195,13 @@ class UR10eMoveItController:
     def reach(self, command): 
         starting_command = self.current_pose
 
-        # first phase : the arm comes back close to the robot
-        first_phase_position = (self.positions[0][0], self.positions[starting_command][1], self.positions[starting_command][2])
+        # first phase : 
+        if self.grasp_type != 2 : #medium wrap, lateral pinch : the arm comes back close to the robot
+            first_phase_position = (self.positions[0][0], self.positions[starting_command][1], self.positions[starting_command][2])
+
+        else : #power sphere : the arm comes goes up
+            first_phase_position = (self.positions[starting_command][0], self.positions[starting_command][1], self.positions[starting_command][2] + 0.2)
+
         first_phase_orientation = self.orientations[starting_command]
         success = self.reach_cartesian(first_phase_position, first_phase_orientation)
         rospy.sleep(0.5)
@@ -201,8 +210,13 @@ class UR10eMoveItController:
             rospy.logerr("Failed to reach the first phase position.")
             return False
 
-        # second phase : the arm moves to the correct y and z position, and the right orientation
-        second_phase_position = (self.positions[0][0], self.positions[command][1], self.positions[command][2])
+        # second phase : 
+        if self.grasp_type != 2 : #medium wrap, lateral pinch : the arm moves to the correct y and z position , and the right orientation
+            second_phase_position = (self.positions[0][0], self.positions[command][1], self.positions[command][2])
+        
+        else : #power sphere : the arm moves to the correct x and y position, and the right orientation
+            second_phase_position = (self.positions[command][0], self.positions[command][1], self.positions[starting_command][2] + 0.2)
+
         second_phase_orientation = self.orientations[command]
         success = self.reach_cartesian(second_phase_position, second_phase_orientation)
         rospy.sleep(0.5)
@@ -211,7 +225,7 @@ class UR10eMoveItController:
             rospy.logerr("Failed to reach the second phase position.")
             return False
         
-        # third phase : the arm moves to the correct x position (can be perturbed)
+        # third phase : the arm moves to the correct position (can be perturbed)
         if self.position_sigma > 0:
             final_position = np.array(self.positions[command]) + np.random.normal(0, self.position_sigma, 3)
         else:
