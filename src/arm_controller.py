@@ -52,19 +52,6 @@ class UR10eMoveItController:
             [1.218, -0.219, 0.866], # 10 : rightmost position
         ]
 
-        self.orientations = [
-            #[pi/2, 0, pi/2],
-            [pi, -pi/2, 0],
-            [pi, -pi/2, 0],
-            [pi, -pi/2, 0],
-            [pi, -pi/2, 0],
-            [pi, -pi/2, 0],
-            [pi, -pi/2, 0],
-            [pi, -pi/2, 0],
-            [pi, -pi/2, 0],
-            [pi, -pi/2, 0],
-        ]
-
         self.position_sigma = 0.0
         self.orientation_sigma = 0.0
 
@@ -76,6 +63,8 @@ class UR10eMoveItController:
         for i in range(1, len(self.parameters) + 1) :
             palm_position = self.compute_palm_position(self.reference_positions[i], self.parameters[i-1])
             self.positions.append(palm_position)
+
+        self.grasp_type = 2 #power sphere JUST FOR DEBUGGING
 
         if self.grasp_type != 2: #medium wrap, lateral pinch
             self.orientations = np.repeat([[pi, -pi/2, 0]], len(self.positions), axis=0).tolist()
