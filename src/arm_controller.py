@@ -34,7 +34,7 @@ class UR10eMoveItController:
         ### THIS SHOULD BE CHANGED FOR EACH TEST ###
     
         #grasp type 
-        self.grasp_type = 2 # medium wrap
+        self.grasp_type = 1 # medium wrap
 
         self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # parameters for the different grasps
 
@@ -124,7 +124,23 @@ class UR10eMoveItController:
 
             return [x, y, z]
         
-        # optional: handle other grasp types explicitly
+        else : # lateral pinch 
+            # parameters do not affect the position of the hand
+            support_height = 0.2  # height of the stand supporting the object
+
+            # z position : 
+            palm_knuckle_dist = 0.033
+            finger_width = 0.018
+            z = ref_position[2] + support_height  - palm_knuckle_dist - finger_width/2 #- 0.05
+
+            # y position :
+            y = ref_position[1] - 0.03
+
+            # x position :
+            x = ref_position[0] - 0.125
+
+            return [x, y, z]
+
         return None
 
     def get_current_pose(self):
