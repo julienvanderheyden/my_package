@@ -34,7 +34,7 @@ class UR10eMoveItController:
         ### THIS SHOULD BE CHANGED FOR EACH TEST ###
     
         #grasp type 
-        self.grasp_type = 1 # medium wrap
+        self.grasp_type = 2 # medium wrap
 
         self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # parameters for the different grasps
 
@@ -63,8 +63,6 @@ class UR10eMoveItController:
         for i in range(1, len(self.parameters) + 1) :
             palm_position = self.compute_palm_position(self.reference_positions[i], self.parameters[i-1])
             self.positions.append(palm_position)
-
-        self.grasp_type = 2 #power sphere JUST FOR DEBUGGING
 
         if self.grasp_type != 2: #medium wrap, lateral pinch
             self.orientations = np.repeat([[pi, -pi/2, 0]], len(self.positions), axis=0).tolist()
@@ -104,6 +102,22 @@ class UR10eMoveItController:
 
             return [x, y, z]
 
+        elif self.grasp_type == 2:  # power sphere
+            radius = parameter  # radius of the sphere
+            stand_height = 0.17  # height of the stand supporting the sphere
+            depth_ratio = 4/3 # how high the ball goes above the stand
+
+            # z position: above the sphere center
+            z = ref_position[2] + stand_height + depth_ratio*radius + 0.021 
+
+            # y position: aligned with sphere center
+            y = ref_position[1]  
+
+            # x position: aligned to get the center of the palm centered with the sphere center
+            x = ref_position[0] - 0.083 
+
+            return [x, y, z]
+        
         # optional: handle other grasp types explicitly
         return None
 
