@@ -107,8 +107,14 @@ class UR10eMoveItController:
             stand_height = 0.17  # height of the stand supporting the sphere
             depth_ratio = 4/3 # how high the ball goes above the stand
 
-            # z position: above the sphere center
-            z = ref_position[2] + stand_height + depth_ratio*radius + 0.021 
+            
+            if radius >= 0.02 :
+                # z position: above the sphere surface
+                z = ref_position[2] + stand_height + depth_ratio*radius + 0.021 
+            
+            else :
+                # z position : fixed offset above the sphere center
+                z = ref_position[2] + stand_height + (1 - depth_ratio)*radius + 0.11
 
             # y position: aligned with sphere center
             y = ref_position[1]  
