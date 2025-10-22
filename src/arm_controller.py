@@ -34,7 +34,7 @@ class UR10eMoveItController:
         ### THIS SHOULD BE CHANGED FOR EACH TEST ###
     
         #grasp type 
-        self.grasp_type = 2 # medium wrap
+        self.grasp_type = 1 # medium wrap
 
         self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # parameters for the different grasps
 
