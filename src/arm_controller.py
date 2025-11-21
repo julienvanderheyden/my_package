@@ -37,7 +37,8 @@ class UR10eMoveItController:
         self.grasp_type = 1 # medium wrap
 
         #self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # parameters for the different grasps
-        self.parameters = [0.006, 0.01, 0.012, 0.014, 0.017, 0.018, 0.02, 0.03]
+        self.parameters = [[0.025, 0.001], [0.0375, 0.001], [0.05, 0.001], [0.025, 0.006], 
+        [0.0375, 0.006], [0.05, 0.006], [0.025, 0.013], [0.0375, 0.013], [0.05, 0.013]]
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.reference_positions = [
@@ -62,7 +63,7 @@ class UR10eMoveItController:
         self.positions = [self.reference_positions[0]]  # Start with the home position
 
         for i in range(1, len(self.parameters) + 1) :
-            palm_position = self.compute_palm_position(self.reference_positions[i], self.parameters[i-1])
+            palm_position = self.compute_palm_position(self.reference_positions[i], self.parameters[i-1], i)
             self.positions.append(palm_position)
 
         if self.grasp_type != 2: #medium wrap, lateral pinch
@@ -81,7 +82,7 @@ class UR10eMoveItController:
         self.reach_cartesian(self.positions[0], self.orientations[0]) #going to home position
         rospy.loginfo("UR10eMoveItController initialized and listening for commands...")
 
-    def compute_palm_position(self, ref_position, parameter):
+    def compute_palm_position(self, ref_position, parameter, i):
         if self.grasp_type == 1:  # medium wrap
             radius = parameter  # radius of the cylinder
             alpha = 1.31       # angle between thumb and palm at preshape
@@ -128,7 +129,10 @@ class UR10eMoveItController:
         
         else : # lateral pinch 
             # parameters do not affect the position of the hand
-            support_height = 0.2  # height of the stand supporting the object
+            if i <= 5 :
+                support_height = 0.2  # height of the stand supporting the object
+            else : 
+                support_height = 0.23
 
             # z position : 
             palm_knuckle_dist = 0.033
