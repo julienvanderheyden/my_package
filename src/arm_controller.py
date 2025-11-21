@@ -37,7 +37,7 @@ class UR10eMoveItController:
         self.grasp_type = 1 # medium wrap
 
         #self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # parameters for the different grasps
-        self.parameters = [0.01, 0.02, 0.022, 0.023, 0.033, 0.035, 0.037, 0.055]
+        self.parameters = [0.01, 0.02, 0.02, 0.02, 0.033, 0.033, 0.033, 0.05]
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.reference_positions = [
