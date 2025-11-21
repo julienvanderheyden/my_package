@@ -37,7 +37,7 @@ class UR10eMoveItController:
         self.grasp_type = 1 # medium wrap
 
         #self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # parameters for the different grasps
-        self.parameters = [0.01, 0.015, 0.02, 0.0225]
+        self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275]
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.reference_positions = [
@@ -91,9 +91,11 @@ class UR10eMoveItController:
 
             if radius >= 0.015 : 
                 # y position: palm tangent to the cylinder
-                y = ref_position[1] - radius - 0.02 
+                # y = ref_position[1] - radius - 0.02 
                 # x position: thumb tangent to the cylinder
-                x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.04
+                # x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.04
+                y = ref_position[1] - radius - 0.01
+                x = ref_position[0] - 0.095
 
             else : 
                 # y position : 3cm offset 
