@@ -37,7 +37,7 @@ class UR10eMoveItController:
         self.grasp_type = 1 # medium wrap
 
         #self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # parameters for the different grasps
-        self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04]
+        self.parameters = [0.01, 0.02, 0.022, 0.023, 0.033, 0.035, 0.037, 0.055]
 
         # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
         self.reference_positions = [
@@ -89,12 +89,12 @@ class UR10eMoveItController:
             # z position: small vertical offset from cylinder center
             z = ref_position[2] + 0.09  
 
-            if radius >= 0.015 : ### ATTENTION : TO CHANGE !!! JUST FOR SPECIFIC TEST
+            if radius >= 0.015 : 
                 # y position: palm tangent to the cylinder
                 y = ref_position[1] - radius - 0.02 
                 # x position: thumb tangent to the cylinder
-                # x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.04
-                x = ref_position[0] - 0.095
+                x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.04
+                # x = ref_position[0] - 0.095 # when doing tests with fixed x offset
 
             else : 
                 # y position : 2cm offset 
