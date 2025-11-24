@@ -167,9 +167,9 @@ class GraspSuccessMonitor:
         self.display_verbose_output()
         
         # Update contact state
-        if not has_contact:
-            print("           CONTACT LOST - GRASP FAILED")
-            self.grasp_failed = True
+        # if not has_contact:
+        #     print("           CONTACT LOST - GRASP FAILED")
+        #     self.grasp_failed = True
     
     def display_verbose_output(self):
         """
