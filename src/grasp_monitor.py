@@ -211,8 +211,8 @@ class GraspSuccessMonitor:
         # Display individual finger magnitudes
         for finger_key in ['ff', 'mf', 'rf', 'lf', 'th']:
             magnitude = self.finger_magnitudes[finger_key]
-            bar_length = int(magnitude * 1000)  # Scale for visualization
-            bar = "#" * min(bar_length, 40)  # Cap at 40 chars
+            bar_length = int(magnitude * 200)  # Scale for visualization
+            bar = "#" * min(bar_length, 60)  # Cap at 40 chars
             
             line = "  %s: %8.4f  %s" % (finger_names[finger_key], magnitude, bar)
             lines.append(line.ljust(80))  # Pad to 80 chars to clear previous content
