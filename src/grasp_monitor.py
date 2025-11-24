@@ -150,8 +150,8 @@ class GraspSuccessMonitor:
         """
         Check contact state and display verbose information
         """
-        if not self.grasping or self.grasp_failed:
-            return
+        #if not self.grasping or self.grasp_failed:
+        #    return
         
         # Rate limit the display updates
         current_time = rospy.Time.now()
@@ -168,9 +168,7 @@ class GraspSuccessMonitor:
         
         # Update contact state
         if not has_contact:
-            print("\n" + "!" * 80)
-            print("                    CONTACT LOST - GRASP FAILED")
-            print("!" * 80 + "\n")
+            print("           CONTACT LOST - GRASP FAILED")
             self.grasp_failed = True
     
     def display_verbose_output(self):
