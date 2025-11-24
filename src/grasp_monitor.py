@@ -139,55 +139,31 @@ class GraspSuccessMonitor:
         has_contact = any(mag > 0.0 for mag in self.finger_magnitudes.values())
         
         # Display verbose output
-        self.display_verbose_output(updated_finger, active_taxels, taxel_magnitudes)
+        self.display_verbose_output()
         
         # Update contact state
         if not has_contact:
-            rospy.logwarn("\n" + "!"*80)
-            rospy.logwarn("                    CONTACT LOST - GRASP FAILED")
-            rospy.logwarn("!"*80 + "\n")
+            rospy.logwarn("CONTACT LOST - GRASP FAILED")
             self.grasp_failed = True
     
-    def display_verbose_output(self, updated_finger, active_taxels, taxel_magnitudes):
+    def display_verbose_output(self):
         """
         Display beautiful verbose output for analysis
         """
-        # Finger name mapping for display
-        finger_names = {
-            'ff': 'Forefinger',
-            'mf': 'Middle    ',
-            'rf': 'Ring      ',
-            'lf': 'Little    ',
-            'th': 'Thumb     '
-        }
-        
-        # Create the display
-        rospy.loginfo("-" * 80)
-        rospy.loginfo("  TACTILE FEEDBACK - Updated: %s" % finger_names[updated_finger])
-        rospy.loginfo("-" * 80)
         
         # Display individual finger magnitudes
+        rospy.loginfo("-" * 80 + "\n")
         rospy.loginfo("  Finger Force Magnitudes:")
         for finger_key in ['ff', 'mf', 'rf', 'lf', 'th']:
             magnitude = self.finger_magnitudes[finger_key]
-            bar_length = int(magnitude * 2)  # Scale for visualization
+            bar_length = int(magnitude * 1000)  # Scale for visualization
             bar = "#" * min(bar_length, 50)  # Cap at 50 chars
             
             rospy.loginfo("    %s: %8.4f  %s" % (
-                finger_names[finger_key], 
+                finger_key, 
                 magnitude, 
                 bar
             ))
-        
-        
-        # Display detailed info for the updated finger
-        if active_taxels > 0:
-            rospy.loginfo("  Active taxels on %s (%d/17):" % (finger_names[updated_finger], active_taxels))
-            for taxel_id, magnitude in taxel_magnitudes[:5]:  # Show first 5 to avoid clutter
-                rospy.loginfo("    Taxel %2d: %.4f" % (taxel_id, magnitude))
-            if len(taxel_magnitudes) > 5:
-                rospy.loginfo("    ... and %d more taxels" % (len(taxel_magnitudes) - 5))
-        
         rospy.loginfo("-" * 80 + "\n")
     
     def reset_state(self):
