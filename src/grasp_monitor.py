@@ -4,6 +4,7 @@ import rospy
 from std_msgs.msg import Int32
 from visualization_msgs.msg import MarkerArray
 import math
+import sys
 
 class GraspSuccessMonitor:
     def __init__(self):
@@ -32,6 +33,11 @@ class GraspSuccessMonitor:
             'th': None
         }
         
+        # Display control
+        self.display_initialized = False
+        self.last_display_time = rospy.Time(0)
+        self.display_rate = 10.0  # Hz - update display 10 times per second
+        
         # Subscribe to grasp timing
         rospy.Subscriber('/grasp_timing', Int32, self.grasp_callback)
         
@@ -55,6 +61,7 @@ class GraspSuccessMonitor:
         }
         
         rospy.loginfo("Grasp Success Monitor node started")
+        rospy.loginfo("Waiting for grasp to begin...\n")
     
     def grasp_callback(self, msg):
         """
@@ -64,26 +71,37 @@ class GraspSuccessMonitor:
             # Grasp started
             self.grasping = True
             self.grasp_failed = False
-            self.contact_detected = False
-            rospy.loginfo("\n" + "="*80)
-            rospy.loginfo("                         GRASP STARTED")
-            rospy.loginfo("="*80)
-            rospy.loginfo("Monitoring tactile feedback...\n")
+            self.display_initialized = False
+            
+            # Clear screen and print header
+            sys.stdout.write("\033[2J\033[H")  # Clear screen and move cursor to top
+            sys.stdout.flush()
+            
+            print("=" * 80)
+            print("                         GRASP STARTED")
+            print("=" * 80)
+            print("Monitoring tactile feedback...\n")
             
         elif msg.data == 0 and self.grasping:
             # Grasp ended
             self.grasping = False
-            rospy.loginfo("\n" + "="*80)
-            rospy.loginfo("                          GRASP ENDED")
-            rospy.loginfo("="*80)
+            
+            # Clear the dynamic display area
+            sys.stdout.write("\033[2J\033[H")
+            sys.stdout.flush()
+            
+            print("\n" + "=" * 80)
+            print("                          GRASP ENDED")
+            print("=" * 80)
             
             # Determine grasp outcome
             if self.grasp_failed:
-                rospy.logwarn(">>> GRASP RESULT: FAILURE - Contact was lost during grasp <<<")
+                print(">>> GRASP RESULT: FAILURE - Contact was lost during grasp <<<")
             else:
-                rospy.loginfo(">>> GRASP RESULT: SUCCESS - Contact maintained throughout grasp <<<")
+                print(">>> GRASP RESULT: SUCCESS - Contact maintained throughout grasp <<<")
             
-            rospy.loginfo("="*80 + "\n")
+            print("=" * 80 + "\n")
+            print("Waiting for next grasp...\n")
             
             # Reset state
             self.reset_state()
@@ -107,8 +125,6 @@ class GraspSuccessMonitor:
         
         # Compute force magnitude for this finger
         total_magnitude = 0.0
-        active_taxels = 0
-        taxel_magnitudes = []
         
         for i, marker in enumerate(msg.markers):
             # Check if taxel has contact (alpha = 1.0)
@@ -118,22 +134,27 @@ class GraspSuccessMonitor:
                     arrow_head = marker.points[1]
                     magnitude = self.compute_vector_magnitude(arrow_head)
                     total_magnitude += magnitude
-                    active_taxels += 1
-                    taxel_magnitudes.append((i, magnitude))
-        
+
         # Store the aggregated magnitude for this finger
         self.finger_magnitudes[finger_name] = total_magnitude
         
         # Check if all fingers have been updated
         if all(data is not None for data in self.tactile_data.values()):
-            self.check_contact_state_and_display(finger_name, active_taxels, taxel_magnitudes)
+            self.check_contact_state_and_display()
     
-    def check_contact_state_and_display(self, updated_finger, active_taxels, taxel_magnitudes):
+    def check_contact_state_and_display(self):
         """
         Check contact state and display verbose information
         """
         if not self.grasping or self.grasp_failed:
             return
+        
+        # Rate limit the display updates
+        current_time = rospy.Time.now()
+        if (current_time - self.last_display_time).to_sec() < (1.0 / self.display_rate):
+            return
+        
+        self.last_display_time = current_time
         
         # Check if any finger has contact
         has_contact = any(mag > 0.0 for mag in self.finger_magnitudes.values())
@@ -143,28 +164,66 @@ class GraspSuccessMonitor:
         
         # Update contact state
         if not has_contact:
-            rospy.logwarn("CONTACT LOST - GRASP FAILED")
+            print("\n" + "!" * 80)
+            print("                    CONTACT LOST - GRASP FAILED")
+            print("!" * 80 + "\n")
             self.grasp_failed = True
     
     def display_verbose_output(self):
         """
-        Display beautiful verbose output for analysis
+        Display beautiful verbose output for analysis with static positioning
         """
+        if not self.display_initialized:
+            # First time: just print the display
+            self.display_initialized = True
+            self.print_display()
+        else:
+            # Move cursor up to overwrite previous display
+            # We need to move up 10 lines (header + 5 fingers + footer + separators)
+            sys.stdout.write("\033[10A")  # Move cursor up 10 lines
+            sys.stdout.flush()
+            self.print_display()
+    
+    def print_display(self):
+        """
+        Print the actual display content
+        """
+        # Compute total force
+        total_force = sum(self.finger_magnitudes.values())
+        
+        # Finger name mapping for display
+        finger_names = {
+            'ff': 'Forefinger',
+            'mf': 'Middle    ',
+            'rf': 'Ring      ',
+            'lf': 'Little    ',
+            'th': 'Thumb     '
+        }
+        
+        # Build the display
+        lines = []
+        lines.append("-" * 80)
+        lines.append("  TACTILE FEEDBACK - Real-time Monitor")
+        lines.append("-" * 80)
         
         # Display individual finger magnitudes
-        rospy.loginfo("-" * 80 + "\n")
-        rospy.loginfo("  Finger Force Magnitudes:")
         for finger_key in ['ff', 'mf', 'rf', 'lf', 'th']:
             magnitude = self.finger_magnitudes[finger_key]
             bar_length = int(magnitude * 1000)  # Scale for visualization
-            bar = "#" * min(bar_length, 50)  # Cap at 50 chars
+            bar = "#" * min(bar_length, 40)  # Cap at 40 chars
             
-            rospy.loginfo("    %s: %8.4f  %s" % (
-                finger_key, 
-                magnitude, 
-                bar
-            ))
-        rospy.loginfo("-" * 80 + "\n")
+            line = "  %s: %8.4f  %s" % (finger_names[finger_key], magnitude, bar)
+            lines.append(line.ljust(80))  # Pad to 80 chars to clear previous content
+        
+        lines.append("  " + "-" * 76)
+        lines.append(("  TOTAL FORCE: %.4f" % total_force).ljust(80))
+        lines.append("-" * 80)
+        
+        # Print all lines
+        for line in lines:
+            print(line)
+        
+        sys.stdout.flush()
     
     def reset_state(self):
         """
@@ -174,61 +233,7 @@ class GraspSuccessMonitor:
             self.tactile_data[key] = None
         for key in self.finger_magnitudes:
             self.finger_magnitudes[key] = 0.0
-    
-    def run(self):
-        """
-        Keep the node running
-        """
-        rospy.spin()
-
-if __name__ == '__main__':
-    try:
-        node = GraspSuccessMonitor()
-        node.run()
-    except rospy.ROSInterruptException:
-        pass
-
-
-
-
-    
-   
-    def check_contact_state(self):
-        """
-        Check if any taxel across all fingers has contact
-        """
-        if not self.grasping or self.grasp_failed:
-            return
-        
-        has_contact = False
-        
-        # Check all fingers for contact
-        for finger_name, marker_array in self.tactile_data.items():
-            if marker_array is None:
-                continue
-            
-            # Check each marker (taxel) in the array
-            for marker in marker_array.markers:
-                # Contact is detected when alpha value is 1.0
-                if marker.color.a >= 0.99:  # Using >= 0.99 for floating point comparison
-                    has_contact = True
-                    break
-            
-            if has_contact:
-                break
-        
-
-        if not has_contact:
-            # Contact was previously detected but now lost
-            rospy.logwarn("Contact lost! Grasp marked as FAILURE")
-            self.grasp_failed = True
-
-    def reset_state(self):
-        """
-        Reset tactile data after grasp ends
-        """
-        for key in self.tactile_data:
-            self.tactile_data[key] = None
+        self.display_initialized = False
     
     def run(self):
         """
