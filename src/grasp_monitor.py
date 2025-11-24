@@ -67,6 +67,8 @@ class GraspSuccessMonitor:
         """
         Callback for grasp timing events
         """
+
+        """"
         if msg.data == 1 and not self.grasping:
             # Grasp started
             self.grasping = True
@@ -105,6 +107,8 @@ class GraspSuccessMonitor:
             
             # Reset state
             self.reset_state()
+            """
+        
     
     def compute_vector_magnitude(self, point):
         """
@@ -117,8 +121,8 @@ class GraspSuccessMonitor:
         Callback for tactile sensor data
         """
         # Only process tactile data during active grasp
-        if not self.grasping:
-            return
+        # if not self.grasping:
+        #     return
         
         # Store tactile data
         self.tactile_data[finger_name] = msg
