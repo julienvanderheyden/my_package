@@ -29,18 +29,22 @@ class UR10eMoveItController:
             "/ros_julia_synchronization", Int32, queue_size=10
         )
 
+        self.timing_pub = rospy.Publisher(
+            "/grasp_timing", Int32, queue_size=10
+        )
+
         self.preshape_pub = rospy.Publisher("/preshape", Int32, queue_size=10)
 
         ### THIS SHOULD BE CHANGED FOR EACH TEST ###
     
         #grasp type 
-        self.grasp_type = 3 # 1 : medium wrap, 2 : power sphere, 3 : lateral pinch
+        self.grasp_type = 1 # 1 : medium wrap, 2 : power sphere, 3 : lateral pinch
 
-        #self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # parameters for the different grasps
-        self.parameters = [[0.025, 0.001], [0.0375, 0.001], [0.05, 0.001], [0.025, 0.006], 
-        [0.0375, 0.006], [0.05, 0.006], [0.025, 0.013], [0.0375, 0.013], [0.05, 0.013]]
+        self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275] #0.03, 0.035, 0.04] # parameters for the different grasps
+        #self.parameters = [[0.025, 0.001], [0.0375, 0.001], [0.05, 0.001], [0.025, 0.006], 
+        #[0.0375, 0.006], [0.05, 0.006], [0.025, 0.013], [0.0375, 0.013], [0.05, 0.013]]
 
-        # Predefined positions (x, y, z) and orientations (roll, pitch, yaw)
+        # Predefined positions (x, y, z) 
         self.reference_positions = [
             [0.85, 0.173, 1.07], # 1 : home position
             [1.218, 0.738, 0.866], # 2 : leftmost position
@@ -283,10 +287,14 @@ class UR10eMoveItController:
         lifting_position = (self.positions[self.current_pose][0], self.positions[self.current_pose][1], self.positions[self.current_pose][2] + 0.2)
         lifting_orientation = self.orientations[self.current_pose]
         success = self.reach_cartesian(lifting_position, lifting_orientation)
-        rospy.sleep(3.0)
+        self.timing_pub.publish(Int32(1))  # Notify that lifting has started
+        rospy.sleep(2.5)
+        self.timing_pub.publish(Int32(0))  # Notify that lifting has ended
+        rospy.sleep(0.5)
         if not success:
             rospy.logerr("Failed to reach the lifting position.")
             return False
+        
         
         back_position = self.positions[self.current_pose]
         back_orientation = self.orientations[self.current_pose]
