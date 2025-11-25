@@ -41,7 +41,7 @@ class UR10eMoveItController:
         self.grasp_type = 2 # 1 : medium wrap, 2 : power sphere, 3 : lateral pinch
 
         #self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275] #0.03, 0.035, 0.04] # parameters for the different grasps
-        self.parameters =  [0.02, 0.025, 0.03, 0.035, 0.04]
+        self.parameters =  [0.019, 0.025, 0.03, 0.035, 0.04]
         # self.parameters = [[0.025, 0.001], [0.025, 0.006],[0.025, 0.013], [0.0375, 0.001], 
         # [0.0375, 0.006], [0.0375, 0.013], [0.05, 0.001], [0.05, 0.006], [0.05, 0.013]]
 
@@ -107,14 +107,14 @@ class UR10eMoveItController:
 
             if radius >= 0.015 : 
                 # y position: palm tangent to the cylinder
-                y = ref_position[1] - radius - 0.02 
+                y = ref_position[1] - radius - 0.03 
                 # x position: thumb tangent to the cylinder
                 x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.04
                 # x = ref_position[0] - 0.095 # when doing tests with fixed x offset
 
             else : 
-                # y position : 2cm offset 
-                y = ref_position[1] - 0.02
+                # y position : 3cm offset 
+                y = ref_position[1] - 0.03
                 # x position : 9.5 cm offset 
                 x = ref_position[0] - 0.095
 
