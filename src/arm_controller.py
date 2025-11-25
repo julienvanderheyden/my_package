@@ -135,7 +135,7 @@ class UR10eMoveItController:
                 z = ref_position[2] + stand_height + (1 - depth_ratio)*radius + 0.11
 
             # y position: aligned with sphere center
-            y = ref_position[1] -0.01
+            y = ref_position[1] - 0.02
 
             # x position: aligned to get the center of the palm centered with the sphere center
             x = ref_position[0] - 0.083 
