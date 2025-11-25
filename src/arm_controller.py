@@ -38,25 +38,36 @@ class UR10eMoveItController:
         ### THIS SHOULD BE CHANGED FOR EACH TEST ###
     
         #grasp type 
-        self.grasp_type = 3 # 1 : medium wrap, 2 : power sphere, 3 : lateral pinch
+        self.grasp_type = 2 # 1 : medium wrap, 2 : power sphere, 3 : lateral pinch
 
         #self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275] #0.03, 0.035, 0.04] # parameters for the different grasps
-        self.parameters = [[0.025, 0.001], [0.025, 0.006],[0.025, 0.013], [0.0375, 0.001], 
-        [0.0375, 0.006], [0.0375, 0.013], [0.05, 0.001], [0.05, 0.006], [0.05, 0.013]]
+        self.parameters =  [0.02, 0.025, 0.03, 0.035, 0.04]
+        # self.parameters = [[0.025, 0.001], [0.025, 0.006],[0.025, 0.013], [0.0375, 0.001], 
+        # [0.0375, 0.006], [0.0375, 0.013], [0.05, 0.001], [0.05, 0.006], [0.05, 0.013]]
 
         # Predefined positions (x, y, z) 
-        self.reference_positions = [
-            [0.85, 0.173, 1.07], # 1 : home position
-            [1.218, 0.738, 0.866], # 2 : leftmost position
-            [1.218, 0.618, 0.866], # 3
-            [1.218, 0.499, 0.866], # 4 
-            [1.218, 0.379, 0.866], # 5 
-            [1.218, 0.258, 0.866], # 6 
-            [1.218, 0.139, 0.866], # 7
-            [1.218, 0.023, 0.866], # 8
-            [1.218, -0.098, 0.866], # 9 
-            [1.218, -0.219, 0.866], # 10 : rightmost position
-        ]
+        if self.grasp_type == 2 : #power sphere
+            self.reference_positions = [
+                [0.85, 0.173, 1.07], #home position
+                [1.218, 0.738, 0.866], #left most position
+                [1.218, 0.499, 0.866],
+                [1.218, 0.258, 0.866],
+                [1.218, 0.023, 0.866], 
+                [1.218, -0.219, 0.866]] # right most position
+
+        else : #medium wrap, lateral pinch
+            self.reference_positions = [
+                [0.85, 0.173, 1.07], # 1 : home position
+                [1.218, 0.738, 0.866], # 2 : leftmost position
+                [1.218, 0.618, 0.866], # 3
+                [1.218, 0.499, 0.866], # 4 
+                [1.218, 0.379, 0.866], # 5 
+                [1.218, 0.258, 0.866], # 6 
+                [1.218, 0.139, 0.866], # 7
+                [1.218, 0.023, 0.866], # 8
+                [1.218, -0.098, 0.866], # 9 
+                [1.218, -0.219, 0.866], # 10 : rightmost position
+            ]
 
         self.position_sigma = 0.0
         self.orientation_sigma = 0.0
