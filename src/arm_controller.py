@@ -107,14 +107,14 @@ class UR10eMoveItController:
 
             if radius >= 0.015 : 
                 # y position: palm tangent to the cylinder
-                y = ref_position[1] - radius - 0.03 
+                y = ref_position[1] - radius - 0.02 
                 # x position: thumb tangent to the cylinder
                 x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.04
                 # x = ref_position[0] - 0.095 # when doing tests with fixed x offset
 
             else : 
-                # y position : 3cm offset 
-                y = ref_position[1] - 0.03
+                # y position : 2cm offset 
+                y = ref_position[1] - 0.02
                 # x position : 9.5 cm offset 
                 x = ref_position[0] - 0.095
 
@@ -135,7 +135,7 @@ class UR10eMoveItController:
                 z = ref_position[2] + stand_height + (1 - depth_ratio)*radius + 0.11
 
             # y position: aligned with sphere center
-            y = ref_position[1]  
+            y = ref_position[1] -0.01
 
             # x position: aligned to get the center of the palm centered with the sphere center
             x = ref_position[0] - 0.083 
