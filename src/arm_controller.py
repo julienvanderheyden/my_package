@@ -128,7 +128,7 @@ class UR10eMoveItController:
             
             if radius >= 0.02 :
                 # z position: above the sphere surface
-                z = ref_position[2] + stand_height + depth_ratio*radius + 0.021 
+                z = ref_position[2] + stand_height + depth_ratio*radius #+ 0.021 
             
             else :
                 # z position : fixed offset above the sphere center
@@ -309,11 +309,13 @@ class UR10eMoveItController:
         
         back_position = self.positions[self.current_pose]
         back_orientation = self.orientations[self.current_pose]
-        success = self.reach_cartesian(back_position, back_orientation)
-        rospy.sleep(0.5)
-        if not success:
-            rospy.logerr("Failed to return to the original position after lifting.")
-            return False
+
+        if self.grasp_type != 2 : #only go down for medium wrap and lateral pinch 
+            success = self.reach_cartesian(back_position, back_orientation)
+            rospy.sleep(0.5)
+            if not success:
+                rospy.logerr("Failed to return to the original position after lifting.")
+                return False
         
         rospy.loginfo("Lifting complete.")
         return True
