@@ -131,16 +131,16 @@ class UR10eMoveItController:
             if radius >= 0.02 :
                 # z position: above the sphere surface
                 z = ref_position[2] + stand_height + depth_ratio*radius #+ 0.021 
+                # y position: aligned with sphere center
+                y = ref_position[1] - 0.03
+                # x position: aligned to get the center of the palm centered with the sphere center
+                x = ref_position[0] - 0.083
             
             else :
                 # z position : fixed offset above the sphere center
                 z = ref_position[2] + stand_height + (1 - depth_ratio)*radius + 0.11
-
-            # y position: aligned with sphere center
-            y = ref_position[1] - 0.03
-
-            # x position: aligned to get the center of the palm centered with the sphere center
-            x = ref_position[0] - 0.083 
+                y = ref_position[1] - 0.02
+                x = ref_position[0] - 0.048
 
             return [x, y, z]
         
