@@ -38,13 +38,14 @@ class UR10eMoveItController:
         ### THIS SHOULD BE CHANGED FOR EACH TEST ###
     
         #grasp type 
-        self.grasp_type = 3 # 1 : medium wrap, 2 : power sphere, 3 : lateral pinch
+        self.grasp_type = 2 # 1 : medium wrap, 2 : power sphere, 3 : lateral pinch
 
         # self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # cylinders
         # self.parameters =  [0.019, 0.019, 0.03, 0.035, 0.04] # spheres
+        self.parameters = [0.019, 0.019, 0.019, 0.019, 0.019]
         # self.parameters = [0.019, 0.019, 0.03, 0.035, 0.04] # cubes
-        self.parameters = [[0.025, 0.001], [0.025, 0.006],[0.025, 0.013], [0.0375, 0.001], 
-        [0.0375, 0.006], [0.0375, 0.013], [0.05, 0.001], [0.05, 0.006], [0.05, 0.013]] #boxes and disks
+        # self.parameters = [[0.025, 0.001], [0.025, 0.006],[0.025, 0.013], [0.0375, 0.001], 
+        # [0.0375, 0.006], [0.0375, 0.013], [0.05, 0.001], [0.05, 0.006], [0.05, 0.013]] #boxes and disks
 
         # Predefined positions (x, y, z) 
         if self.grasp_type == 2 : #power sphere
