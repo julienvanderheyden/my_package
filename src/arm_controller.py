@@ -118,7 +118,7 @@ class UR10eMoveItController:
                 # y position : 2cm offset 
                 y = ref_position[1] - 0.03
                 # x position : 9.5 cm offset 
-                x = ref_position[0] - 0.85
+                x = ref_position[0] - 0.085
 
             return [x, y, z]
 
