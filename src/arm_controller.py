@@ -41,8 +41,7 @@ class UR10eMoveItController:
         self.grasp_type = 2 # 1 : medium wrap, 2 : power sphere, 3 : lateral pinch
 
         # self.parameters = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # cylinders
-        # self.parameters =  [0.019, 0.019, 0.03, 0.035, 0.04] # spheres
-        self.parameters = [0.019, 0.019, 0.019, 0.019, 0.019]
+        self.parameters =  [0.019, 0.019, 0.03, 0.035, 0.04] # spheres
         # self.parameters = [0.019, 0.019, 0.03, 0.035, 0.04] # cubes
         # self.parameters = [[0.025, 0.001], [0.025, 0.006],[0.025, 0.013], [0.0375, 0.001], 
         # [0.0375, 0.006], [0.0375, 0.013], [0.05, 0.001], [0.05, 0.006], [0.05, 0.013]] #boxes and disks
@@ -131,16 +130,16 @@ class UR10eMoveItController:
             if radius >= 0.02 :
                 # z position: above the sphere surface
                 z = ref_position[2] + stand_height + depth_ratio*radius #+ 0.021 
-                # y position: aligned with sphere center
-                y = ref_position[1] - 0.03
-                # x position: aligned to get the center of the palm centered with the sphere center
-                x = ref_position[0] - 0.083
-            
+
             else :
                 # z position : fixed offset above the sphere center
                 z = ref_position[2] + stand_height + (1 - depth_ratio)*radius + 0.11
-                y = ref_position[1] - 0.02
-                x = ref_position[0] - 0.048
+
+            # y position: aligned with sphere center
+            y = ref_position[1] - 0.03
+            # x position: aligned to get the center of the palm centered with the sphere center
+            x = ref_position[0] - 0.083
+            
 
             return [x, y, z]
         
