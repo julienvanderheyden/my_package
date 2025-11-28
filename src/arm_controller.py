@@ -13,10 +13,9 @@ import tf.transformations as tf
 
 class UR10eMoveItController:
     def __init__(self, group_name="right_arm"):
-        # Initialize MoveIt Commander and ROS node
+        # Initialize MoveItCommander and ROS node
         moveit_commander.roscpp_initialize(sys.argv)
         rospy.init_node("ur10e_cartesian_goal", anonymous=True)
-
 
         # Initialize Move Group
         self.move_group = moveit_commander.MoveGroupCommander(group_name)
