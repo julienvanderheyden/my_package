@@ -73,7 +73,7 @@ class GraspOrchestrator:
             adjusted_params = (1 + noise) * params
 
             # Convert back to list
-            self.noisy_parameters.append(adjusted_params.tolist())
+            self.noisy_parameters.append(adjusted_params)
         
         # Position noise parameters
         self.position_noise_enabled = False
@@ -139,7 +139,7 @@ class GraspOrchestrator:
             alpha = 1.31
             z = ref_position[2] + 0.09
             
-            if param >= 0.015:
+            if param[0] >= 0.015:
                 y = ref_position[1] - radius - 0.03
                 x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.04
             else:
@@ -344,7 +344,7 @@ class GraspOrchestrator:
             
             # Execute grasp
             rospy.loginfo("Executing grasp...")
-            if not self.execute_grasp(params):
+            if not self.execute_grasp(params.tolist()):
                 rospy.logerr(f"Failed to execute grasp {i+1}")
                 return False
             
