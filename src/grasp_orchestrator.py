@@ -26,14 +26,39 @@ class GraspOrchestrator:
         self.grasp_complete = False
         self.grasp_success = False
         self.current_step = 0
+
+        ###################### MODIFY BELOW FOR DIFFERENT TESTS ######################
         
         # Test configuration
-        self.grasp_type = 3  # 1: medium wrap, 2: power sphere, 3: lateral pinch
-        self.parameters = [
-            [0.025, 0.001], [0.025, 0.006], [0.025, 0.013],
-            [0.0375, 0.001], [0.0375, 0.006], [0.0375, 0.013],
-            [0.05, 0.001], [0.05, 0.006], [0.05, 0.013]
-        ]
+
+        # self.grasp_type = 1  # 1: medium wrap, 2: power sphere, 3: lateral pinch
+        # self.dimensions = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # cylinders
+        # self.dimensions = [0.01, 0.015, 0.015, 0.015, 0.02, 0.02, 0.02, 0.025, 0.03] # prisms 
+        # self.parameters = 0.8*self.dimensions
+        # self.parameters = [0.006, 0.012, 0.015, 0.018, 0.02, 0.025, 0.0275, 0.03, 0.035] # cylinders
+        # self.parameters = [0.006, 0.012, 0.012, 0.015, 0.017, 0.02,  0.02, 0.026, 0.032 ] # prisms
+
+
+        # self.grasp_type = 2
+        # self.dimensions =  [0.019, 0.019, 0.03, 0.035, 0.04] # spheres
+        # self.dimensions = [0.019, 0.019, 0.03, 0.035, 0.04] # cubes
+        # self.parameters = 0.8*self.dimensions
+        # self.parameters = [0.016, 0.019, 0.024, 0.028, 0.032] # spheres
+        # self.parameters = [0.016, 0.019, 0.024, 0.028, 0.032] # cubes
+        
+        self.grasp_type = 3 
+        self.dimensions = [[0.025, 0.001], [0.025, 0.0075], [0.025, 0.015],[0.0375, 0.001], [0.0375, 0.0075], [0.0375, 0.015],[0.05, 0.001], [0.05, 0.0075], [0.05, 0.015]] # boxes and disks
+        # self.parameters = 0.8*self.dimensions
+        self.parameters = [[0.025, 0.001], [0.025, 0.006], [0.025, 0.013],[0.0375, 0.001], [0.0375, 0.006], [0.0375, 0.013],[0.05, 0.001], [0.05, 0.006], [0.05, 0.013]] # boxes and disks
+
+        # Dimension noise parameters
+        self.fixed_noise = True
+        self.fixed_dimension_noise = 0.4
+        self.std_dimension_noise = 0.0
+        
+        # Position noise parameters
+        self.position_sigma = 0.0
+        self.orientation_sigma = 0.0
         
         # Reference positions
         self.reference_positions = [
@@ -53,21 +78,17 @@ class GraspOrchestrator:
         self.positions = self._compute_all_positions()
         self.orientations = self._compute_all_orientations()
         
-        # Noise parameters
-        self.position_sigma = 0.0
-        self.orientation_sigma = 0.0
-        
         rospy.sleep(1.0)
         rospy.loginfo("Grasp Orchestrator ready")
 
     def _compute_all_positions(self):
-        """Compute palm positions for all grasp parameters."""
+        """Compute palm positions for all objects"""
         positions = [self.reference_positions[0]]  # Home position
         
-        for i, param in enumerate(self.parameters):
+        for i, dim in enumerate(self.dimensions):
             palm_pos = self.compute_palm_position(
                 self.reference_positions[i + 1], 
-                param, 
+                dim, 
                 i + 1
             )
             positions.append(palm_pos)
@@ -81,10 +102,10 @@ class GraspOrchestrator:
         else:  # power sphere
             return [[pi/2, 0, pi/2]] * len(self.positions)
 
-    def compute_palm_position(self, ref_position, parameter, i):
+    def compute_palm_position(self, ref_position, dim, i):
         """Compute palm position based on grasp type and parameters."""
         if self.grasp_type == 1:  # medium wrap
-            radius = parameter
+            radius = dim
             alpha = 1.31
             z = ref_position[2] + 0.09
             
@@ -98,7 +119,7 @@ class GraspOrchestrator:
             return [x, y, z]
         
         elif self.grasp_type == 2:  # power sphere
-            radius = parameter
+            radius = dim
             stand_height = 0.17
             depth_ratio = 4/3
             
@@ -227,14 +248,23 @@ class GraspOrchestrator:
         
         return True
 
-    def execute_grasp(self, grasp_params, noise=0.0):
+    def execute_grasp(self, grasp_params):
         """Execute grasp with given parameters."""
-        # TODO : noise should be handled inside this function
+        
         self.grasp_complete = False
         self.grasp_success = False
-        
-        # Apply noise to parameters
-        adjusted_params = [(1 + noise) * p for p in grasp_params]
+
+        # Apply noise on the dimensions : noise can either be fixed or random
+        params = np.array(grasp_params)
+
+        if self.fixed_noise:
+            noise = np.full_like(params, self.fixed_dimension_noise, dtype=float)
+        else:
+            noise = np.random.normal(0, self.std_dimension_noise, size=params.size)
+
+        adjusted_params = (1 + noise) * params
+        adjusted_params = adjusted_params.tolist()
+
         
         # Format command string
         command = f"{self.grasp_type}," + ",".join(map(str, adjusted_params))
@@ -277,9 +307,6 @@ class GraspOrchestrator:
         self.current_step = 0
         rospy.sleep(1.0)
         
-        # Execute grasps for all parameters
-        noise = -0.4  # or 0.0 for no noise
-        
         for i, params in enumerate(self.parameters):
             rospy.loginfo(f"\n=== Executing grasp {i+1}/{len(self.parameters)} ===")
             
@@ -296,7 +323,7 @@ class GraspOrchestrator:
             
             # Execute grasp
             rospy.loginfo("Executing grasp...")
-            if not self.execute_grasp(params, noise):
+            if not self.execute_grasp(params):
                 rospy.logerr(f"Failed to execute grasp {i+1}")
                 return False
             
