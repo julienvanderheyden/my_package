@@ -260,7 +260,7 @@ class GraspOrchestrator:
         self.grasp_success = False
 
         # Apply noise on the dimensions : noise can either be fixed or random
-        params = np.array(grasp_params)
+        params = np.atleast_1d(np.array(grasp_params, dtype=float))
 
         if self.dimension_noise_is_fixed:
             noise = np.full_like(params, self.fixed_dimension_noise, dtype=float)
@@ -270,10 +270,9 @@ class GraspOrchestrator:
         adjusted_params = (1 + noise) * params
         adjusted_params = adjusted_params.tolist()
 
-        
         # Format command string
         command = f"{self.grasp_type}," + ",".join(map(str, adjusted_params))
-        
+
         rospy.loginfo(f"Sending grasp command: {command}")
         self.grasp_command_pub.publish(String(data=command))
         
