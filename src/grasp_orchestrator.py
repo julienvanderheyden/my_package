@@ -243,7 +243,7 @@ class GraspOrchestrator:
         self.grasp_command_pub.publish(String(data=command))
         
         # Wait for completion
-        timeout = rospy.Time.now() + rospy.Duration(30.0)
+        timeout = rospy.Time.now() + rospy.Duration(45.0)
         rate = rospy.Rate(10)
         
         while not self.grasp_complete and rospy.Time.now() < timeout:
@@ -310,6 +310,8 @@ class GraspOrchestrator:
         
         # Return home
         rospy.loginfo("Returning to home position...")
+        self.preshape_pub.publish(Int32(self.grasp_type))
+        rospy.sleep(0.5)
         if not self.move_to_pose(self.positions[0], self.orientations[0]):
             rospy.logerr("Failed to return home")
             return False
