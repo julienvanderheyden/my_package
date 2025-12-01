@@ -39,26 +39,27 @@ class GraspOrchestrator:
         # self.parameters = [0.006, 0.012, 0.012, 0.015, 0.017, 0.02,  0.02, 0.026, 0.032 ] # prisms
 
 
-        # self.grasp_type = 2
-        # self.dimensions =  [0.019, 0.019, 0.03, 0.035, 0.04] # spheres
+        self.grasp_type = 2
+        self.dimensions =  [0.019, 0.019, 0.03, 0.035, 0.04] # spheres
         # self.dimensions = [0.019, 0.019, 0.03, 0.035, 0.04] # cubes
         # self.parameters = 0.8*self.dimensions
-        # self.parameters = [0.016, 0.019, 0.024, 0.028, 0.032] # spheres
+        self.parameters = [0.016, 0.019, 0.024, 0.028, 0.032] # spheres
         # self.parameters = [0.016, 0.019, 0.024, 0.028, 0.032] # cubes
         
-        self.grasp_type = 3 
-        self.dimensions = [[0.025, 0.001], [0.025, 0.0075], [0.025, 0.015],[0.0375, 0.001], [0.0375, 0.0075], [0.0375, 0.015],[0.05, 0.001], [0.05, 0.0075], [0.05, 0.015]] # boxes and disks
+        # self.grasp_type = 3 
+        # self.dimensions = [[0.025, 0.001], [0.025, 0.0075], [0.025, 0.015],[0.0375, 0.001], [0.0375, 0.0075], [0.0375, 0.015],[0.05, 0.001], [0.05, 0.0075], [0.05, 0.015]] # boxes and disks
         # self.parameters = 0.8*self.dimensions
-        self.parameters = [[0.025, 0.001], [0.025, 0.006], [0.025, 0.013],[0.0375, 0.001], [0.0375, 0.006], [0.0375, 0.013],[0.05, 0.001], [0.05, 0.006], [0.05, 0.013]] # boxes and disks
+        # self.parameters = [[0.025, 0.001], [0.025, 0.006], [0.025, 0.013],[0.0375, 0.001], [0.0375, 0.006], [0.0375, 0.013],[0.05, 0.001], [0.05, 0.006], [0.05, 0.013]] # boxes and disks
 
         # Dimension noise parameters
-        self.fixed_noise = True
+        self.dimension_noise_is_fixed = True
         self.fixed_dimension_noise = 0.4
         self.std_dimension_noise = 0.0
         
         # Position noise parameters
-        self.position_sigma = 0.0
-        self.orientation_sigma = 0.0
+        self.position_noise_enabled = False
+        self.translation_noise_offset = [0.0, 0.0, 0.0]
+        self.orientation_noise_offset = [0.0, 0.0, 0.0]
         
         # Reference positions
         self.reference_positions = [
@@ -89,6 +90,7 @@ class GraspOrchestrator:
             palm_pos = self.compute_palm_position(
                 self.reference_positions[i + 1], 
                 dim, 
+                self.parameters[i],
                 i + 1
             )
             positions.append(palm_pos)
@@ -102,18 +104,18 @@ class GraspOrchestrator:
         else:  # power sphere
             return [[pi/2, 0, pi/2]] * len(self.positions)
 
-    def compute_palm_position(self, ref_position, dim, i):
+    def compute_palm_position(self, ref_position, dim, param, i):
         """Compute palm position based on grasp type and parameters."""
         if self.grasp_type == 1:  # medium wrap
             radius = dim
             alpha = 1.31
             z = ref_position[2] + 0.09
             
-            if radius >= 0.015:
+            if param >= 0.015:
                 y = ref_position[1] - radius - 0.03
                 x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.04
             else:
-                y = ref_position[1] - 0.03
+                y = ref_position[1] - radius - 0.015
                 x = ref_position[0] - 0.075
             
             return [x, y, z]
@@ -123,7 +125,7 @@ class GraspOrchestrator:
             stand_height = 0.17
             depth_ratio = 4/3
             
-            if radius >= 0.02:
+            if param >= 0.02:
                 z = ref_position[2] + stand_height + depth_ratio * radius
             else:
                 z = ref_position[2] + stand_height + (1 - depth_ratio) * radius + 0.11
@@ -207,18 +209,21 @@ class GraspOrchestrator:
             return False
         rospy.sleep(0.5)
         
-        # Phase 3: Final position (with optional noise)
-        final_pos = np.array(self.positions[target_idx])
-        if self.position_sigma > 0:
-            final_pos += np.random.normal(0, self.position_sigma, 3)
-        
-        final_orient = np.array(self.orientations[target_idx])
-        if self.orientation_sigma > 0:
-            final_orient += np.random.normal(0, self.orientation_sigma, 3)
-        
-        if not self.move_to_pose(final_pos.tolist(), final_orient.tolist()):
+        # Phase 3: Final position
+        final_pos = self.positions[target_idx]
+        final_orient = self.orientations[target_idx]
+        if not self.move_to_pose(final_pos, final_orient):
             return False
         rospy.sleep(0.5)
+
+        # Phase 4 : Apply additional noise if enabled
+        if self.position_noise_enabled:
+            noisy_pos = final_pos + np.array(self.translation_noise_offset)
+            noisy_orient = final_orient + np.array(self.orientation_noise_offset)
+            
+            if not self.move_to_pose(noisy_pos, noisy_orient):
+                return False
+            rospy.sleep(0.5)
         
         self.current_step = target_idx
         return True
@@ -257,7 +262,7 @@ class GraspOrchestrator:
         # Apply noise on the dimensions : noise can either be fixed or random
         params = np.array(grasp_params)
 
-        if self.fixed_noise:
+        if self.dimension_noise_is_fixed:
             noise = np.full_like(params, self.fixed_dimension_noise, dtype=float)
         else:
             noise = np.random.normal(0, self.std_dimension_noise, size=params.size)
