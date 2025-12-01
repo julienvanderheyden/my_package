@@ -55,6 +55,25 @@ class GraspOrchestrator:
         self.dimension_noise_is_fixed = True
         self.fixed_dimension_noise = 0.4
         self.std_dimension_noise = 0.0
+
+        self.noisy_parameters = []
+
+        for grasp_params in self.parameters:
+
+            # Force params to be a 1-D numpy array
+            params = np.atleast_1d(np.array(grasp_params, dtype=float))
+
+            # Fixed or random noise
+            if self.dimension_noise_is_fixed:
+                noise = np.full_like(params, self.fixed_dimension_noise, dtype=float)
+            else:
+                noise = np.random.normal(0, self.std_dimension_noise, size=params.size)
+
+            # Apply noise
+            adjusted_params = (1 + noise) * params
+
+            # Convert back to list
+            self.noisy_parameters.append(adjusted_params.tolist())
         
         # Position noise parameters
         self.position_noise_enabled = False
@@ -62,19 +81,28 @@ class GraspOrchestrator:
         self.orientation_noise_offset = [0.0, 0.0, 0.0]
         
         # Reference positions
-        self.reference_positions = [
-            [0.85, 0.173, 1.07],     # 0: home
-            [1.218, 0.738, 0.866],   # 1: leftmost
-            [1.218, 0.618, 0.866],   # 2
-            [1.218, 0.499, 0.866],   # 3
-            [1.218, 0.379, 0.866],   # 4
-            [1.218, 0.258, 0.866],   # 5
-            [1.218, 0.139, 0.866],   # 6
-            [1.218, 0.023, 0.866],   # 7
-            [1.218, -0.098, 0.866],  # 8
-            [1.218, -0.219, 0.866],  # 9: rightmost
-        ]
-        
+        if self.grasp_type == 2 : #power sphere
+            self.reference_positions = [
+                [0.85, 0.173, 1.07], #home position
+                [1.218, 0.738, 0.866], #left most position
+                [1.218, 0.499, 0.866],
+                [1.218, 0.258, 0.866],
+                [1.218, 0.023, 0.866],
+                [1.218, -0.219, 0.866]] # right most position
+        else :
+            self.reference_positions = [
+                [0.85, 0.173, 1.07],     # 0: home
+                [1.218, 0.738, 0.866],   # 1: leftmost
+                [1.218, 0.618, 0.866],   # 2
+                [1.218, 0.499, 0.866],   # 3
+                [1.218, 0.379, 0.866],   # 4
+                [1.218, 0.258, 0.866],   # 5
+                [1.218, 0.139, 0.866],   # 6
+                [1.218, 0.023, 0.866],   # 7
+                [1.218, -0.098, 0.866],  # 8
+                [1.218, -0.219, 0.866],  # 9: rightmost
+            ]
+            
         # Compute all positions
         self.positions = self._compute_all_positions()
         self.orientations = self._compute_all_orientations()
@@ -90,7 +118,7 @@ class GraspOrchestrator:
             palm_pos = self.compute_palm_position(
                 self.reference_positions[i + 1], 
                 dim, 
-                self.parameters[i],
+                self.noisy_parameters[i],
                 i + 1
             )
             positions.append(palm_pos)
@@ -125,7 +153,7 @@ class GraspOrchestrator:
             stand_height = 0.17
             depth_ratio = 4/3
             
-            if param >= 0.02:
+            if param > 0.025:
                 z = ref_position[2] + stand_height + depth_ratio * radius
             else:
                 z = ref_position[2] + stand_height + (1 - depth_ratio) * radius + 0.11
@@ -253,25 +281,14 @@ class GraspOrchestrator:
         
         return True
 
-    def execute_grasp(self, grasp_params):
+    def execute_grasp(self, params):
         """Execute grasp with given parameters."""
         
         self.grasp_complete = False
         self.grasp_success = False
 
-        # Apply noise on the dimensions : noise can either be fixed or random
-        params = np.atleast_1d(np.array(grasp_params, dtype=float))
-
-        if self.dimension_noise_is_fixed:
-            noise = np.full_like(params, self.fixed_dimension_noise, dtype=float)
-        else:
-            noise = np.random.normal(0, self.std_dimension_noise, size=params.size)
-
-        adjusted_params = (1 + noise) * params
-        adjusted_params = adjusted_params.tolist()
-
         # Format command string
-        command = f"{self.grasp_type}," + ",".join(map(str, adjusted_params))
+        command = f"{self.grasp_type}," + ",".join(map(str, params))
 
         rospy.loginfo(f"Sending grasp command: {command}")
         self.grasp_command_pub.publish(String(data=command))
@@ -311,7 +328,7 @@ class GraspOrchestrator:
         self.current_step = 0
         rospy.sleep(1.0)
         
-        for i, params in enumerate(self.parameters):
+        for i, params in enumerate(self.noisy_parameters):
             rospy.loginfo(f"\n=== Executing grasp {i+1}/{len(self.parameters)} ===")
             
             # Preshape hand
