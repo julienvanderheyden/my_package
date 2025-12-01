@@ -146,7 +146,7 @@ class UR10eMoveItController:
         else : # lateral pinch 
             # parameters do not affect the position of the hand
             if i <= 5 :
-                support_height = 0.2  # height of the stand supporting the object
+                support_height = 0.195  # height of the stand supporting the object
             else : 
                 support_height = 0.23
 
