@@ -148,7 +148,7 @@ class UR10eMoveItController:
             if i <= 5 :
                 support_height = 0.19  # height of the stand supporting the object
             else : 
-                support_height = 0.23
+                support_height = 0.225
 
             # z position : 
             palm_knuckle_dist = 0.033
