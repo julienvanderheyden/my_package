@@ -72,11 +72,13 @@ class GraspOrchestrator:
 
             adjusted_params = (1 + noise) * params
             self.noisy_parameters.append(adjusted_params)
+
+        rospy.loginfo(f"Parameters : {self.parameters}, Noisy Parameters: {self.noisy_parameters}")
         
         # Position noise parameters
         self.position_noise_enabled = True
         self.translation_noise_offset = [0.0, 0.0, 0.0] # [x, y, z] in meters
-        self.orientation_noise_offset = [0.0, 10.0, 0.0] # [yaw, pitch, roll] in degrees
+        self.orientation_noise_offset = [0.0, 15.0, 0.0] # [yaw, pitch, roll] in degrees
 
         self.orientation_noise_offset = [angle * (pi / 180) for angle in self.orientation_noise_offset]  # Convert to radians
         
