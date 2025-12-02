@@ -77,7 +77,7 @@ class GraspOrchestrator:
         
         # Position noise parameters
         self.position_noise_enabled = True
-        self.translation_noise_offset = [0.0, -0.02, 0.0]
+        self.translation_noise_offset = [0.01, 0.0, 0.0]
         self.orientation_noise_offset = [0.0, 0.0, 0.0]
         
         # Reference positions
