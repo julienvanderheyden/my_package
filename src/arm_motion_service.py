@@ -52,21 +52,21 @@ class ArmController:
         Returns:
             (success, fraction_complete)
         """
-        # Fixed transform (ra_flange -> rh_palm)
-        t_flange_palm = [0.247, 0.000, 0.010]
-        r_flange_palm = [-1.575, 0.000, -1.563]  # Euler angles for fixed transform
-        T_flange_palm = tf.euler_matrix(*r_flange_palm)
-        T_flange_palm[0:3, 3] = t_flange_palm
+        # Fixed transform (ra_flange -> rh_manipulator)
+        t_flange_manipulator = [0.297, 0.000, 0.010]
+        r_flange_manipulator = [-1.575, 0.000, -1.563]  # Euler angles for fixed transform
+        T_flange_manipulator = tf.euler_matrix(*r_flange_manipulator)
+        T_flange_manipulator[0:3, 3] = t_flange_manipulator
         
         # Compute inverse transform
-        T_palm_flange = tf.inverse_matrix(T_flange_palm)
+        T_manipulator_flange = tf.inverse_matrix(T_flange_manipulator)
         
         # Desired palm pose (using quaternion)
-        T_base_palm = tf.quaternion_matrix(orientation_quat)
-        T_base_palm[0:3, 3] = position
+        T_base_manipulator = tf.quaternion_matrix(orientation_quat)
+        T_base_manipulator[0:3, 3] = position
         
         # Compute flange pose
-        T_base_flange = T_base_palm @ T_palm_flange
+        T_base_flange = T_base_manipulator @ T_manipulator_flange
         flange_position = tf.translation_from_matrix(T_base_flange)
         flange_quat = tf.quaternion_from_matrix(T_base_flange)
         
