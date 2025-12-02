@@ -76,7 +76,7 @@ class GraspOrchestrator:
         # Position noise parameters
         self.position_noise_enabled = True
         self.translation_noise_offset = [0.0, 0.0, 0.0]
-        self.orientation_noise_offset = [0.1, 0.0, 0.0] # ROLL, PITCH, YAW [RAD]
+        self.orientation_noise_offset = [0.0, 0.0, 0.1] # ROLL, PITCH, YAW [RAD]
         
         # Reference positions
         if self.grasp_type == 2 : #power sphere
