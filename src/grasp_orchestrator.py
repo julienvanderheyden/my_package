@@ -54,7 +54,7 @@ class GraspOrchestrator:
         # Dimension noise parameters
         self.dimension_noise_is_fixed = False
         self.fixed_dimension_noise = 0.0
-        self.std_dimension_noise = 0.2
+        self.std_dimension_noise = 0.1
 
         self.noisy_parameters = []
 
@@ -77,7 +77,7 @@ class GraspOrchestrator:
         
         # Position noise parameters
         self.position_noise_enabled = True
-        self.translation_noise_offset = [-0.02, 0.0, 0.0]
+        self.translation_noise_offset = [-0.03, 0.0, 0.0]
         self.orientation_noise_offset = [0.0, 0.0, 0.0]
         
         # Reference positions
