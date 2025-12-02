@@ -1,6 +1,6 @@
 # Request
 geometry_msgs/Point position
-geometry_msgs/Vector3 orientation  # roll, pitch, yaw
+geometry_msgs/Quaternion orientation  # quaternion (x, y, z, w)
 float64 eef_step
 float64 speed_factor
 ---

@@ -41,12 +41,12 @@ class ArmController:
         """Return the current end-effector pose."""
         return self.move_group.get_current_pose(self.eef_link).pose
 
-    def reach_cartesian(self, position, orientation, eef_step=0.005, speed_factor=1.0):
+    def reach_cartesian(self, position, orientation_quat, eef_step=0.005, speed_factor=1.0):
         """
         Move end-effector to target position using Cartesian path.
         Args:
             position: [x, y, z] in meters
-            orientation: [roll, pitch, yaw] in radians
+            orientation_quat: [x, y, z, w] quaternion
             eef_step: distance between waypoints
             speed_factor: speed multiplier (1.0 = normal speed)
         Returns:
@@ -54,22 +54,21 @@ class ArmController:
         """
         # Fixed transform (ra_flange -> rh_palm)
         t_flange_palm = [0.247, 0.000, 0.010]
-        r_flange_palm = [-1.575, 0.000, -1.563]
+        r_flange_palm = [-1.575, 0.000, -1.563]  # Euler angles for fixed transform
         T_flange_palm = tf.euler_matrix(*r_flange_palm)
         T_flange_palm[0:3, 3] = t_flange_palm
         
         # Compute inverse transform
         T_palm_flange = tf.inverse_matrix(T_flange_palm)
         
-        # Desired palm pose
-        T_base_palm = tf.euler_matrix(*orientation)
+        # Desired palm pose (using quaternion)
+        T_base_palm = tf.quaternion_matrix(orientation_quat)
         T_base_palm[0:3, 3] = position
         
         # Compute flange pose
         T_base_flange = T_base_palm @ T_palm_flange
         flange_position = tf.translation_from_matrix(T_base_flange)
         flange_quat = tf.quaternion_from_matrix(T_base_flange)
-        flange_rpy = tf.euler_from_quaternion(flange_quat)
         
         # Create target pose
         current_pose = deepcopy(self.get_current_pose())
@@ -79,11 +78,10 @@ class ArmController:
         target_pose.position.y = flange_position[1]
         target_pose.position.z = flange_position[2]
         
-        q = tf.quaternion_from_euler(*flange_rpy)
-        target_pose.orientation.x = q[0]
-        target_pose.orientation.y = q[1]
-        target_pose.orientation.z = q[2]
-        target_pose.orientation.w = q[3]
+        target_pose.orientation.x = flange_quat[0]
+        target_pose.orientation.y = flange_quat[1]
+        target_pose.orientation.z = flange_quat[2]
+        target_pose.orientation.w = flange_quat[3]
         
         waypoints = [target_pose]
         
@@ -115,13 +113,18 @@ class ArmController:
     def move_cartesian_callback(self, req):
         """Service callback to move to a Cartesian pose."""
         position = [req.position.x, req.position.y, req.position.z]
-        orientation = [req.orientation.x, req.orientation.y, req.orientation.z]
+        orientation_quat = [
+            req.orientation.x, 
+            req.orientation.y, 
+            req.orientation.z,
+            req.orientation.w
+        ]
         
-        rospy.loginfo(f"Moving to position: {position}, orientation: {orientation}")
+        rospy.loginfo(f"Moving to position: {position}, orientation (quat): {orientation_quat}")
         
         success, fraction = self.reach_cartesian(
             position, 
-            orientation, 
+            orientation_quat, 
             eef_step=req.eef_step if req.eef_step > 0 else 0.005,
             speed_factor=req.speed_factor if req.speed_factor > 0 else 1.0
         )

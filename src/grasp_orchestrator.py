@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import rospy
 from std_msgs.msg import Int32, String
-from geometry_msgs.msg import Point, Vector3
+from geometry_msgs.msg import Point, Quaternion
 from math import pi
 import numpy as np
+import tf.transformations as tf
 from my_package.srv import MoveCartesian, MoveCartesianRequest
 
 
@@ -69,16 +70,13 @@ class GraspOrchestrator:
             else:
                 noise = np.random.normal(0, self.std_dimension_noise, size=params.size)
 
-            # Apply noise
             adjusted_params = (1 + noise) * params
-
-            # Convert back to list
             self.noisy_parameters.append(adjusted_params)
         
         # Position noise parameters
         self.position_noise_enabled = True
         self.translation_noise_offset = [0.0, 0.0, 0.0]
-        self.orientation_noise_offset = [0.0, 0.0, 0.1] # YAW, PITCH, ROLL
+        self.orientation_noise_offset = [0.0, 0.0, 0.0] # ROLL, PITCH, YAW [RAD]
         
         # Reference positions
         if self.grasp_type == 2 : #power sphere
@@ -126,11 +124,15 @@ class GraspOrchestrator:
         return positions
 
     def _compute_all_orientations(self):
-        """Compute orientations for all positions."""
+        """Compute orientations (as quaternions) for all positions."""
         if self.grasp_type != 2:  # medium wrap, lateral pinch
-            return [[pi, -pi/2, 0]] * len(self.positions)
+            euler = [pi, -pi/2, 0]  # roll, pitch, yaw
         else:  # power sphere
-            return [[pi/2, 0, pi/2]] * len(self.positions)
+            euler = [pi/2, 0, pi/2]  # roll, pitch, yaw
+        
+        # Convert to quaternion
+        quat = tf.quaternion_from_euler(*euler)
+        return [quat.tolist()] * len(self.positions)
 
     def compute_palm_position(self, ref_position, dim, param, i):
         """Compute palm position based on grasp type and parameters."""
@@ -177,12 +179,36 @@ class GraspOrchestrator:
             
             return [x, y, z]
 
-    def move_to_pose(self, position, orientation, speed_factor=1.0):
+    def euler_to_quaternion(self, roll, pitch, yaw):
+        """Convert Euler angles (roll, pitch, yaw) to quaternion [x, y, z, w]."""
+        quat = tf.quaternion_from_euler(roll, pitch, yaw)
+        return quat.tolist()
+
+    def apply_orientation_noise(self, base_quat, noise_rpy):
+        """
+        Apply orientation noise (specified in roll, pitch, yaw) to a base quaternion.
+        
+        Args:
+            base_quat: Base orientation as quaternion [x, y, z, w]
+            noise_rpy: Noise in Euler angles [roll, pitch, yaw] in radians
+        
+        Returns:
+            Perturbed quaternion [x, y, z, w]
+        """
+        # Convert noise from Euler to quaternion
+        noise_quat = tf.quaternion_from_euler(*noise_rpy)
+        
+        # Multiply quaternions: result = base * noise
+        result_quat = tf.quaternion_multiply(base_quat, noise_quat)
+        
+        return result_quat.tolist()
+
+    def move_to_pose(self, position, orientation_quat, speed_factor=1.0):
         """Move arm to specified pose."""
         try:
             req = MoveCartesianRequest()
             req.position = Point(*position)
-            req.orientation = Vector3(*orientation)
+            req.orientation = Quaternion(*orientation_quat)
             req.eef_step = 0.005
             req.speed_factor = speed_factor
             
@@ -201,7 +227,7 @@ class GraspOrchestrator:
         """Execute multi-phase reach motion to target position."""
         starting_idx = self.current_step
         
-        # Phase 1: Retract or lift
+        # Phase 1: Retract
         if self.grasp_type != 2:  # medium wrap, lateral pinch
             phase1_pos = [
                 self.positions[0][0],
@@ -244,10 +270,10 @@ class GraspOrchestrator:
             return False
         rospy.sleep(0.5)
 
-        # Phase 4 : Apply additional noise if enabled
+        # Phase 4: Apply additional noise if enabled
         if self.position_noise_enabled:
-            noisy_pos = final_pos + np.array(self.translation_noise_offset)
-            noisy_orient = final_orient + np.array(self.orientation_noise_offset)
+            noisy_pos = (np.array(final_pos) + np.array(self.translation_noise_offset)).tolist()
+            noisy_orient = self.apply_orientation_noise(final_orient, self.orientation_noise_offset)
             
             if not self.move_to_pose(noisy_pos, noisy_orient):
                 return False
