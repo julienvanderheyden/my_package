@@ -77,7 +77,7 @@ class GraspOrchestrator:
         
         # Position noise parameters
         self.position_noise_enabled = True
-        self.translation_noise_offset = [0.0, -0.01, 0.0]
+        self.translation_noise_offset = [0.0, -0.02, 0.0]
         self.orientation_noise_offset = [0.0, 0.0, 0.0]
         
         # Reference positions
@@ -140,7 +140,7 @@ class GraspOrchestrator:
             z = ref_position[2] + 0.09
             
             if param[0] >= 0.015:
-                y = ref_position[1] - radius - 0.03
+                y = ref_position[1] - radius - 0.02
                 x = ref_position[0] - (radius + 0.01) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.04
             else:
                 y = ref_position[1] - radius - 0.015
