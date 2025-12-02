@@ -354,12 +354,14 @@ class GraspOrchestrator:
                 rospy.logerr("Failed to lift")
                 return False
             
-            rospy.sleep(1.0)
-        
+
         # Return home
         rospy.loginfo("Returning to home position...")
         self.preshape_pub.publish(Int32(self.grasp_type))
         rospy.sleep(0.5)
+        if self.grasp_type == 1:
+            home_waypoint = [self.positions[-1][0] - 0.2, self.positions[-1][1], self.positions[-1][2]]
+            self.move_to_pose(home_waypoint, self.orientations[-1])
         if not self.move_to_pose(self.positions[0], self.orientations[0]):
             rospy.logerr("Failed to return home")
             return False
