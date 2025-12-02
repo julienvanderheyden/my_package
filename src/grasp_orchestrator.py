@@ -31,19 +31,19 @@ class GraspOrchestrator:
         
         # Test configuration
 
-        # self.grasp_type = 1  # 1: medium wrap, 2: power sphere, 3: lateral pinch
-        # self.dimensions = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # cylinders
+        self.grasp_type = 1  # 1: medium wrap, 2: power sphere, 3: lateral pinch
+        self.dimensions = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # cylinders
         # self.dimensions = [0.01, 0.015, 0.015, 0.015, 0.02, 0.02, 0.02, 0.025, 0.03] # prisms 
-        # self.parameters = 0.8*self.dimensions
+        self.parameters = 0.8*self.dimensions
         # self.parameters = [0.006, 0.012, 0.015, 0.018, 0.02, 0.025, 0.0275, 0.03, 0.035] # cylinders
         # self.parameters = [0.006, 0.012, 0.012, 0.015, 0.017, 0.02,  0.02, 0.026, 0.032 ] # prisms
 
 
-        self.grasp_type = 2
-        self.dimensions =  [0.019, 0.019, 0.03, 0.035, 0.04] # spheres
+        # self.grasp_type = 2
+        # self.dimensions =  [0.019, 0.019, 0.03, 0.035, 0.04] # spheres
         # self.dimensions = [0.019, 0.019, 0.03, 0.035, 0.04] # cubes
         # self.parameters = 0.8*self.dimensions
-        self.parameters = [0.016, 0.019, 0.024, 0.028, 0.032] # spheres
+        # self.parameters = [0.016, 0.019, 0.024, 0.028, 0.032] # spheres
         # self.parameters = [0.016, 0.019, 0.024, 0.028, 0.032] # cubes
         
         # self.grasp_type = 3 
@@ -53,7 +53,7 @@ class GraspOrchestrator:
 
         # Dimension noise parameters
         self.dimension_noise_is_fixed = True
-        self.fixed_dimension_noise = 0.7
+        self.fixed_dimension_noise = 0.0
         self.std_dimension_noise = 0.0
 
         self.noisy_parameters = []
