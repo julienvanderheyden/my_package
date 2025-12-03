@@ -130,7 +130,7 @@ class GraspOrchestrator:
     def _compute_all_orientations(self):
         """Compute orientations (as quaternions) for all positions."""
         if self.grasp_type != 2:  # medium wrap, lateral pinch
-            euler = [pi, -pi/2, 0]  # roll, pitch, yaw
+            euler = [pi-0.1, -pi/2, 0]  # roll, pitch, yaw
         else:  # power sphere
             euler = [pi/2, 0, pi/2]  # roll, pitch, yaw
         
