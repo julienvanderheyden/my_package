@@ -27,6 +27,8 @@ class GraspOrchestrator:
         self.grasp_complete = False
         self.grasp_success = False
         self.current_step = 0
+        self.last_noisy_position = []
+        self.last_noisy_orientation = []
 
         ###################### MODIFY BELOW FOR DIFFERENT TESTS ######################
         
@@ -276,10 +278,10 @@ class GraspOrchestrator:
 
         # Phase 4: Apply additional noise if enabled
         if self.position_noise_enabled:
-            noisy_pos = (np.array(final_pos) + np.array(self.translation_noise_offset)).tolist()
-            noisy_orient = self.apply_orientation_noise(final_orient, self.orientation_noise_offset)
+            self.last_noisy_position = (np.array(final_pos) + np.array(self.translation_noise_offset)).tolist()
+            self.last_noisy_orientation = self.apply_orientation_noise(final_orient, self.orientation_noise_offset)
             
-            if not self.move_to_pose(noisy_pos, noisy_orient):
+            if not self.move_to_pose(self.last_noisy_position, self.last_noisy_orientation):
                 return False
             rospy.sleep(0.5)
         
@@ -289,13 +291,14 @@ class GraspOrchestrator:
     def execute_lift(self):
         """Execute lifting motion."""
         lift_pos = [
-            self.positions[self.current_step][0],
-            self.positions[self.current_step][1],
-            self.positions[self.current_step][2] + 0.2
+            self.last_noisy_position[0],
+            self.last_noisy_position[1],
+            self.last_noisy_position[2] + 0.2
         ]
         
-        
-        if not self.move_to_pose(lift_pos, self.orientations[self.current_step]):
+        lift_orient = self.last_noisy_orientation
+
+        if not self.move_to_pose(lift_pos, lift_orient):
             return False
         
         rospy.sleep(3.0)
@@ -303,8 +306,8 @@ class GraspOrchestrator:
         # Return to original position (except for power sphere)
         if self.grasp_type != 2:
             if not self.move_to_pose(
-                self.positions[self.current_step],
-                self.orientations[self.current_step]
+                self.last_noisy_position,
+                self.last_noisy_orientation 
             ):
                 return False
             rospy.sleep(0.5)
