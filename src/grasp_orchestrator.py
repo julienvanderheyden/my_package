@@ -155,7 +155,7 @@ class GraspOrchestrator:
                 x = ref_position[0] - 0.075
 
             #x = x -0.1 # avoid collision with the table
-            z = z + 0.01 # avoid collision with the table 
+            z = z + 0.02 # avoid collision with the table 
             
             return [x, y, z]
         
