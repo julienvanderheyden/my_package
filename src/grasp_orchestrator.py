@@ -80,7 +80,7 @@ class GraspOrchestrator:
         # Position noise parameters
         self.position_noise_enabled = True
         self.translation_noise_offset = [0.0, 0.0, 0.0] # [x, y, z] in meters
-        self.orientation_noise_offset = [0.0, 15.0, 0.0] # [yaw, pitch, roll] in degrees
+        self.orientation_noise_offset = [0.0, 20.0, 0.0] # [yaw, pitch, roll] in degrees
 
         self.orientation_noise_offset = [angle * (pi / 180) for angle in self.orientation_noise_offset]  # Convert to radians
         
@@ -153,6 +153,8 @@ class GraspOrchestrator:
             else:
                 y = ref_position[1] - radius - 0.015
                 x = ref_position[0] - 0.075
+
+            x = x -0.1 # avoid collision with the table
             
             return [x, y, z]
         
