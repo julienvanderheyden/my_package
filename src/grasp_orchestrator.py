@@ -151,6 +151,8 @@ class GraspOrchestrator:
             else:
                 y = ref_position[1] - radius - 0.015
                 x = ref_position[0] - 0.075
+
+            x = x - 0.1 # offset to enable pitch perturbation wihtout table collision
             
             return [x, y, z]
         
