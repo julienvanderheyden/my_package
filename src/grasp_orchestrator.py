@@ -293,12 +293,12 @@ class GraspOrchestrator:
     def execute_lift(self):
         """Execute lifting motion."""
         lift_pos = [
-            self.last_noisy_position[0],
-            self.last_noisy_position[1],
-            self.last_noisy_position[2] + 0.2
+            self.positions[self.current_step][0],
+            self.positions[self.current_step][1],
+            self.positions[self.current_step][2] + 0.2
         ]
         
-        lift_orient = self.last_noisy_orientation
+        lift_orient = self.orientations[self.current_step]
 
         if not self.move_to_pose(lift_pos, lift_orient):
             return False
