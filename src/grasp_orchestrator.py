@@ -80,7 +80,7 @@ class GraspOrchestrator:
         # Position noise parameters
         self.position_noise_enabled = True
         self.translation_noise_offset = [0.0, 0.0, 0.0] # [x, y, z] in meters
-        self.orientation_noise_offset = [0.0, 45.0, 0.0] # [yaw, pitch, roll] in degrees
+        self.orientation_noise_offset = [0.0, -5.0, 0.0] # [yaw, pitch, roll] in degrees
 
         self.orientation_noise_offset = [angle * (pi / 180) for angle in self.orientation_noise_offset]  # Convert to radians
         
@@ -154,7 +154,7 @@ class GraspOrchestrator:
                 y = ref_position[1] - radius - 0.015
                 x = ref_position[0] - 0.075
 
-            x = x -0.1 # avoid collision with the table
+            #x = x -0.1 # avoid collision with the table
             
             return [x, y, z]
         
@@ -306,7 +306,7 @@ class GraspOrchestrator:
         rospy.sleep(3.0)
         
         # Return to original position (except for power sphere)
-        if self.grasp_type != 2 and self.grasp_type != 1:
+        if self.grasp_type != 2:
             if not self.move_to_pose(
                 self.last_noisy_position,
                 self.last_noisy_orientation 
