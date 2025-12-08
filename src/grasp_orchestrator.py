@@ -35,11 +35,11 @@ class GraspOrchestrator:
         # Test configuration
 
         self.grasp_type = 1  # 1: medium wrap, 2: power sphere, 3: lateral pinch
-        self.dimensions = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # cylinders
-        # self.dimensions = [0.01, 0.015, 0.015, 0.015, 0.02, 0.02, 0.02, 0.025, 0.03] # prisms 
-        self.parameters = (0.8*np.array(self.dimensions)).tolist()    
+        # self.dimensions = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # cylinders
+        self.dimensions = [0.01, 0.015, 0.015, 0.015, 0.02, 0.02, 0.02, 0.025, 0.03] # prisms 
+        # self.parameters = (0.8*np.array(self.dimensions)).tolist()    
         # self.parameters = [0.006, 0.012, 0.015, 0.018, 0.02, 0.025, 0.0275, 0.03, 0.035] # cylinders
-        # self.parameters = [0.006, 0.012, 0.012, 0.015, 0.017, 0.02,  0.02, 0.026, 0.032 ] # prisms
+        self.parameters = [0.006, 0.012, 0.012, 0.015, 0.017, 0.02,  0.02, 0.026, 0.032 ] # prisms
 
 
         # self.grasp_type = 2
@@ -80,7 +80,7 @@ class GraspOrchestrator:
         # Position noise parameters
         self.position_noise_enabled = True
         self.translation_noise_offset = [0.0, 0.0, 0.0] # [x, y, z] in meters
-        self.orientation_noise_offset = [0.0, -35.0, 0.0] # [yaw, pitch, roll] in degrees
+        self.orientation_noise_offset = [0.0, 0.0, 0.0] # [yaw, pitch, roll] in degrees
 
         self.orientation_noise_offset = [angle * (pi / 180) for angle in self.orientation_noise_offset]  # Convert to radians
         
