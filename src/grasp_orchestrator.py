@@ -56,7 +56,7 @@ class GraspOrchestrator:
 
         # Dimension noise parameters
         self.dimension_noise_is_fixed = True
-        self.fixed_dimension_noise = 0.5
+        self.fixed_dimension_noise = 0.6
         self.std_dimension_noise = 0.1
 
         self.noisy_parameters = []
