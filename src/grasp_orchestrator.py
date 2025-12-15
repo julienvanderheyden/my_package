@@ -308,11 +308,19 @@ class GraspOrchestrator:
         
         # Return to original position (except for power sphere)
         if self.grasp_type != 2:
-            if not self.move_to_pose(
-                self.last_noisy_position,
-                self.last_noisy_orientation 
-            ):
-                return False
+            if self.position_noise_enabled:
+                if not self.move_to_pose(
+                    self.last_noisy_position,
+                    self.last_noisy_orientation 
+                ):
+                    return False
+            else:
+                if not self.move_to_pose(
+                    self.positions[self.current_step],
+                    self.orientations[self.current_step]
+                ):
+                    return False
+                
             rospy.sleep(0.5)
         
         return True
