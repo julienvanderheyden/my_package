@@ -37,9 +37,9 @@ class GraspOrchestrator:
         self.grasp_type = 1  # 1: medium wrap, 2: power sphere, 3: lateral pinch
         # self.dimensions = [0.01, 0.015, 0.02, 0.0225, 0.025, 0.0275, 0.03, 0.035, 0.04] # cylinders
         self.dimensions = [0.01, 0.015, 0.015, 0.015, 0.02, 0.02, 0.02, 0.025, 0.03] # prisms 
-        # self.parameters = (0.8*np.array(self.dimensions)).tolist()    
+        self.parameters = (0.8*np.array(self.dimensions)).tolist()    
         # self.parameters = [0.006, 0.012, 0.015, 0.018, 0.02, 0.025, 0.0275, 0.03, 0.035] # cylinders
-        self.parameters = [0.006, 0.012, 0.012, 0.015, 0.017, 0.02,  0.02, 0.026, 0.032 ] # prisms
+        # self.parameters = [0.006, 0.012, 0.012, 0.015, 0.017, 0.02,  0.02, 0.026, 0.032 ] # prisms
 
 
         # self.grasp_type = 2
@@ -78,7 +78,7 @@ class GraspOrchestrator:
         rospy.loginfo(f"Parameters : {self.parameters}, Noisy Parameters: {self.noisy_parameters}")
         
         # Position noise parameters
-        self.position_noise_enabled = True
+        self.position_noise_enabled = False
         self.translation_noise_offset = [0.0, 0.0, 0.0] # [x, y, z] in meters
         self.orientation_noise_offset = [0.0, 30.0, 0.0] # [yaw, pitch, roll] in degrees
 
@@ -154,7 +154,7 @@ class GraspOrchestrator:
                 y = ref_position[1] - radius - 0.015
                 x = ref_position[0] - 0.075
 
-            x = x -0.1 # avoid collision with the table
+            # x = x -0.1 # avoid collision with the table
             # z = z + 0.02 # avoid collision with the table 
             
             return [x, y, z]
