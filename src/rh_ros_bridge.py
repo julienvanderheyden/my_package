@@ -18,7 +18,7 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 class ShadowHandBridge :
-    def __init__(self, store_data, csv_filename, row_limit, rfj0_reset_value):
+    def __init__(self, store_data, csv_filename, row_limit):
         
 
         rospy.init_node('shadowhand_ros_bridge', anonymous=True)
@@ -66,7 +66,6 @@ class ShadowHandBridge :
                             ]
         
         self.coupled_fingers = {2,5,8, 11}
-        self.rfj0_reset_value = rfj0_reset_value
 
         # Logging rate
         self.rate = rospy.Rate(2)  # Print state 2 times per second
@@ -146,11 +145,6 @@ class ShadowHandBridge :
         j = 0
         for i in range(len(self.joint_command_publishers)):
 
-            #rfj0 reset 
-            # if self.joints_command_topics[i] == "/sh_rh_rfj0_position_controller/command" :
-            #     self.joint_command_publishers[i].publish(Float64(self.rfj0_reset_value))
-            #     j = j + 2
-
             if i in self.coupled_fingers : # Check if joints are coupled
                 j1_value = self.clamp(data[j], self.joints_limits[j][0], self.joints_limits[j][1])
                 self.joint_states[j] = j1_value
@@ -185,12 +179,11 @@ if __name__ == "__main__":
     parser.add_argument("store_data", type=str2bool, help="Boolean flag to enable or disable data storage")
     parser.add_argument("--csv_filename", type=str, default="shadowhand_joint_data.csv", help="Optional CSV filename")
     parser.add_argument("--row_limit", type=int, default=1000, help="Optional limit for the number of rows")
-    parser.add_argument("--rfj0_reset_value", type=float, default=0.0, help="Value to reset RFJ0 joint to (default: 0.0)")
 
     args = parser.parse_args()
 
     try:
-        node = ShadowHandBridge(args.store_data, args.csv_filename, args.row_limit, args.rfj0_reset_value)
+        node = ShadowHandBridge(args.store_data, args.csv_filename, args.row_limit)
         node.print_joint_states()
         rospy.spin()
     except rospy.ROSInterruptException:
