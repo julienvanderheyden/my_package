@@ -40,7 +40,7 @@ class GraspOrchestrator:
         # self.parameters = (0.8*np.array(self.dimensions)).tolist()    
         # self.parameters = [0.006, 0.012, 0.015, 0.018, 0.02, 0.025, 0.0275, 0.03, 0.035] # cylinders
         # self.parameters = [0.006, 0.012, 0.012, 0.015, 0.017, 0.02,  0.02, 0.026, 0.032 ] # prisms
-        self.parameters = [0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015] 
+        self.parameters = [0.025, 0.025, 0.025, 0.025, 0.025, 0.025, 0.025, 0.025, 0.025] 
 
 
         # self.grasp_type = 2
