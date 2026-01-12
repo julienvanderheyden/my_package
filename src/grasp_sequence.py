@@ -53,12 +53,12 @@ class GraspOrchestrator:
                 'orientation_noise_offset': [0.0, 0.0, 0.0]  # [yaw, pitch, roll] in degrees
             },
             2: {  # power sphere
-                'dimension_noise_is_fixed': False,
+                'dimension_noise_is_fixed': True,
                 'fixed_dimension_noise': 0.0,
-                'std_dimension_noise': 0.05,
-                'position_noise_enabled': True,
-                'translation_noise_offset': [0.005, 0.0, 0.0],
-                'orientation_noise_offset': [0.0, 15.0, 0.0]
+                'std_dimension_noise': 0.0,
+                'position_noise_enabled': False,
+                'translation_noise_offset': [0.0, 0.0, 0.0],
+                'orientation_noise_offset': [0.0, 0.0, 0.0]
             },
             3: {  # lateral pinch
                 'dimension_noise_is_fixed': True,
@@ -71,15 +71,15 @@ class GraspOrchestrator:
         }
         
         self.grasp_sequence = [
-            {'position_idx': 1, 'grasp_type': 3, 'dimension': [0.0375, 0.001], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 2, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 3, 'grasp_type': 3, 'dimension': [0.0375, 0.0075], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 4, 'grasp_type': 3, 'dimension': [0.0375, 0.01], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 5, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 6, 'grasp_type': 3, 'dimension': [0.0375, 0.015], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 7, 'grasp_type': 3, 'dimension': [0.0375, 0.0175], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 9, 'grasp_type': 3, 'dimension': [0.0375, 0.0225], 'parameters': [0.0375, 0.02]},
+            {'position_idx': 1, 'grasp_type': 2, 'dimension': 0.02, 'parameters': 0.025},
+            #{'position_idx': 2, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.02]},
+            {'position_idx': 3, 'grasp_type': 2, 'dimension': 0.025, 'parameters': 0.025},
+            #{'position_idx': 4, 'grasp_type': 3, 'dimension': [0.0375, 0.01], 'parameters': [0.0375, 0.02]},
+            {'position_idx': 5, 'grasp_type': 2, 'dimension': 0.03, 'parameters': 0.025},
+            #{'position_idx': 6, 'grasp_type': 3, 'dimension': [0.0375, 0.015], 'parameters': [0.0375, 0.02]},
+            {'position_idx': 7, 'grasp_type': 2, 'dimension': 0.035, 'parameters': 0.025},
+            #{'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
+            {'position_idx': 9, 'grasp_type': 2, 'dimension': 0.04, 'parameters': 0.025},
         ]
 
         ###################### END OF CONFIGURATION ######################
