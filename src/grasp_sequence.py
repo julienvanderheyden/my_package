@@ -71,15 +71,15 @@ class GraspOrchestrator:
         }
         
         self.grasp_sequence = [
-            {'position_idx': 1, 'grasp_type': 3, 'dimension': [0.025, 0.001], 'parameters': [0.025, 0.005]},
-            {'position_idx': 2, 'grasp_type': 3, 'dimension': [0.025, 0.005], 'parameters': [0.025, 0.005]},
-            {'position_idx': 3, 'grasp_type': 3, 'dimension': [0.025, 0.0075], 'parameters': [0.025, 0.005]},
-            {'position_idx': 4, 'grasp_type': 3, 'dimension': [0.025, 0.01], 'parameters': [0.025, 0.005]},
-            {'position_idx': 5, 'grasp_type': 3, 'dimension': [0.025, 0.0125], 'parameters': [0.025, 0.005]},
-            {'position_idx': 6, 'grasp_type': 3, 'dimension': [0.025, 0.015], 'parameters': [0.025, 0.005]},
-            {'position_idx': 7, 'grasp_type': 3, 'dimension': [0.025, 0.0175], 'parameters': [0.025, 0.005]},
-            {'position_idx': 8, 'grasp_type': 3, 'dimension': [0.025, 0.02], 'parameters': [0.025, 0.005]},
-            {'position_idx': 9, 'grasp_type': 3, 'dimension': [0.025, 0.0225], 'parameters': [0.025, 0.005]},
+            {'position_idx': 1, 'grasp_type': 3, 'dimension': [0.0375, 0.001], 'parameters': [0.0375, 0.005]},
+            {'position_idx': 2, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
+            {'position_idx': 3, 'grasp_type': 3, 'dimension': [0.0375, 0.0075], 'parameters': [0.0375, 0.005]},
+            {'position_idx': 4, 'grasp_type': 3, 'dimension': [0.0375, 0.01], 'parameters': [0.0375, 0.005]},
+            {'position_idx': 5, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.005]},
+            {'position_idx': 6, 'grasp_type': 3, 'dimension': [0.0375, 0.015], 'parameters': [0.0375, 0.005]},
+            {'position_idx': 7, 'grasp_type': 3, 'dimension': [0.0375, 0.0175], 'parameters': [0.0375, 0.005]},
+            {'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.005]},
+            {'position_idx': 9, 'grasp_type': 3, 'dimension': [0.0375, 0.0225], 'parameters': [0.0375, 0.005]},
         ]
 
         ###################### END OF CONFIGURATION ######################
@@ -219,7 +219,7 @@ class GraspOrchestrator:
             if ref_idx <= 5:
                 support_height = 0.19
             else:
-                support_height = 0.225
+                support_height = 0.22
             
             palm_knuckle_dist = 0.033
             finger_width = 0.018
