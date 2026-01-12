@@ -71,15 +71,15 @@ class GraspOrchestrator:
         }
         
         self.grasp_sequence = [
-            {'position_idx': 1, 'grasp_type': 2, 'dimension': 0.02, 'parameters': 0.0375},
+            {'position_idx': 1, 'grasp_type': 2, 'dimension': 0.02, 'parameters': 0.045},
             #{'position_idx': 2, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 3, 'grasp_type': 2, 'dimension': 0.025, 'parameters': 0.0375},
+            {'position_idx': 3, 'grasp_type': 2, 'dimension': 0.025, 'parameters': 0.045},
             #{'position_idx': 4, 'grasp_type': 3, 'dimension': [0.0375, 0.01], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 5, 'grasp_type': 2, 'dimension': 0.03, 'parameters': 0.0375},
+            {'position_idx': 5, 'grasp_type': 2, 'dimension': 0.03, 'parameters': 0.045},
             #{'position_idx': 6, 'grasp_type': 3, 'dimension': [0.0375, 0.015], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 7, 'grasp_type': 2, 'dimension': 0.035, 'parameters': 0.0375},
+            {'position_idx': 7, 'grasp_type': 2, 'dimension': 0.035, 'parameters': 0.045},
             #{'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 9, 'grasp_type': 2, 'dimension': 0.04, 'parameters': 0.0375},
+            {'position_idx': 9, 'grasp_type': 2, 'dimension': 0.04, 'parameters': 0.045},
         ]
 
         ###################### END OF CONFIGURATION ######################
