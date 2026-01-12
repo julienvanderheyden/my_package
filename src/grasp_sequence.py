@@ -205,10 +205,13 @@ class GraspOrchestrator:
             stand_height = 0.17
             depth_ratio = 4/3
             
-            if param[0] > 0.025:
-                z = ref_position[2] + stand_height + depth_ratio * radius
-            else:
-                z = ref_position[2] + stand_height + (1 - depth_ratio) * radius + 0.11
+            # remove power sphere parametric positioning for structured experiments 
+            # if param[0] > 0.025:
+            #     z = ref_position[2] + stand_height + depth_ratio * radius
+            # else:
+            #     z = ref_position[2] + stand_height + (1 - depth_ratio) * radius + 0.11
+
+            z = ref_position[2] + stand_height + depth_ratio * radius
             
             y = ref_position[1] - 0.03
             x = ref_position[0] - 0.083
