@@ -46,12 +46,12 @@ class GraspOrchestrator:
         # updated reference positions 
         self.reference_positions = [
             [0.90, 0.173, 1.07],     # 0: home
-            [1.278, 0.916, 0.866],   # 1: leftmost
-            [1.278, 0.766, 0.866],   # 2
+            [1.283, 0.916, 0.866],   # 1: leftmost
+            [1.283, 0.766, 0.866],   # 2
             [1.268, 0.628, 0.866],   # 3
             [1.268, 0.389, 0.866],   # 4
             [1.268, 0.266, 0.866],   # 5
-            [1.258, 0.139, 0.866],   # 6
+            [1.258, 0.149, 0.866],   # 6
             [1.268, -0.098, 0.866],  # 7
             [1.268, -0.219, 0.866],  # 8
             [1.268, -0.339, 0.866],  # 9: rightmost
@@ -456,6 +456,8 @@ class GraspOrchestrator:
             if not self.execute_lift(grasp_type, grasp_info['position_noise_enabled']):
                 rospy.logerr("Failed to lift")
                 return False
+            
+            self.preshape_pub.publish(Int32(grasp_type))
 
         # Return home
         rospy.loginfo("Returning to home position...")
