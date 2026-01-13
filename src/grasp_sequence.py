@@ -28,17 +28,33 @@ class GraspOrchestrator:
         self.last_noisy_position = []
         self.last_noisy_orientation = []
 
+
+        # Initial reference positions 
+        # self.reference_positions = [
+        #     [0.90, 0.173, 1.07],     # 0: home
+        #     [1.268, 0.738, 0.866],   # 1: leftmost
+        #     [1.268, 0.618, 0.866],   # 2
+        #     [1.268, 0.499, 0.866],   # 3
+        #     [1.268, 0.379, 0.866],   # 4
+        #     [1.268, 0.258, 0.866],   # 5
+        #     [1.268, 0.139, 0.866],   # 6
+        #     [1.268, 0.023, 0.866],   # 7
+        #     [1.268, -0.098, 0.866],  # 8
+        #     [1.268, -0.219, 0.866],  # 9: rightmost
+        # ]
+
+        # updated reference positions 
         self.reference_positions = [
             [0.90, 0.173, 1.07],     # 0: home
-            [1.268, 0.738, 0.866],   # 1: leftmost
-            [1.268, 0.618, 0.866],   # 2
-            [1.268, 0.499, 0.866],   # 3
+            [1.268, 0.908, 0.866],   # 1: leftmost
+            [1.268, 0.758, 0.866],   # 2
+            [1.268, 0.618, 0.866],   # 3
             [1.268, 0.379, 0.866],   # 4
             [1.268, 0.258, 0.866],   # 5
             [1.268, 0.139, 0.866],   # 6
-            [1.268, 0.023, 0.866],   # 7
-            [1.268, -0.098, 0.866],  # 8
-            [1.268, -0.219, 0.866],  # 9: rightmost
+            [1.268, -0.098, 0.866],  # 7
+            [1.268, -0.219, 0.866],  # 8
+            [1.268, -0.339, 0.866],  # 9: rightmost
         ]
     
         ###################### MODIFY BELOW FOR DIFFERENT TESTS ######################
@@ -46,40 +62,40 @@ class GraspOrchestrator:
         self.grasp_type_configs = {
             1: {  # medium wrap
                 'dimension_noise_is_fixed': True,
-                'fixed_dimension_noise': -0.1,
+                'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
-                'position_noise_enabled': False,
-                'translation_noise_offset': [0.0, 0.0, 0.0],
+                'position_noise_enabled': True,
+                'translation_noise_offset': [-0.005, 0.0, 0.0],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]  # [yaw, pitch, roll] in degrees
             },
             2: {  # power sphere
                 'dimension_noise_is_fixed': True,
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
-                'position_noise_enabled': False,
-                'translation_noise_offset': [0.0, 0.0, 0.0],
+                'position_noise_enabled': True,
+                'translation_noise_offset': [-0.005, 0.0, 0.0],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]
             },
             3: {  # lateral pinch
                 'dimension_noise_is_fixed': True,
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
-                'position_noise_enabled': False,
-                'translation_noise_offset': [0.0, 0.0, 0.0],
+                'position_noise_enabled': True,
+                'translation_noise_offset': [-0.005, 0.0, 0.0],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]
             }
         }
         
         self.grasp_sequence = [
-            {'position_idx': 1, 'grasp_type': 2, 'dimension': 0.0325, 'parameters': 0.045},
-            #{'position_idx': 2, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 3, 'grasp_type': 2, 'dimension': 0.0375, 'parameters': 0.045},
-            #{'position_idx': 4, 'grasp_type': 3, 'dimension': [0.0375, 0.01], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 5, 'grasp_type': 2, 'dimension': 0.0425, 'parameters': 0.045},
-            #{'position_idx': 6, 'grasp_type': 3, 'dimension': [0.0375, 0.015], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 7, 'grasp_type': 2, 'dimension': 0.045, 'parameters': 0.045},
-            #{'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
-            #{'position_idx': 9, 'grasp_type': 2, 'dimension': 0.04, 'parameters': 0.045},
+            {'position_idx': 1, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.035},
+            {'position_idx': 2, 'grasp_type': 1, 'dimension': 0.025, 'parameters': 0.025},
+            {'position_idx': 3, 'grasp_type': 2, 'dimension': 0.03, 'parameters': 0.03},
+            {'position_idx': 4, 'grasp_type': 2, 'dimension': 0.0375, 'parameters': 0.0375},
+            {'position_idx': 5, 'grasp_type': 1, 'dimension': 0.015, 'parameters': 0.015},
+            {'position_idx': 6, 'grasp_type': 2, 'dimension': 0.045, 'parameters': 0.045},
+            {'position_idx': 7, 'grasp_type': 3, 'dimension': 0.005, 'parameters': 0.005},
+            {'position_idx': 8, 'grasp_type': 3, 'dimension': 0.0125, 'parameters': 0.0125},
+            {'position_idx': 9, 'grasp_type': 3, 'dimension': 0.02, 'parameters': 0.02},
         ]
 
         ###################### END OF CONFIGURATION ######################
@@ -219,10 +235,12 @@ class GraspOrchestrator:
             return [x, y, z]
         
         else:  # lateral pinch
-            if ref_idx <= 5:
-                support_height = 0.19
-            else:
-                support_height = 0.22
+            #
+            # if ref_idx <= 5:
+            #     support_height = 0.19
+            # else:
+            #     support_height = 0.22
+            support_height = 0.22
             
             palm_knuckle_dist = 0.033
             finger_width = 0.018
