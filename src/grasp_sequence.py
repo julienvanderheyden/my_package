@@ -53,7 +53,8 @@ class GraspOrchestrator:
             #[1.278, 0.399, 0.866],   # 4
             [1.225, 0.375, 0.875],   # 4
             [1.268, 0.266, 0.866],   # 5
-            [1.268, 0.159, 0.866],   # 6
+            #[1.268, 0.159, 0.866],   # 6
+            [1.225, 0.006, 0.875],   # 6
             [1.263, -0.083, 0.866],  # 7
             [1.268, -0.219, 0.866],  # 8
             [1.268, -0.339, 0.866],  # 9: rightmost
@@ -92,9 +93,9 @@ class GraspOrchestrator:
             #{'position_idx': 1, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.035},
             #{'position_idx': 2, 'grasp_type': 1, 'dimension': 0.025, 'parameters': 0.025},
             # {'position_idx': 3, 'grasp_type': 2, 'dimension': 0.0375, 'parameters': 0.0375},
-            {'position_idx': 4, 'grasp_type': 2, 'dimension': 0.0375, 'parameters': 0.0375},
+            # {'position_idx': 4, 'grasp_type': 2, 'dimension': 0.0375, 'parameters': 0.0375},
             # {'position_idx': 5, 'grasp_type': 1, 'dimension': 0.015, 'parameters': 0.015},
-            # {'position_idx': 6, 'grasp_type': 2, 'dimension': 0.0425, 'parameters': 0.0375},
+            {'position_idx': 6, 'grasp_type': 2, 'dimension': 0.0375, 'parameters': 0.0375},
             #{'position_idx': 7, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
             # {'position_idx': 7, 'grasp_type': 2, 'dimension': 0.045, 'parameters': 0.0375},
             # {'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
