@@ -49,7 +49,7 @@ class GraspOrchestrator:
             [1.283, 0.916, 0.866],   # 1: leftmost
             [1.283, 0.766, 0.866],   # 2
             #[1.268, 0.648, 0.866],   # 3
-            [1.225, 0.616, 0.853],   # 3
+            [1.225, 0.616, 0.87],   # 3
             [1.278, 0.399, 0.866],   # 4
             [1.268, 0.266, 0.866],   # 5
             [1.268, 0.159, 0.866],   # 6
@@ -237,7 +237,7 @@ class GraspOrchestrator:
 
             z = ref_position[2] + stand_height + (1-depth_ratio) *radius
             palm_with = 0.022
-            y = ref_position[1] - radius - palm_with/2 - 0.005
+            y = ref_position[1] - radius - palm_with/2
             x = ref_position[0] - 0.033
             
             return [x, y, z]
