@@ -48,7 +48,8 @@ class GraspOrchestrator:
             [0.90, 0.173, 1.07],     # 0: home
             [1.283, 0.916, 0.866],   # 1: leftmost
             [1.283, 0.766, 0.866],   # 2
-            [1.268, 0.648, 0.866],   # 3
+            #[1.268, 0.648, 0.866],   # 3
+            [1.225, 0.616, 0.853],   # 3
             [1.278, 0.399, 0.866],   # 4
             [1.268, 0.266, 0.866],   # 5
             [1.268, 0.159, 0.866],   # 6
@@ -194,7 +195,8 @@ class GraspOrchestrator:
             if grasp_info['grasp_type'] != 2:  # medium wrap, lateral pinch
                 euler = [pi, -pi/2, 0]
             else:  # power sphere
-                euler = [pi/2, 0, pi/2]
+                euler = [pi, -pi/2, 0]
+                #euler = [pi/2, 0, pi/2]
             
             quat = tf.quaternion_from_euler(*euler)
             orientations.append(quat.tolist())
@@ -228,10 +230,15 @@ class GraspOrchestrator:
             # else:
             #     z = ref_position[2] + stand_height + (1 - depth_ratio) * radius + 0.11
 
-            z = ref_position[2] + stand_height + depth_ratio * radius
+            # z = ref_position[2] + stand_height + depth_ratio * radius
             
-            y = ref_position[1] - 0.03
-            x = ref_position[0] - 0.083
+            # y = ref_position[1] - 0.03
+            # x = ref_position[0] - 0.083
+
+            z = ref_position[2] + stand_height + (1-depth_ratio) *radius
+            palm_with = 0.022
+            y = ref_position[1] - radius - palm_with/2 - 0.005
+            x = ref_position[0] - 0.033
             
             return [x, y, z]
         
