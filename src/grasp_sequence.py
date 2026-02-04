@@ -30,16 +30,16 @@ class GraspOrchestrator:
 
         self.reference_positions = [
             [0.90, 0.173, 1.07],     # 0: home
-            [1.34, 0.68, 0.74],   # 1: leftmost
-            [1.34, 0.56, 0.74],   # 2
-            [1.34, 0.44, 0.74],   # 3
-            [1.34, 0.32, 0.74],   # 4
-            [1.34, 0.2, 0.74],   # 5
-            [1.34, 0.08, 0.74],   # 6
-            [1.34, -0.04, 0.74],  # 7
-            [1.34, -0.15, 0.74],  # 8
-            [1.34, -0.27, 0.74],  # 9
-            [1.34, -0.39, 0.74],  # 10: rightmost
+            [1.35, 0.7, 0.74],   # 1: leftmost
+            [1.35, 0.58, 0.74],   # 2
+            [1.35, 0.46, 0.74],   # 3
+            [1.35, 0.34, 0.74],   # 4
+            [1.35, 0.22, 0.74],   # 5
+            [1.35, 0.1, 0.74],   # 6
+            [1.35, -0.02, 0.74],  # 7
+            [1.35, -0.13, 0.74],  # 8
+            [1.35, -0.25, 0.74],  # 9
+            [1.35, -0.37, 0.74],  # 10: rightmost
         ]
     
         ###################### MODIFY BELOW FOR DIFFERENT TESTS ######################
@@ -49,7 +49,7 @@ class GraspOrchestrator:
                 'dimension_noise_is_fixed': True,
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
-                'position_noise_enabled': True,
+                'position_noise_enabled': False,
                 'translation_noise_offset': [-0.005, 0.0, 0.0],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]  # [yaw, pitch, roll] in degrees
             },
