@@ -33,10 +33,10 @@ class GraspOrchestrator:
             [1.35, 0.68, 0.74],   # 1: leftmost
             [1.35, 0.56, 0.74],   # 2
             [1.35, 0.44, 0.74],   # 3
-            [1.35, 0.32, 0.74],   # 4
-            [1.35, 0.20, 0.74],   # 5
-            [1.35, 0.08, 0.74],   # 6
-            [1.35, -0.04, 0.74],  # 7
+            [1.35, 0.325, 0.74],   # 4
+            [1.35, 0.205, 0.74],   # 5
+            [1.35, 0.085, 0.74],   # 6
+            [1.35, -0.045, 0.74],  # 7
             [1.35, -0.15, 0.74],  # 8
             [1.35, -0.27, 0.74],  # 9
             [1.35, -0.39, 0.74],  # 10: rightmost
@@ -194,15 +194,11 @@ class GraspOrchestrator:
             z = ref_position[2] + 0.09
             
             if radius >= 0.015:
-                #y = ref_position[1] - radius 
-                #x = ref_position[0] - (radius) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.005
-                y = ref_position[1]
-                x = ref_position[0]
+                y = ref_position[1] - radius 
+                x = ref_position[0] - (radius) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.005
             else:
-                # y = ref_position[1] - radius
-                # x = ref_position[0] - 0.05
-                y = ref_position[1]
-                x = ref_position[0]
+                y = ref_position[1] - radius
+                x = ref_position[0] - 0.05
             
             return [x, y, z]
         
