@@ -72,14 +72,14 @@ class GraspOrchestrator:
         }
         
         self.grasp_sequence = [
-            {'position_idx': 1, 'grasp_type': 1, 'dimension': 0.01, 'parameters': 0.015},
+            {'position_idx': 1, 'grasp_type': 1, 'dimension': 0.015, 'parameters': 0.015},
             {'position_idx': 2, 'grasp_type': 1, 'dimension': 0.015, 'parameters': 0.015},
             {'position_idx': 3, 'grasp_type': 1, 'dimension': 0.02, 'parameters': 0.015},
             {'position_idx': 4, 'grasp_type': 1, 'dimension': 0.0225, 'parameters': 0.015},
             {'position_idx': 5, 'grasp_type': 1, 'dimension': 0.025, 'parameters': 0.015},
             {'position_idx': 6, 'grasp_type': 1, 'dimension': 0.0275, 'parameters': 0.015},
             {'position_idx': 7, 'grasp_type': 1, 'dimension': 0.03, 'parameters': 0.015},
-            {'position_idx': 8, 'grasp_type': 1, 'dimension': 0.35, 'parameters': 0.015},
+            {'position_idx': 8, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.015},
             {'position_idx': 9, 'grasp_type': 1, 'dimension': 0.040, 'parameters': 0.015},
         ]
 
@@ -194,7 +194,7 @@ class GraspOrchestrator:
             z = ref_position[2] + 0.09
             
             if radius >= 0.015:
-                y = ref_position[1] - radius 
+                y = ref_position[1] - radius - 0.003
                 x = ref_position[0] - (radius) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.005
             else:
                 y = ref_position[1] - radius
