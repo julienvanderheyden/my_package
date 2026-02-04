@@ -28,37 +28,18 @@ class GraspOrchestrator:
         self.last_noisy_position = []
         self.last_noisy_orientation = []
 
-
-        # Initial reference positions 
-        # self.reference_positions = [
-        #     [0.90, 0.173, 1.07],     # 0: home
-        #     [1.268, 0.738, 0.866],   # 1: leftmost
-        #     [1.268, 0.618, 0.866],   # 2
-        #     [1.268, 0.499, 0.866],   # 3
-        #     [1.268, 0.379, 0.866],   # 4
-        #     [1.268, 0.258, 0.866],   # 5
-        #     [1.268, 0.139, 0.866],   # 6
-        #     [1.268, 0.023, 0.866],   # 7
-        #     [1.268, -0.098, 0.866],  # 8
-        #     [1.268, -0.219, 0.866],  # 9: rightmost
-        # ]
-
-        # updated reference positions 
         self.reference_positions = [
             [0.90, 0.173, 1.07],     # 0: home
-            [1.283, 0.916, 0.866],   # 1: leftmost
-            [1.283, 0.766, 0.866],   # 2
-            #[1.268, 0.648, 0.866],   # 3
-            [1.225, 0.62, 0.875],   # 3
-            #[1.278, 0.399, 0.866],   # 4
-            [1.225, 0.375, 0.875],   # 4
-            [1.268, 0.266, 0.866],   # 5
-            #[1.268, 0.159, 0.866],   # 6
-            [1.225, 0.14, 0.88],   # 6
-            #[1.263, -0.083, 0.866],  # 7
-            [1.225, -0.1, 0.88],  # 7
-            [1.268, -0.219, 0.866],  # 8
-            [1.268, -0.339, 0.866],  # 9: rightmost
+            [1.34, 0.68, 0.74],   # 1: leftmost
+            [1.34, 0.56, 0.74],   # 2
+            [1.34, 0.44, 0.74],   # 3
+            [1.34, 0.32, 0.74],   # 4
+            [1.34, 0.2, 0.74],   # 5
+            [1.34, 0.08, 0.74],   # 6
+            [1.34, -0.04, 0.74],  # 7
+            [1.34, -0.15, 0.74],  # 8
+            [1.34, -0.27, 0.74],  # 9
+            [1.34, -0.39, 0.74],  # 10: rightmost
         ]
     
         ###################### MODIFY BELOW FOR DIFFERENT TESTS ######################
@@ -91,16 +72,15 @@ class GraspOrchestrator:
         }
         
         self.grasp_sequence = [
-            #{'position_idx': 1, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.035},
-            #{'position_idx': 2, 'grasp_type': 1, 'dimension': 0.025, 'parameters': 0.025},
-            {'position_idx': 3, 'grasp_type': 2, 'dimension': 0.025, 'parameters': 0.03},
-            {'position_idx': 4, 'grasp_type': 2, 'dimension': 0.03, 'parameters': 0.03},
-            # {'position_idx': 5, 'grasp_type': 1, 'dimension': 0.015, 'parameters': 0.015},
-            {'position_idx': 6, 'grasp_type': 2, 'dimension': 0.0325, 'parameters': 0.03},
-            #{'position_idx': 7, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
-            {'position_idx': 7, 'grasp_type': 2, 'dimension': 0.035, 'parameters': 0.03},
-            # {'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
-            # {'position_idx': 9, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
+            {'position_idx': 1, 'grasp_type': 1, 'dimension': 0.01, 'parameters': 0.015},
+            {'position_idx': 2, 'grasp_type': 1, 'dimension': 0.015, 'parameters': 0.015},
+            {'position_idx': 3, 'grasp_type': 1, 'dimension': 0.02, 'parameters': 0.015},
+            {'position_idx': 4, 'grasp_type': 1, 'dimension': 0.0225, 'parameters': 0.015},
+            {'position_idx': 5, 'grasp_type': 1, 'dimension': 0.025, 'parameters': 0.015},
+            {'position_idx': 6, 'grasp_type': 1, 'dimension': 0.0275, 'parameters': 0.015},
+            {'position_idx': 7, 'grasp_type': 1, 'dimension': 0.03, 'parameters': 0.015},
+            {'position_idx': 8, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.015},
+            {'position_idx': 9, 'grasp_type': 1, 'dimension': 0.04, 'parameters': 0.015},
         ]
 
         ###################### END OF CONFIGURATION ######################
