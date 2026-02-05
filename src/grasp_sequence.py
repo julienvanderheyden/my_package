@@ -237,7 +237,7 @@ class GraspOrchestrator:
             finger_width = 0.018
             z = ref_position[2] + support_height - palm_knuckle_dist - finger_width/2
             y = ref_position[1] - 0.03
-            x = ref_position[0] - 0.125
+            x = ref_position[0] - 0.09
             
             return [x, y, z]
 
