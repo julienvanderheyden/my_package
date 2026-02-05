@@ -65,7 +65,7 @@ class GraspOrchestrator:
                 'dimension_noise_is_fixed': True,
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
-                'position_noise_enabled': True,
+                'position_noise_enabled': False,
                 'translation_noise_offset': [-0.005, 0.0, 0.0],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]
             }
