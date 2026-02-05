@@ -37,7 +37,7 @@ class GraspOrchestrator:
             [1.35, 0.215, 0.74],   # 5
             [1.35, 0.085, 0.74],   # 6
             [1.35, -0.035, 0.74],  # 7
-            [1.35, -0.15, 0.74],  # 8
+            [1.34, -0.15, 0.74],  # 8
             [1.35, -0.27, 0.74],  # 9
             [1.35, -0.39, 0.74],  # 10
             [1.35, -0.51, 0.74],  # 11: rightmost
@@ -81,8 +81,9 @@ class GraspOrchestrator:
             #{'position_idx': 6, 'grasp_type': 3, 'dimension': [0.0375, 0.015], 'parameters': [0.0375, 0.02]},
             {'position_idx': 7, 'grasp_type': 2, 'dimension': 0.045, 'parameters': 0.045},
             #{'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
-            {'position_idx': 9, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
-            {'position_idx': 10, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
+            {'position_idx': 9, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
+            {'position_idx': 10, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
+            {'position_idx': 11, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
         ]
 
         ###################### END OF CONFIGURATION ######################
