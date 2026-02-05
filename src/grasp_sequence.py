@@ -31,15 +31,16 @@ class GraspOrchestrator:
         self.reference_positions = [
             [0.90, 0.173, 1.07],     # 0: home
             [1.35, 0.68, 0.74],   # 1: leftmost
-            [1.35, 0.56, 0.74],   # 2
-            [1.35, 0.44, 0.74],   # 3
-            [1.35, 0.325, 0.74],   # 4
-            [1.35, 0.205, 0.74],   # 5
+            [1.35, 0.57, 0.74],   # 2
+            [1.35, 0.45, 0.74],   # 3
+            [1.35, 0.335, 0.74],   # 4
+            [1.35, 0.215, 0.74],   # 5
             [1.35, 0.085, 0.74],   # 6
             [1.35, -0.035, 0.74],  # 7
             [1.35, -0.15, 0.74],  # 8
             [1.35, -0.27, 0.74],  # 9
-            [1.35, -0.39, 0.74],  # 10: rightmost
+            [1.35, -0.39, 0.74],  # 10
+            [1.35, -0.51, 0.74],  # 11: rightmost
         ]
     
         ###################### MODIFY BELOW FOR DIFFERENT TESTS ######################
@@ -79,7 +80,7 @@ class GraspOrchestrator:
             {'position_idx': 5, 'grasp_type': 2, 'dimension': 0.0375, 'parameters': 0.0375},
             #{'position_idx': 6, 'grasp_type': 3, 'dimension': [0.0375, 0.015], 'parameters': [0.0375, 0.02]},
             {'position_idx': 7, 'grasp_type': 2, 'dimension': 0.045, 'parameters': 0.045},
-            {'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
+            #{'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
             {'position_idx': 9, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
             {'position_idx': 10, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
         ]
