@@ -59,7 +59,7 @@ class GraspOrchestrator:
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
-                'translation_noise_offset': [-0.075, 0.0, 0.0],
+                'translation_noise_offset': [-0.08, 0.0, 0.0],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]
             },
             3: {  # lateral pinch
@@ -81,9 +81,9 @@ class GraspOrchestrator:
             #{'position_idx': 6, 'grasp_type': 3, 'dimension': [0.0375, 0.015], 'parameters': [0.0375, 0.02]},
             {'position_idx': 7, 'grasp_type': 2, 'dimension': 0.045, 'parameters': 0.045},
             #{'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
-            {'position_idx': 9, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
-            {'position_idx': 10, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
-            {'position_idx': 11, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
+            #{'position_idx': 9, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
+            #{'position_idx': 10, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
+            #{'position_idx': 11, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
         ]
 
         ###################### END OF CONFIGURATION ######################
