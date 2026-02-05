@@ -30,7 +30,7 @@ class GraspOrchestrator:
 
         self.reference_positions = [
             [0.90, 0.173, 1.07],     # 0: home
-            [1.35, 0.68, 0.74],   # 1: leftmost
+            [1.35, 0.685, 0.74],   # 1: leftmost
             [1.355, 0.57, 0.74],   # 2
             [1.35, 0.45, 0.74],   # 3
             [1.35, 0.33, 0.74],   # 4
@@ -51,7 +51,7 @@ class GraspOrchestrator:
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
-                'translation_noise_offset': [-0.015, 0.0, 0.0],
+                'translation_noise_offset': [-0.02, 0.0, 0.0],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]  # [yaw, pitch, roll] in degrees
             },
             2: {  # power sphere
@@ -59,7 +59,7 @@ class GraspOrchestrator:
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
-                'translation_noise_offset': [-0.015, 0.0, 0.0],
+                'translation_noise_offset': [-0.02, 0.0, 0.0],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]
             },
             3: {  # lateral pinch
@@ -68,7 +68,7 @@ class GraspOrchestrator:
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
                 'translation_noise_offset': [0.0, 0.0, 0.0],
-                'orientation_noise_offset': [0.0, 0.0, 15.0]
+                'orientation_noise_offset': [0.0, 0.0, 20.0]
             }
         }
         
