@@ -31,16 +31,16 @@ class GraspOrchestrator:
         self.reference_positions = [
             [0.90, 0.173, 1.07],     # 0: home
             [1.35, 0.68, 0.74],   # 1: leftmost
-            [1.35, 0.57, 0.74],   # 2
+            [1.355, 0.57, 0.74],   # 2
             [1.35, 0.45, 0.74],   # 3
-            [1.35, 0.335, 0.74],   # 4
+            [1.35, 0.33, 0.74],   # 4
             [1.35, 0.215, 0.74],   # 5
             [1.35, 0.085, 0.74],   # 6
-            [1.35, -0.035, 0.74],  # 7
+            [1.345, -0.03, 0.74],  # 7
             [1.34, -0.15, 0.74],  # 8
             [1.35, -0.27, 0.74],  # 9
-            [1.35, -0.39, 0.74],  # 10
-            [1.35, -0.51, 0.74],  # 11: rightmost
+            [1.35, -0.395, 0.74],  # 10
+            [1.35, -0.515, 0.74],  # 11: rightmost
         ]
     
         ###################### MODIFY BELOW FOR DIFFERENT TESTS ######################
@@ -51,7 +51,7 @@ class GraspOrchestrator:
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
-                'translation_noise_offset': [-0.005, 0.0, 0.0],
+                'translation_noise_offset': [-0.01, 0.0, 0.0],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]  # [yaw, pitch, roll] in degrees
             },
             2: {  # power sphere
@@ -59,7 +59,7 @@ class GraspOrchestrator:
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
-                'translation_noise_offset': [-0.005, 0.0, 0.0],
+                'translation_noise_offset': [-0.01, 0.0, 0.0],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]
             },
             3: {  # lateral pinch
@@ -68,7 +68,7 @@ class GraspOrchestrator:
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
                 'translation_noise_offset': [0.0, 0.0, 0.0],
-                'orientation_noise_offset': [0.0, 0.0, 5.0]
+                'orientation_noise_offset': [0.0, 0.0, 10.0]
             }
         }
         
