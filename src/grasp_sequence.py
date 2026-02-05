@@ -226,12 +226,12 @@ class GraspOrchestrator:
             return [x, y, z]
         
         else:  # lateral pinch
-            #
-            # if ref_idx <= 5:
-            #     support_height = 0.19
-            # else:
-            #     support_height = 0.22
-            support_height = 0.19
+            
+            if ref_idx <= 5:
+                support_height = 0.19
+            else:
+                support_height = 0.22
+            #support_height = 0.19
             
             palm_knuckle_dist = 0.033
             finger_width = 0.018
