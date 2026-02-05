@@ -36,7 +36,7 @@ class GraspOrchestrator:
             [1.35, 0.33, 0.74],   # 4
             [1.35, 0.215, 0.74],   # 5
             [1.35, 0.085, 0.74],   # 6
-            [1.345, -0.03, 0.74],  # 7
+            [1.34, -0.03, 0.74],  # 7
             [1.34, -0.15, 0.74],  # 8
             [1.35, -0.27, 0.74],  # 9
             [1.35, -0.395, 0.74],  # 10
@@ -73,17 +73,17 @@ class GraspOrchestrator:
         }
         
         self.grasp_sequence = [
-            {'position_idx': 1, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.035},
-            {'position_idx': 2, 'grasp_type': 1, 'dimension': 0.025, 'parameters': 0.025},
-            {'position_idx': 3, 'grasp_type': 2, 'dimension': 0.03, 'parameters': 0.03},
-            {'position_idx': 4, 'grasp_type': 1, 'dimension': 0.02, 'parameters': 0.02},
-            {'position_idx': 5, 'grasp_type': 2, 'dimension': 0.0375, 'parameters': 0.0375},
+            #{'position_idx': 1, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.035},
+            #{'position_idx': 2, 'grasp_type': 1, 'dimension': 0.025, 'parameters': 0.025},
+            #{'position_idx': 3, 'grasp_type': 2, 'dimension': 0.03, 'parameters': 0.03},
+            #{'position_idx': 4, 'grasp_type': 1, 'dimension': 0.02, 'parameters': 0.02},
+            #{'position_idx': 5, 'grasp_type': 2, 'dimension': 0.0375, 'parameters': 0.0375},
             #{'position_idx': 6, 'grasp_type': 3, 'dimension': [0.0375, 0.015], 'parameters': [0.0375, 0.02]},
             {'position_idx': 7, 'grasp_type': 2, 'dimension': 0.045, 'parameters': 0.045},
             #{'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
-            {'position_idx': 9, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
-            {'position_idx': 10, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
-            {'position_idx': 11, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
+            #{'position_idx': 9, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
+            #{'position_idx': 10, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
+            #{'position_idx': 11, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
         ]
 
         ###################### END OF CONFIGURATION ######################
