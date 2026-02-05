@@ -198,7 +198,7 @@ class GraspOrchestrator:
                 x = ref_position[0] - (radius) * (np.cos(alpha/2) / np.sin(alpha/2)) - 0.005
             else:
                 y = ref_position[1] - radius
-                x = ref_position[0] - 0.05
+                x = ref_position[0] - 0.075
             
             return [x, y, z]
         
