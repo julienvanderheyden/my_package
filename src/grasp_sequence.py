@@ -59,7 +59,7 @@ class GraspOrchestrator:
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
-                'translation_noise_offset': [-0.07, 0.0, 0.0],
+                'translation_noise_offset': [-0.075, 0.0, 0.0],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]
             },
             3: {  # lateral pinch
@@ -68,7 +68,7 @@ class GraspOrchestrator:
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
                 'translation_noise_offset': [0.0, 0.0, 0.0],
-                'orientation_noise_offset': [0.0, 0.0, -25.0]
+                'orientation_noise_offset': [0.0, 0.0, -30.0]
             }
         }
         
