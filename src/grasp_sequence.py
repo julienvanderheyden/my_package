@@ -52,14 +52,14 @@ class GraspOrchestrator:
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
                 'translation_noise_offset': [0.0, 0.0, -0.015],
-                'orientation_noise_offset': [0.0, 0.0, 35.0]  # [yaw, pitch, roll] in degrees
+                'orientation_noise_offset': [0.0, 0.0, -10.0]  # [yaw, pitch, roll] in degrees
             },
             2: {  # power sphere
                 'dimension_noise_is_fixed': True,
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
-                'translation_noise_offset': [0.0, 0.0, 0.01],
+                'translation_noise_offset': [0.0, 0.0, 0.02],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]
             },
             3: {  # lateral pinch
@@ -67,7 +67,7 @@ class GraspOrchestrator:
                 'fixed_dimension_noise': 0.0,
                 'std_dimension_noise': 0.0,
                 'position_noise_enabled': True,
-                'translation_noise_offset': [0.0, 0.0, 0.035],
+                'translation_noise_offset': [0.0, 0.0, 0.04],
                 'orientation_noise_offset': [0.0, 0.0, 0.0]
             }
         }
