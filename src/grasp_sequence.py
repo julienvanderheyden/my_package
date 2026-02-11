@@ -386,7 +386,7 @@ class GraspOrchestrator:
         self.grasp_command_pub.publish(String(data=command))
         
         # Wait for completion
-        timeout = rospy.Time.now() + rospy.Duration(45.0)
+        timeout = rospy.Time.now() + rospy.Duration(60.0)
         rate = rospy.Rate(10)
         
         while not self.grasp_complete and rospy.Time.now() < timeout:
