@@ -264,7 +264,7 @@ class DROArmExecutor:
 
     # ── service callbacks ─────────────────────────────────────────────────────
 
-    def _cb_execute_current(self, req):
+    def _cb_execute_grasp(self, req):
         success = self.execute_grasp(self.grasp)
         return TriggerResponse(
             success=success,
