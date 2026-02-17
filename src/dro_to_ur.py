@@ -280,7 +280,6 @@ class DROArmExecutor:
 
 
 def main():
-    args = parse_args()
 
     grasp = np.array([
         0.0, 0.0, 0.1,    # xyz forearm in object frame
