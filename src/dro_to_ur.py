@@ -301,7 +301,7 @@ class DROArmExecutor:
         self._joint_pub.publish(msg)
 
         # MOVING TO INNER GRASP POSITION
-        rospy.sleep(1.0)  # wait for the first command to take effect
+        rospy.sleep(3.0)  # wait for the first command to take effect
         joints_cmd = [float(joints_inner[i]) for i in REINDEX]
         msg.data = joints_cmd
         self._joint_pub.publish(msg)
