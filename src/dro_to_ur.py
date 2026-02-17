@@ -220,9 +220,12 @@ def dro_q_to_world_manipulator(q, T_world_object, T_forearm_manipulator):
 
 class DROArmExecutor:
 
-    def __init__(self, predicted_grasp, T_world_object):
+    def __init__(self, predicted_grasp, grasp_outer, grasp_inner, T_world_object):
         self.grasp       = predicted_grasp   # (30,)
+        self.grasp_outer = grasp_outer       # (30,)
+        self.grasp_inner = grasp_inner       # (30,)
         self.T_world_obj = T_world_object    # (4,4)
+        self.grasp_
 
         self.T_forearm_manipulator = xyz_quat_to_matrix(
             T_FOREARM_TO_MANIPULATOR_XYZ,
@@ -250,6 +253,14 @@ class DROArmExecutor:
     def execute_grasp(self, q):
         xyz, quat, joints = dro_q_to_world_manipulator(
             q, self.T_world_obj, self.T_forearm_manipulator
+        )
+
+        _ ,_ , joints_inner = dro_q_to_world_manipulator(
+            self.grasp_inner, self.T_world_obj, self.T_forearm_manipulator
+        )
+
+        _ , _ , joints_outer = dro_q_to_world_manipulator(
+            self.grasp_outer, self.T_world_obj, self.T_forearm_manipulator
         )
 
         rospy.loginfo(
@@ -282,12 +293,19 @@ class DROArmExecutor:
 
         rospy.loginfo("Arm motion complete.")
 
+        # MOVING TO OUTER GRASP POSITION
+
         # Reorder from DRO order to command topic order
-        joints_cmd = [float(joints[i]) for i in REINDEX]
+        joints_cmd = [float(joints_outer[i]) for i in REINDEX]
         msg = Float64MultiArray()
         msg.data = joints_cmd
         self._joint_pub.publish(msg)
-        rospy.loginfo(f"  Joints ({CMD_JOINT_ORDER}): {[round(j, 3) for j in joints_cmd]}")
+
+        # MOVING TO INNER GRASP POSITION
+        rospy.sleep(1.0)  # wait for the first command to take effect
+        joints_cmd = [float(joints_inner[i]) for i in REINDEX]
+        msg.data = joints_cmd
+        self._joint_pub.publish(msg)
 
         return True
 
@@ -327,18 +345,26 @@ def print_reconstruction_diagnostic(q):
 
 def main():
 
-    grasp = np.array([
-        -3.6412e-01, -2.5393e-02,  3.7879e-02,   # q[0:3]  translation (m)
-        -2.9886e+00,  1.5751e+00, -7.1422e-01,   # q[3:6]  joint angles (rad)
-        -1.2932e-01, -4.2599e-01,  3.4903e-01,   # q[6:9]  wrist + FF start
-         3.4774e-01,  1.3070e+00,  6.2645e-01,
-         8.5810e-02,  8.3981e-01,  4.0796e-01,
-        -2.0448e-05,  1.8846e-01,  4.8190e-01,
-         1.5207e+00,  3.6673e-06,  1.8810e-01,
-         3.4904e-01,  1.0203e+00,  4.4761e-06,
-         1.3216e-06,  8.9231e-01,  1.0450e+00,
-        -2.0945e-01, -6.9817e-01, -2.6181e-01,  # q[27:30]
-    ], dtype=float)
+    grasp = np.array([-2.8753e-01,  4.7317e-03,  2.4047e-01,  2.9475e+00,  9.5168e-01,
+        -6.9413e-01, -6.5923e-02, -4.2896e-01,  2.5629e-01,  1.0210e+00,
+         4.1788e-01, -4.8975e-07, -2.0706e-01,  1.1246e+00,  2.0445e-02,
+         3.8373e-06,  3.4908e-01,  6.9455e-01,  1.3072e+00, -3.1413e-06,
+         4.7790e-01,  1.9100e-01,  9.8466e-01,  5.9060e-02,  5.4083e-06,
+         7.2397e-01,  9.9239e-01, -3.8556e-02, -5.5689e-01, -2.6180e-01], dtype=float)
+
+    grasp_outer = np.array([-2.8753e-01,  4.7317e-03,  2.4047e-01,  2.9475e+00,  9.5168e-01,
+        -6.9413e-01, -6.5923e-02, -4.2896e-01,  1.0495e-01,  7.0033e-01,
+         3.1341e-01, -3.6732e-07, -6.8030e-02,  7.7802e-01,  1.5334e-02,
+         2.8779e-06,  1.7454e-01,  4.5546e-01,  1.3731e+00,  3.9270e-01,
+         3.5843e-01,  5.5983e-02,  6.7305e-01,  4.4295e-02,  4.0562e-06,
+         8.0478e-01,  7.4429e-01, -8.1277e-02, -5.9220e-01, -2.6180e-01], dtype=float)
+    
+    grasp_inner = np.array([-2.8753e-01,  4.7317e-03,  2.4047e-01,  2.9475e+00,  9.5168e-01,
+        -6.9413e-01, -6.5923e-02, -4.2896e-01,  2.7020e-01,  1.1035e+00,
+         5.9082e-01,  2.3562e-01, -2.2836e-01,  1.1915e+00,  2.5300e-01,
+         2.3562e-01,  3.4908e-01,  8.2599e-01,  1.1111e+00, -2.6701e-06,
+         5.2403e-01,  2.1471e-01,  1.0726e+00,  2.8582e-01,  2.3562e-01,
+         4.5830e-01,  1.0268e+00, -1.3568e-03, -3.6864e-01,  1.3091e-02], dtype=float)
 
     # Run diagnostic to inspect the rotation reconstruction
     print_reconstruction_diagnostic(grasp)
@@ -353,6 +379,8 @@ def main():
 
     executor = DROArmExecutor(
         predicted_grasp=grasp,
+        grasp_outer=grasp_outer,
+        grasp_inner=grasp_inner,
         T_world_object=T_world_object,
     )
 
