@@ -225,7 +225,6 @@ class DROArmExecutor:
         self.grasp_outer = grasp_outer       # (30,)
         self.grasp_inner = grasp_inner       # (30,)
         self.T_world_obj = T_world_object    # (4,4)
-        self.grasp_
 
         self.T_forearm_manipulator = xyz_quat_to_matrix(
             T_FOREARM_TO_MANIPULATOR_XYZ,
