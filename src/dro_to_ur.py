@@ -287,7 +287,7 @@ def main():
         *([0.0] * 24)     # finger joints (dummy values)
     ], dtype=float)
 
-    object_xyz = [1.35, 0.685, 0.74]  # leftmost position
+    object_xyz = [1.35, 0.215, 0.74]  # 5
     object_rpy = [0.0, 0.0, 0.0] 
 
     T_world_object = xyz_rpy_to_matrix(
