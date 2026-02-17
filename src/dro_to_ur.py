@@ -283,12 +283,12 @@ def main():
 
     grasp = np.array([
         0.0, 0.0, 0.1,    # xyz forearm in object frame
-        0.0, 0.0, 0.0,     # rpy forearm in object frame
+        1.57, 0.0, 1.57     # rpy forearm in object frame
         *([0.0] * 24)     # finger joints (dummy values)
     ], dtype=float)
 
     object_xyz = [1.35, 0.685, 0.74]  # leftmost position
-    object_rpy = [0.0, 0.0, 0.0]
+    object_rpy = [0.0, 0.0, 0.0] 
 
     T_world_object = xyz_rpy_to_matrix(
         np.array(object_xyz, dtype=float),
