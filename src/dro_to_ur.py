@@ -202,8 +202,8 @@ class DROArmExecutor:
         self._get_pose = rospy.ServiceProxy("/arm/get_current_pose", GetPose)
 
         self._joint_pub = rospy.Publisher(
-            "/hand/shadowhand_command_topic",
-            Float64MultiArray, queue_size=1, latch=True,
+            "/shadowhand_command_topic",
+            Float64MultiArray, queue_size=10,
         )
 
         rospy.Service("/dro/execute_grasp",      Trigger, self._cb_execute_grasp)
@@ -283,7 +283,7 @@ def main():
 
     grasp = np.array([
         -0.2, 0.0, 0.1,    # xyz forearm in object frame
-        1.57, 0.0, 1.57,     # rpy forearm in object frame
+        3.14, 1.57, 0.0,     # rpy forearm in object frame
         *([0.0] * 24)     # finger joints (dummy values)
     ], dtype=float)
 
