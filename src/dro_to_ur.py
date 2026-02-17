@@ -74,10 +74,11 @@ T_FOREARM_TO_MANIPULATOR_QUAT = np.array([-0.077, 0.003, 0.0, 0.997])  # [x,y,z,
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Finger joint names — must match q[6:30] order in the DRO URDF
+# Finger joint names
 # ═══════════════════════════════════════════════════════════════════════════════
 
-SHADOW_JOINT_NAMES = [
+# Order in which DRO outputs q[6:30]  (matches the DRO ShadowHand URDF chain)
+DRO_JOINT_ORDER = [
     "rh_WRJ2", "rh_WRJ1",
     "rh_FFJ4", "rh_FFJ3", "rh_FFJ2", "rh_FFJ1",
     "rh_MFJ4", "rh_MFJ3", "rh_MFJ2", "rh_MFJ1",
@@ -85,7 +86,25 @@ SHADOW_JOINT_NAMES = [
     "rh_LFJ5", "rh_LFJ4", "rh_LFJ3", "rh_LFJ2", "rh_LFJ1",
     "rh_THJ5", "rh_THJ4", "rh_THJ3", "rh_THJ2", "rh_THJ1",
 ]
-assert len(SHADOW_JOINT_NAMES) == 24
+
+# Order expected by the hand command topic
+CMD_JOINT_ORDER = [
+    "rh_WRJ1", "rh_WRJ2",
+    "rh_FFJ1", "rh_FFJ2", "rh_FFJ3", "rh_FFJ4",
+    "rh_MFJ1", "rh_MFJ2", "rh_MFJ3", "rh_MFJ4",
+    "rh_RFJ1", "rh_RFJ2", "rh_RFJ3", "rh_RFJ4",
+    "rh_LFJ1", "rh_LFJ2", "rh_LFJ3", "rh_LFJ4", "rh_LFJ5",
+    "rh_THJ1", "rh_THJ2", "rh_THJ3", "rh_THJ4", "rh_THJ5",
+]
+
+assert len(DRO_JOINT_ORDER) == 24
+assert len(CMD_JOINT_ORDER) == 24
+assert set(DRO_JOINT_ORDER) == set(CMD_JOINT_ORDER), "Joint name mismatch!"
+
+# Precompute: for each position in CMD_JOINT_ORDER, which index in DRO_JOINT_ORDER?
+# i.e. reordered[i] = dro_joints[REINDEX[i]]
+_dro_pos = {name: i for i, name in enumerate(DRO_JOINT_ORDER)}
+REINDEX = [_dro_pos[name] for name in CMD_JOINT_ORDER]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -263,10 +282,12 @@ class DROArmExecutor:
 
         rospy.loginfo("Arm motion complete.")
 
+        # Reorder from DRO order to command topic order
+        joints_cmd = [float(joints[i]) for i in REINDEX]
         msg = Float64MultiArray()
-        msg.data = [float(j) for j in joints]
+        msg.data = joints_cmd
         self._joint_pub.publish(msg)
-        rospy.loginfo(f"  Joints: {[round(float(j), 3) for j in joints]}")
+        rospy.loginfo(f"  Joints ({CMD_JOINT_ORDER}): {[round(j, 3) for j in joints_cmd]}")
 
         return True
 
@@ -322,7 +343,7 @@ def main():
     # Run diagnostic to inspect the rotation reconstruction
     print_reconstruction_diagnostic(grasp)
 
-    object_xyz = [1.15, 0.215, 0.74 + 0.085] # [m]  (add 0.085 to account for object height above table)
+    object_xyz = [1.15, 0.215, 0.84]
     object_rpy = [0.0, 0.0, 0.0]
 
     T_world_object = xyz_rpy_to_matrix(
