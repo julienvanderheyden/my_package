@@ -283,7 +283,7 @@ def main():
 
     grasp = np.array([
         -0.2, 0.0, 0.2,    # xyz forearm in object frame
-        0, -1.57, 0.0,     # rpy forearm in object frame
+        -1.8, -1.5, -1.3,     # rpy forearm in object frame
         *([0.0] * 24)     # finger joints (dummy values)
     ], dtype=float)
 
