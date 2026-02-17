@@ -282,7 +282,7 @@ class DROArmExecutor:
 def main():
 
     grasp = np.array([
-        -0.2, 0.0, 0.1,    # xyz forearm in object frame
+        -0.2, 0.0, 0.2,    # xyz forearm in object frame
         3.14, 1.57, 0.0,     # rpy forearm in object frame
         *([0.0] * 24)     # finger joints (dummy values)
     ], dtype=float)
