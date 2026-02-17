@@ -281,13 +281,20 @@ class DROArmExecutor:
 
 def main():
 
-    grasp = np.array([
-        -0.2, 0.0, 0.2,    # xyz forearm in object frame
-        -1.8, -1.5, -1.3,     # rpy forearm in object frame
-        *([0.0] * 24)     # finger joints (dummy values)
-    ], dtype=float)
+    grasp = np.array([-3.5364e-01, -9.8762e-03,  2.1474e-02, -8.2053e-01,  1.3720e+00,
+          9.1866e-01,  7.7918e-02, -9.3683e-02,  1.7317e-01,  7.7599e-01,
+          2.8242e-01,  1.6003e-06, -5.3990e-02,  9.0662e-01,  2.6319e-01,
+          6.1299e-07,  2.4345e-01,  6.2903e-01,  1.2989e+00, -1.1277e-06,
+          4.0542e-01,  3.1507e-01,  4.0969e-01,  1.5708e+00, -6.9860e-07,
+          1.0472e+00,  4.6919e-01,  2.0024e-01, -6.9814e-01, -2.6180e-01], dtype=float)
+    
+    # grasp = np.array([
+    #     -0.2, 0.0, 0.2,    # xyz forearm in object frame
+    #     -1.8, -1.5, -1.3,     # rpy forearm in object frame
+    #     *([0.0] * 24)     # finger joints (dummy values)
+    # ], dtype=float)
 
-    object_xyz = [1.35, 0.215, 0.74]  # 5
+    object_xyz = [1.15, 0.215, 0.74]  # 5 shifted 20 cm closer to the robot than the original 1.35, 0.215, 0.74
     object_rpy = [0.0, 0.0, 0.0] 
 
     T_world_object = xyz_rpy_to_matrix(
