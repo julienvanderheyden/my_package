@@ -1,64 +1,54 @@
 #!/usr/bin/env python3
 """
-dro_to_arm_executor.py
-======================
+dro_to_ur.py
+============
 Bridges D(R,O) Grasp inference output to the real ShadowHand + arm.
 
 ═══════════════════════════════════════════════════════════════════════════════
-FRAME ANALYSIS — READ THIS BEFORE RUNNING
+HOW THE VIRTUAL JOINTS ENCODE ROTATION — THE KEY ISSUE
 ═══════════════════════════════════════════════════════════════════════════════
 
-What DRO q[0:6] actually encodes
-----------------------------------
-The DRO ShadowHand URDF adds virtual prismatic + revolute joints between a
-dummy "world" link and the first REAL link of the ShadowHand, which is
-`rh_forearm`.  Therefore:
+The DRO ShadowHand URDF has 6 virtual joints at its root:
+    virtual_x   → prismatic along X  →  q[0]  (translation, metres)
+    virtual_y   → prismatic along Y  →  q[1]  (translation, metres)
+    virtual_z   → prismatic along Z  →  q[2]  (translation, metres)
+    virtual_rx  → revolute about X   →  q[3]  (angle, radians)
+    virtual_ry  → revolute about Y   →  q[4]  (angle, radians)
+    virtual_rz  → revolute about Z   →  q[5]  (angle, radians)
 
-    q[0:3]  =  translation of `rh_forearm` expressed in the object frame
-    q[3:6]  =  RPY orientation of `rh_forearm` expressed in the object frame
-    q[6:30] =  24 real finger + wrist joints
+Because these are processed by pytorch_kinematics as a URDF kinematic chain,
+each revolute value is a single scalar angle about its OWN fixed axis.
+They are NOT Euler angles fed simultaneously into euler_matrix().
 
-i.e. the 6-DOF pose is the pose of the `rh_forearm` frame, NOT the palm,
-NOT `rh_manipulator`.
+The correct rotation matrix is the chain product:
+    R = Rx(q[3]) · Ry(q[4]) · Rz(q[5])
 
-What arm_motion_service controls
-----------------------------------
-Your existing service moves the `rh_manipulator` frame (the hand mounting
-flange), not `rh_forearm`.  The two frames are related by a constant rigid
-transform encoded in the ShadowHand URDF:
+where each Ri is a basic rotation matrix about that axis.
 
-    T_forearm_manipulator  (constant, read from URDF / tf)
+This is the standard URDF revolute-joint composition: each joint rotates
+about the axis specified in the URDF <axis> element, applied in sequence
+along the kinematic chain.
 
-Full transform chain
----------------------
-    T_world_manipulator
-        = T_world_object           ← you provide this (measured object pose)
-        × T_object_forearm         ← from q[0:6]
-        × T_forearm_manipulator    ← URDF constant  ← YOU MUST FILL THIS IN
+Treating q[3:6] as (roll, pitch, yaw) passed to euler_matrix() happens to
+give the same formula ONLY if the axes are exactly X, Y, Z in that order —
+but the convention (intrinsic vs extrinsic, order) differs from scipy/tf,
+causing sign and ordering errors for non-trivial orientations.
 
-How to find T_forearm_manipulator
------------------------------------
-Option A — live tf (easiest, robot must be running):
+═══════════════════════════════════════════════════════════════════════════════
+FULL TRANSFORM CHAIN
+═══════════════════════════════════════════════════════════════════════════════
 
-    rosrun tf tf_echo rh_forearm rh_manipulator
+    T_world_manipulator =
+        T_world_object            ← known object pose in robot world frame
+      · T_object_forearm          ← reconstructed from q[0:6] (see above)
+      · T_forearm_manipulator     ← fixed URDF offset (fill in below)
 
-Option B — URDF inspection:
-    Accumulate all fixed joints between `rh_forearm` and `rh_manipulator`
-    in the ShadowHand URDF.
+The result goes directly to arm_motion_service, which commands rh_manipulator.
 
-Option C — run this script with --print_tf_only:
-
-    python dro_to_arm_executor.py --print_tf_only
-
-It will look up the transform from a running robot and print the values
-to paste back into this file.
-
-Fill in T_FOREARM_TO_MANIPULATOR_* below before executing grasps.
 ═══════════════════════════════════════════════════════════════════════════════
 """
 
 import sys
-import argparse
 import numpy as np
 import rospy
 import tf
@@ -75,99 +65,134 @@ from my_package.srv import (
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ▶▶▶  FILL IN BEFORE RUNNING  ◀◀◀
-#
-# Constant rigid transform:  rh_forearm  →  rh_manipulator
+# Constant: rh_forearm → rh_manipulator  (from URDF / live tf)
 # Run:  rosrun tf tf_echo rh_forearm rh_manipulator
-# (or use --print_tf_only flag below)
-#
-# Until this is set, the node will still run but will log a loud warning and
-# the arm will be sent to the wrong pose.
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Translation [x, y, z] in metres
-T_FOREARM_TO_MANIPULATOR_XYZ = np.array([0.001, -0.002, 0.296])    
-
-# Quaternion [x, y, z, w]
-T_FOREARM_TO_MANIPULATOR_QUAT = np.array([-0.077, 0.003, 0.0, 0.997])  
+T_FOREARM_TO_MANIPULATOR_XYZ  = np.array([0.001, -0.002, 0.296])
+T_FOREARM_TO_MANIPULATOR_QUAT = np.array([-0.077, 0.003, 0.0, 0.997])  # [x,y,z,w]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ShadowHand joint names — must match the order of q[6:30] from DRO.
-# Verify against the DRO shadowhand URDF: joints listed after the 6 virtual
-# DOFs, in the same order as they appear in the URDF chain.
+# Finger joint names — must match q[6:30] order in the DRO URDF
 # ═══════════════════════════════════════════════════════════════════════════════
+
 SHADOW_JOINT_NAMES = [
-    "rh_WRJ2", "rh_WRJ1",                                  # wrist (2)
-    "rh_FFJ4", "rh_FFJ3", "rh_FFJ2", "rh_FFJ1",           # first finger (4)
-    "rh_MFJ4", "rh_MFJ3", "rh_MFJ2", "rh_MFJ1",           # middle finger (4)
-    "rh_RFJ4", "rh_RFJ3", "rh_RFJ2", "rh_RFJ1",           # ring finger (4)
-    "rh_LFJ5", "rh_LFJ4", "rh_LFJ3", "rh_LFJ2", "rh_LFJ1",  # little finger (5)
-    "rh_THJ5", "rh_THJ4", "rh_THJ3", "rh_THJ2", "rh_THJ1",  # thumb (5)
+    "rh_WRJ2", "rh_WRJ1",
+    "rh_FFJ4", "rh_FFJ3", "rh_FFJ2", "rh_FFJ1",
+    "rh_MFJ4", "rh_MFJ3", "rh_MFJ2", "rh_MFJ1",
+    "rh_RFJ4", "rh_RFJ3", "rh_RFJ2", "rh_RFJ1",
+    "rh_LFJ5", "rh_LFJ4", "rh_LFJ3", "rh_LFJ2", "rh_LFJ1",
+    "rh_THJ5", "rh_THJ4", "rh_THJ3", "rh_THJ2", "rh_THJ1",
 ]
-assert len(SHADOW_JOINT_NAMES) == 24, "List must have exactly 24 entries."
+assert len(SHADOW_JOINT_NAMES) == 24
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pure math helpers
+# Math helpers
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def xyz_rpy_to_matrix(xyz, rpy):
-    """4×4 homogeneous matrix from translation + roll/pitch/yaw [rad]."""
-    T = tft.euler_matrix(rpy[0], rpy[1], rpy[2], axes='sxyz')
-    T[0:3, 3] = xyz
-    return T
+def Rx(a):
+    """4×4 rotation matrix about X by angle a [rad]."""
+    ca, sa = np.cos(a), np.sin(a)
+    return np.array([[1,  0,   0,  0],
+                     [0,  ca, -sa, 0],
+                     [0,  sa,  ca, 0],
+                     [0,  0,   0,  1]], dtype=float)
 
+def Ry(a):
+    """4×4 rotation matrix about Y by angle a [rad]."""
+    ca, sa = np.cos(a), np.sin(a)
+    return np.array([[ ca, 0, sa, 0],
+                     [  0, 1,  0, 0],
+                     [-sa, 0, ca, 0],
+                     [  0, 0,  0, 1]], dtype=float)
+
+def Rz(a):
+    """4×4 rotation matrix about Z by angle a [rad]."""
+    ca, sa = np.cos(a), np.sin(a)
+    return np.array([[ca, -sa, 0, 0],
+                     [sa,  ca, 0, 0],
+                     [ 0,   0, 1, 0],
+                     [ 0,   0, 0, 1]], dtype=float)
 
 def xyz_quat_to_matrix(xyz, quat):
-    """4×4 homogeneous matrix from translation + quaternion [x, y, z, w]."""
+    """4×4 matrix from translation + quaternion [x, y, z, w]."""
     T = tft.quaternion_matrix(quat)
     T[0:3, 3] = xyz
     return T
 
+def xyz_rpy_to_matrix(xyz, rpy):
+    """4×4 matrix from translation + extrinsic RPY [rad]."""
+    T = tft.euler_matrix(rpy[0], rpy[1], rpy[2], axes='sxyz')
+    T[0:3, 3] = xyz
+    return T
 
 def matrix_to_xyz_quat(T):
-    """Return (xyz, quat [x,y,z,w]) from a 4×4 homogeneous matrix."""
+    """Extract (xyz, quat [x,y,z,w]) from 4×4 matrix."""
     return T[0:3, 3].copy(), tft.quaternion_from_matrix(T)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Core transform pipeline
+# Core: reconstruct T_object_forearm from q[0:6]
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def reconstruct_T_object_forearm(q):
+    """
+    Reconstruct the rh_forearm pose in the object frame from q[0:6].
+
+    The DRO virtual joints are a kinematic chain of 6 joints processed by
+    pytorch_kinematics in URDF order.  Their effect compounds as:
+
+        T = Trans(q[0], q[1], q[2]) · Rx(q[3]) · Ry(q[4]) · Rz(q[5])
+
+    where each step is the standard URDF joint transform for a prismatic or
+    revolute joint about a fixed axis.
+
+    NOTE: this assumes the standard DRO virtual joint URDF structure:
+        virtual_x  → prismatic, axis="1 0 0"
+        virtual_y  → prismatic, axis="0 1 0"
+        virtual_z  → prismatic, axis="0 0 1"
+        virtual_rx → revolute,  axis="1 0 0"
+        virtual_ry → revolute,  axis="0 1 0"
+        virtual_rz → revolute,  axis="0 0 1"
+    applied in that order in the URDF chain.
+
+    If your DRO URDF has a different axis order or different axes, adjust
+    the composition below accordingly.
+    """
+    # Translation part (prismatic joints are purely additive)
+    T_trans = np.eye(4)
+    T_trans[0, 3] = q[0]  # virtual_x
+    T_trans[1, 3] = q[1]  # virtual_y
+    T_trans[2, 3] = q[2]  # virtual_z
+
+    # Rotation part: chain of three single-axis rotations IN URDF ORDER
+    T_rot = Rx(q[3]) @ Ry(q[4]) @ Rz(q[5])
+
+    return T_trans @ T_rot
+
 
 def dro_q_to_world_manipulator(q, T_world_object, T_forearm_manipulator):
     """
-    Convert one DRO grasp vector into the desired rh_manipulator pose (world
-    frame) and the 24 finger joint values.
-
-    Pipeline:
-        T_world_manipulator =
-            T_world_object          (known object pose in world)
-          · T_object_forearm        (from q[0:6]: rh_forearm in object frame)
-          · T_forearm_manipulator   (fixed URDF offset)
+    Full pipeline: DRO q vector → desired rh_manipulator pose in world frame.
 
     Args:
         q                     : (30,) numpy array from predict_grasp()
-        T_world_object         : (4,4) pose of object centroid in robot world
-        T_forearm_manipulator  : (4,4) constant rh_forearm → rh_manipulator
+        T_world_object         : (4,4) known pose of object centroid in world
+        T_forearm_manipulator  : (4,4) fixed URDF offset rh_forearm→rh_manipulator
 
     Returns:
-        xyz    : (3,) target position of rh_manipulator in world frame [m]
+        xyz    : (3,) target position  of rh_manipulator in world [m]
         quat   : (4,) target quaternion [x,y,z,w] of rh_manipulator in world
         joints : (24,) finger + wrist joint values [rad]
     """
-    xyz_forearm_in_obj = q[0:3]
-    rpy_forearm_in_obj = q[3:6]
-    joints             = q[6:30]
-
-    # rh_forearm pose expressed in the object frame
-    T_object_forearm = xyz_rpy_to_matrix(xyz_forearm_in_obj, rpy_forearm_in_obj)
-
-    # Chain: world ← object ← forearm ← manipulator
-    T_world_manipulator = T_world_object @ T_object_forearm @ T_forearm_manipulator
+    T_object_forearm    = reconstruct_T_object_forearm(q)
+    T_world_forearm     = T_world_object @ T_object_forearm
+    T_world_manipulator = T_world_forearm @ T_forearm_manipulator
 
     xyz, quat = matrix_to_xyz_quat(T_world_manipulator)
-    return xyz, quat, joints
+    return xyz, quat, q[6:30]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -175,16 +200,10 @@ def dro_q_to_world_manipulator(q, T_world_object, T_forearm_manipulator):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class DROArmExecutor:
-    """
-    Loads a batch of DRO grasps and provides ROS services to execute them
-    on the real robot one at a time.
-    """
 
     def __init__(self, predicted_grasp, T_world_object):
-        
-        self.grasp       = predicted_grasp         # (N, 30)
-        self.T_world_obj = T_world_object               # (4, 4)
-        self.current_idx = 0
+        self.grasp       = predicted_grasp   # (30,)
+        self.T_world_obj = T_world_object    # (4,4)
 
         self.T_forearm_manipulator = xyz_quat_to_matrix(
             T_FOREARM_TO_MANIPULATOR_XYZ,
@@ -206,30 +225,20 @@ class DROArmExecutor:
             Float64MultiArray, queue_size=10,
         )
 
-        rospy.Service("/dro/execute_grasp",      Trigger, self._cb_execute_grasp)
-
-        rospy.loginfo(
-            f"DROArmExecutor ready "
-        )
-
-    # ── public api ────────────────────────────────────────────────────────────
+        rospy.Service("/dro/execute_grasp", Trigger, self._cb_execute_grasp)
+        rospy.loginfo("DROArmExecutor ready.")
 
     def execute_grasp(self, q):
-        """Compute the rh_manipulator target pose and execute it."""
-
         xyz, quat, joints = dro_q_to_world_manipulator(
-            q,
-            self.T_world_obj,
-            self.T_forearm_manipulator,
+            q, self.T_world_obj, self.T_forearm_manipulator
         )
 
         rospy.loginfo(
-            f"Executing grasp :\n"
-            f"  rh_manipulator target xyz  (world): {np.round(xyz, 4)}\n"
-            f"  rh_manipulator target quat (world): {np.round(quat, 4)}"
+            f"Executing grasp:\n"
+            f"  rh_manipulator xyz  (world): {np.round(xyz, 4)}\n"
+            f"  rh_manipulator quat (world): {np.round(quat, 4)}"
         )
 
-        # Send arm
         req = MoveCartesianRequest()
         req.position.x    = float(xyz[0])
         req.position.y    = float(xyz[1])
@@ -254,48 +263,67 @@ class DROArmExecutor:
 
         rospy.loginfo("Arm motion complete.")
 
-        # Send finger joints
-        js = Float64MultiArray()
-        js.data     = [float(j) for j in joints]
-        self._joint_pub.publish(js)
-        rospy.loginfo(f"  Finger joints published: {[round(float(j), 3) for j in joints]}")
+        msg = Float64MultiArray()
+        msg.data = [float(j) for j in joints]
+        self._joint_pub.publish(msg)
+        rospy.loginfo(f"  Joints: {[round(float(j), 3) for j in joints]}")
 
         return True
-
-    # ── service callbacks ─────────────────────────────────────────────────────
 
     def _cb_execute_grasp(self, req):
         success = self.execute_grasp(self.grasp)
         return TriggerResponse(
             success=success,
-            message=f"Grasp {'ok' if success else 'FAILED'}",
+            message="ok" if success else "FAILED",
         )
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Diagnostic: print the reconstructed forearm pose for a given q
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def print_reconstruction_diagnostic(q):
+    """
+    Helper to sanity-check the rotation reconstruction before running on
+    the real robot.  Call this standalone to inspect the result.
+    """
+    T = reconstruct_T_object_forearm(q)
+    xyz, quat = matrix_to_xyz_quat(T)
+    rpy = tft.euler_from_matrix(T, axes='sxyz')
+    print("\n── Reconstruction diagnostic ─────────────────────────────────")
+    print(f"  q[0:3] (translation)     : {q[0:3]}")
+    print(f"  q[3:6] (joint angles)    : {q[3:6]}  rad")
+    print(f"  Reconstructed xyz        : {np.round(xyz, 4)}")
+    print(f"  Reconstructed quat(xyzw) : {np.round(quat, 4)}")
+    print(f"  Reconstructed RPY (check): {np.round(rpy, 4)}  rad")
+    print(f"  Rotation matrix R :\n{np.round(T[:3,:3], 4)}")
+    print("──────────────────────────────────────────────────────────────\n")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Entry point
 # ═══════════════════════════════════════════════════════════════════════════════
 
-
-
 def main():
 
-    grasp = np.array([-3.5364e-01, -9.8762e-03,  2.1474e-02, -8.2053e-01,  1.3720e+00,
-          9.1866e-01,  7.7918e-02, -9.3683e-02,  1.7317e-01,  7.7599e-01,
-          2.8242e-01,  1.6003e-06, -5.3990e-02,  9.0662e-01,  2.6319e-01,
-          6.1299e-07,  2.4345e-01,  6.2903e-01,  1.2989e+00, -1.1277e-06,
-          4.0542e-01,  3.1507e-01,  4.0969e-01,  1.5708e+00, -6.9860e-07,
-          1.0472e+00,  4.6919e-01,  2.0024e-01, -6.9814e-01, -2.6180e-01], dtype=float)
-    
-    # grasp = np.array([
-    #     -0.2, 0.0, 0.2,    # xyz forearm in object frame
-    #     -1.8, -1.5, -1.3,     # rpy forearm in object frame
-    #     *([0.0] * 24)     # finger joints (dummy values)
-    # ], dtype=float)
+    grasp = np.array([
+        -3.6412e-01, -2.5393e-02,  3.7879e-02,   # q[0:3]  translation (m)
+        -2.9886e+00,  1.5751e+00, -7.1422e-01,   # q[3:6]  joint angles (rad)
+        -1.2932e-01, -4.2599e-01,  3.4903e-01,   # q[6:9]  wrist + FF start
+         3.4774e-01,  1.3070e+00,  6.2645e-01,
+         8.5810e-02,  8.3981e-01,  4.0796e-01,
+        -2.0448e-05,  1.8846e-01,  4.8190e-01,
+         1.5207e+00,  3.6673e-06,  1.8810e-01,
+         3.4904e-01,  1.0203e+00,  4.4761e-06,
+         1.3216e-06,  8.9231e-01,  1.0450e+00,
+        -2.0945e-01, -6.9817e-01, -2.6181e-01,  # q[27:30]
+    ], dtype=float)
 
-    object_xyz = [1.15, 0.215, 0.74]  # 5 shifted 20 cm closer to the robot than the original 1.35, 0.215, 0.74
-    object_rpy = [0.0, 0.0, 0.0] 
+    # Run diagnostic to inspect the rotation reconstruction
+    print_reconstruction_diagnostic(grasp)
+
+    object_xyz = [1.15, 0.215, 0.84]
+    object_rpy = [0.0, 0.0, 0.0]
 
     T_world_object = xyz_rpy_to_matrix(
         np.array(object_xyz, dtype=float),
