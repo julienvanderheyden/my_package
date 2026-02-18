@@ -300,7 +300,7 @@ class DROArmExecutor:
         self._joint_pub.publish(msg)
 
         #MOVING TO MID GRASP POSITION
-        rospy.sleep(1.5)
+        rospy.sleep(10.0)
         joints_cmd = [float(joints[i]) for i in REINDEX]
         msg.data = joints_cmd
         self._joint_pub.publish(msg)
