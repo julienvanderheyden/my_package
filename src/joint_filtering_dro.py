@@ -143,10 +143,7 @@ class JointCommandFilter:
 
         while not rospy.is_shutdown():
             with self._lock:
-                if self._interpolating:
-                    output = self._compute_interpolated()
-                else:
-                    output = None
+                output = self._compute_interpolated()
 
             if output is not None:
                 out_msg      = Float64MultiArray()
