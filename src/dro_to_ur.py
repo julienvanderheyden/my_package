@@ -242,7 +242,7 @@ class DROArmExecutor:
         self._get_pose = rospy.ServiceProxy("/arm/get_current_pose", GetPose)
 
         self._joint_pub = rospy.Publisher(
-            "/shadowhand_command_topic",
+            "/shadowhand_command_filtering",
             Float64MultiArray, queue_size=10,
         )
 
