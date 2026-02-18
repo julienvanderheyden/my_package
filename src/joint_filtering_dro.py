@@ -20,6 +20,7 @@ Behaviour:
 import rospy
 import numpy as np
 from std_msgs.msg import Float64MultiArray
+from typing import Optional
 import threading
 
 
@@ -36,13 +37,13 @@ class JointCommandFilter:
         self._lock = threading.Lock()
 
         # Joint state (current actual or last known interpolated position)
-        self._current_positions: np.ndarray | None = None
+        self._current_positions = None  # type: Optional[np.ndarray]
 
         # Interpolation bookkeeping
-        self._interp_start:    np.ndarray | None = None   # positions when target was set
-        self._interp_target:   np.ndarray | None = None   # desired target positions
-        self._interp_start_t:  float             = 0.0    # ROS time when interpolation began
-        self._interpolating:   bool              = False
+        self._interp_start   = None   # type: Optional[np.ndarray]  # positions when target was set
+        self._interp_target  = None   # type: Optional[np.ndarray]  # desired target positions
+        self._interp_start_t = 0.0    # type: float                 # ROS time when interpolation began
+        self._interpolating  = False  # type: bool
 
         # ── Subscribers ────────────────────────────────────────────────────────
         rospy.Subscriber(
@@ -73,7 +74,7 @@ class JointCommandFilter:
 
     # ── Callbacks ───────────────────────────────────────────────────────────────
 
-    def _state_callback(self, msg: Float64MultiArray):
+    def _state_callback(self, msg):
         """Keep track of the real joint state (used only for the very first
         command when we have no interpolated position yet)."""
         with self._lock:
@@ -85,7 +86,7 @@ class JointCommandFilter:
                     f"[JointCommandFilter] Initialised {len(state)} joint(s) from state topic."
                 )
 
-    def _command_callback(self, msg: Float64MultiArray):
+    def _command_callback(self, msg):
         """Receive a new target command and (re)start interpolation."""
         target = np.array(msg.data, dtype=float)
 
@@ -116,7 +117,7 @@ class JointCommandFilter:
 
     # ── Main loop ───────────────────────────────────────────────────────────────
 
-    def _compute_interpolated(self) -> np.ndarray | None:
+    def _compute_interpolated(self):
         """Return the interpolated position for the current time (CALL WITH LOCK)."""
         if not self._interpolating:
             return self._current_positions  # nothing to do
