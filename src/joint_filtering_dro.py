@@ -26,7 +26,7 @@ import threading
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 INTERPOLATION_DURATION = 1.0   # seconds to reach the target command
-PUBLISH_RATE           = 100   # Hz — interpolation / publish frequency
+PUBLISH_RATE           = 10   # Hz — interpolation / publish frequency
 # ───────────────────────────────────────────────────────────────────────────────
 
 
