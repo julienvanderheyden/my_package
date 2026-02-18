@@ -20,13 +20,14 @@ Behaviour:
 import rospy
 import numpy as np
 from std_msgs.msg import Float64MultiArray
+from sensor_msgs.msg import JointState
 from typing import Optional
 import threading
 
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 INTERPOLATION_DURATION = 1.0   # seconds to reach the target command
-PUBLISH_RATE           = 10   # Hz — interpolation / publish frequency
+PUBLISH_RATE           = 100   # Hz — interpolation / publish frequency
 # ───────────────────────────────────────────────────────────────────────────────
 
 
@@ -54,7 +55,7 @@ class JointCommandFilter:
         )
         rospy.Subscriber(
             "/shadowhand_state_topic",
-            Float64MultiArray,
+            JointState,
             self._state_callback,
             queue_size=1,
         )
@@ -78,12 +79,12 @@ class JointCommandFilter:
         """Keep track of the real joint state (used only for the very first
         command when we have no interpolated position yet)."""
         with self._lock:
-            state = np.array(msg.data, dtype=float)
+            state = np.array(msg.position, dtype=float)
             if self._current_positions is None:
                 # Initialise from hardware state on first message
                 self._current_positions = state.copy()
                 rospy.loginfo(
-                    f"[JointCommandFilter] Initialised {len(state)} joint(s) from state topic."
+                    "[JointCommandFilter] Initialised {} joint(s) from state topic.".format(len(state))
                 )
 
     def _command_callback(self, msg):
