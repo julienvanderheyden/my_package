@@ -362,7 +362,7 @@ def main():
     # Run diagnostic to inspect the rotation reconstruction
     print_reconstruction_diagnostic(grasp)
 
-    object_xyz = [1.35, 0.215, 0.84]
+    object_xyz = [1.25, 0.215, 0.84]
     object_rpy = [0.0, 0.0, 0.0]
 
     T_world_object = xyz_rpy_to_matrix(
