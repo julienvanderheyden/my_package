@@ -235,7 +235,8 @@ class GraspOrchestrator:
             # y = ref_position[1] - 0.03
             # x = ref_position[0] - 0.083
 
-            z = ref_position[2] + stand_height + (1-depth_ratio) *radius
+            #z = ref_position[2] + stand_height + (1-depth_ratio) *radius
+            z = ref_position[2] + 0.17 + radius #for generalization test only 
             palm_with = 0.022
             y = ref_position[1] - radius - palm_with/2 + 0.01
             x = ref_position[0] - 0.033
