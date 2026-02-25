@@ -86,7 +86,7 @@ class GraspOrchestrator:
         #     {'position_idx': 11, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
         # ]
         self.grasp_sequence = [
-            {'position_idx': 1, 'grasp_type': 2, 'dimension': 0.035, 'parameters': 0.035},
+            {'position_idx': 1, 'grasp_type': 2, 'dimension': 0.03, 'parameters': 0.03},
             # {'position_idx': 2, 'grasp_type': 1, 'dimension': 0.0375, 'parameters': 0.0375},
             # {'position_idx': 3, 'grasp_type': 1, 'dimension': 0.02, 'parameters': 0.02},
             # {'position_idx': 4, 'grasp_type': 1, 'dimension': 0.015, 'parameters': 0.015},
@@ -235,7 +235,7 @@ class GraspOrchestrator:
             # y = ref_position[1] - 0.03
             # x = ref_position[0] - 0.083
             if top_approach : #for generalization test only 
-                z = ref_position[2] + 0.17 + 2*radius 
+                z = ref_position[2] + 0.165 + 2*radius 
                 y = ref_position[1] - 0.03
                 x = ref_position[0] - 0.083
             else : 
