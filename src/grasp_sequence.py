@@ -86,15 +86,17 @@ class GraspOrchestrator:
         #     {'position_idx': 11, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
         # ]
         self.grasp_sequence = [
-            {'position_idx': 1, 'grasp_type': 1, 'dimension': 0.01, 'parameters': 0.01},
-            {'position_idx': 2, 'grasp_type': 1, 'dimension': 0.015, 'parameters': 0.015},
-            {'position_idx': 3, 'grasp_type': 1, 'dimension': 0.02, 'parameters': 0.02},
-            {'position_idx': 4, 'grasp_type': 1, 'dimension': 0.0225, 'parameters': 0.0225},
-            {'position_idx': 5, 'grasp_type': 1, 'dimension': 0.025, 'parameters': 0.025},
-            {'position_idx': 6, 'grasp_type': 1, 'dimension': 0.0275, 'parameters': 0.0275},
-            {'position_idx': 7, 'grasp_type': 1, 'dimension': 0.03, 'parameters': 0.03},
-            {'position_idx': 8, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.035},
-            {'position_idx': 9, 'grasp_type': 1, 'dimension': 0.04, 'parameters': 0.04},
+            {'position_idx': 1, 'grasp_type': 1, 'dimension': 0.0375, 'parameters': 0.0375},
+            {'position_idx': 2, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.035},
+            {'position_idx': 3, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.035},
+            {'position_idx': 4, 'grasp_type': 1, 'dimension': 0.05, 'parameters': 0.05},
+            {'position_idx': 5, 'grasp_type': 1, 'dimension': 0.0325, 'parameters': 0.0325},
+            {'position_idx': 6, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.035},
+            {'position_idx': 7, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.035},
+            {'position_idx': 8, 'grasp_type': 1, 'dimension': 0.06, 'parameters': 0.06},
+            {'position_idx': 9, 'grasp_type': 1, 'dimension': 0.0325, 'parameters': 0.0325},
+            {'position_idx': 10, 'grasp_type': 1, 'dimension': 0.03, 'parameters': 0.03},
+            {'position_idx': 11, 'grasp_type': 1, 'dimension': 0.025, 'parameters': 0.025},
 
         ]
 
@@ -206,7 +208,7 @@ class GraspOrchestrator:
         if grasp_type == 1:  # medium wrap
             radius = dim
             alpha = 1.31
-            z = ref_position[2] + 0.09
+            z = ref_position[2] + 0.08
             
             if radius >= 0.015:
                 y = ref_position[1] - radius - 0.003
