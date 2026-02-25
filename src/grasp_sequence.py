@@ -195,8 +195,8 @@ class GraspOrchestrator:
             if grasp_info['grasp_type'] != 2:  # medium wrap, lateral pinch
                 euler = [pi, -pi/2, 0]
             else:  # power sphere
-                euler = [pi, -pi/2, 0]
-                #euler = [pi/2, 0, pi/2]
+                #euler = [pi, -pi/2, 0] # side approach
+                euler = [pi/2, 0, pi/2] # top approach
             
             quat = tf.quaternion_from_euler(*euler)
             orientations.append(quat.tolist())
@@ -223,7 +223,7 @@ class GraspOrchestrator:
             radius = dim
             stand_height = 0.17
             depth_ratio = 4/3
-            
+            top_approach = True  # set to False for side approach, True for top approach
             # remove power sphere parametric positioning for structured experiments 
             # if param[0] > 0.025:
             #     z = ref_position[2] + stand_height + depth_ratio * radius
@@ -234,12 +234,15 @@ class GraspOrchestrator:
             
             # y = ref_position[1] - 0.03
             # x = ref_position[0] - 0.083
-
-            #z = ref_position[2] + stand_height + (1-depth_ratio) *radius
-            z = ref_position[2] + 0.17 + radius #for generalization test only 
-            palm_with = 0.022
-            y = ref_position[1] - radius - palm_with/2 + 0.01
-            x = ref_position[0] - 0.033
+            if top_approach : #for generalization test only 
+                z = ref_position[2] + 0.17 + 2*radius 
+                y = ref_position[1] - 0.03
+                x = ref_position[0] - 0.083
+            else : 
+                z = ref_position[2] + stand_height + (1-depth_ratio) *radius
+                palm_with = 0.022
+                y = ref_position[1] - radius - palm_with/2 + 0.01
+                x = ref_position[0] - 0.033
             
             return [x, y, z]
         
