@@ -86,10 +86,10 @@ class GraspOrchestrator:
         #     {'position_idx': 11, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
         # ]
         self.grasp_sequence = [
-            {'position_idx': 1, 'grasp_type': 1, 'dimension': 0.015, 'parameters': 0.015},
-            {'position_idx': 2, 'grasp_type': 1, 'dimension': 0.02, 'parameters': 0.02},
-            {'position_idx': 3, 'grasp_type': 1, 'dimension': 0.01, 'parameters': 0.01},
-            {'position_idx': 4, 'grasp_type': 1, 'dimension': 0.001, 'parameters': 0.001},
+            {'position_idx': 1, 'grasp_type': 3, 'dimension': [0.0375, 0.001], 'parameters': [0.0375, 0.001]},
+            {'position_idx': 2, 'grasp_type': 1, 'dimension': [0.04, 0.015], 'parameters': [0.04, 0.015]},
+            {'position_idx': 3, 'grasp_type': 1, 'dimension': [0.025, 0.015], 'parameters': [0.025, 0.015]},
+            {'position_idx': 4, 'grasp_type': 1, 'dimension': [0.025, 0.025], 'parameters': [0.025, 0.025]},
             # {'position_idx': 5, 'grasp_type': 1, 'dimension': 0.035, 'parameters': 0.035},
             # {'position_idx': 6, 'grasp_type': 1, 'dimension': 0.0375, 'parameters': 0.0375},
             # {'position_idx': 7, 'grasp_type': 1, 'dimension': 0.0225, 'parameters': 0.0225},
