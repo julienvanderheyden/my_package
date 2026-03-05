@@ -486,7 +486,6 @@ class GraspOrchestrator:
                 return False
             
             self.preshape_pub.publish(Int32(grasp_type))
-            rospy.sleep(2.0)
 
         # Return home
         rospy.loginfo("Returning to home position...")
