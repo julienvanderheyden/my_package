@@ -73,17 +73,17 @@ class GraspOrchestrator:
         }
         
         self.grasp_sequence = [
-            {'position_idx': 1, 'grasp_type': 3, 'dimension': [0.0375, 0.001], 'parameters': [0.0375, 0.001]},
-            {'position_idx': 2, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
-            {'position_idx': 3, 'grasp_type': 3, 'dimension': [0.0375, 0.0075], 'parameters': [0.0375, 0.0075]},
-            {'position_idx': 4, 'grasp_type': 3, 'dimension': [0.0375, 0.01], 'parameters': [0.0375, 0.01]},
-            {'position_idx': 5, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
-            {'position_idx': 6, 'grasp_type': 3, 'dimension': [0.0375, 0.015], 'parameters': [0.0375, 0.015]},
-            {'position_idx': 7, 'grasp_type': 3, 'dimension': [0.0375, 0.0175], 'parameters': [0.0375, 0.0175]},
-            {'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
-            {'position_idx': 9, 'grasp_type': 3, 'dimension': [0.0375, 0.0225], 'parameters': [0.0375, 0.0225]},
-        #     {'position_idx': 10, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
-        #     {'position_idx': 11, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
+            {'position_idx': 1, 'grasp_type': 1, 'dimension': 0.0225, 'parameters': 0.0225},
+            {'position_idx': 2, 'grasp_type': 1, 'dimension': 0.03, 'parameters': 0.03},
+            {'position_idx': 3, 'grasp_type': 1, 'dimension': 0.025, 'parameters': 0.025},
+            #{'position_idx': 4, 'grasp_type': 3, 'dimension': [0.0375, 0.01], 'parameters': [0.0375, 0.01]},
+            {'position_idx': 5, 'grasp_type': 2, 'dimension': 0.035, 'parameters': 0.035},
+            {'position_idx': 6, 'grasp_type': 2, 'dimension': 0.04, 'parameters': 0.04},
+            {'position_idx': 7, 'grasp_type': 2, 'dimension': 0.05, 'parameters': 0.05},
+            #{'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters': [0.0375, 0.02]},
+            {'position_idx': 9, 'grasp_type': 3, 'dimension': [0.035, 0.01], 'parameters': [0.035, 0.01]},
+            {'position_idx': 10, 'grasp_type': 3, 'dimension': [0.035, 0.015], 'parameters': [0.035, 0.015]},
+            {'position_idx': 11, 'grasp_type': 3, 'dimension': [0.03, 0.0125], 'parameters': [0.03, 0.0125]},
         ]
 
         # self.grasp_sequence = [
@@ -196,8 +196,8 @@ class GraspOrchestrator:
             if grasp_info['grasp_type'] != 2:  # medium wrap, lateral pinch
                 euler = [pi, -pi/2, 0]
             else:  # power sphere
-                euler = [pi, -pi/2, 0] # side approach
-                #euler = [pi/2, 0, pi/2] # top approach
+                #euler = [pi, -pi/2, 0] # side approach
+                euler = [pi/2, 0, pi/2] # top approach
             
             quat = tf.quaternion_from_euler(*euler)
             orientations.append(quat.tolist())
@@ -224,7 +224,7 @@ class GraspOrchestrator:
             radius = dim
             stand_height = 0.17
             depth_ratio = 4/3
-            top_approach = False  # set to False for side approach, True for top approach
+            top_approach = True  # set to False for side approach, True for top approach
             # remove power sphere parametric positioning for structured experiments 
             # if param[0] > 0.025:
             #     z = ref_position[2] + stand_height + depth_ratio * radius
@@ -236,7 +236,11 @@ class GraspOrchestrator:
             # y = ref_position[1] - 0.03
             # x = ref_position[0] - 0.083
             if top_approach : #for generalization test only 
-                top_stand_height = 0.17
+                if ref_idx == 5:
+                    top_stand_height = 0.17
+                else :
+                    top_stand_height = 0.0
+
                 z = ref_position[2] + top_stand_height + 2*radius 
                 y = ref_position[1] - 0.03
                 x = ref_position[0] - 0.083
@@ -250,11 +254,11 @@ class GraspOrchestrator:
         
         else:  # lateral pinch
             
-            if ref_idx <= 5:
-                support_height = 0.19
-            else:
-                support_height = 0.215
-            # support_height = 0.215
+            # if ref_idx <= 5:
+            #     support_height = 0.19
+            # else:
+            #     support_height = 0.215
+            support_height = 0.19
             
             palm_knuckle_dist = 0.033
             finger_width = 0.018
