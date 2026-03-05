@@ -238,6 +238,9 @@ class GraspOrchestrator:
             if top_approach : #for generalization test only 
                 if ref_idx == 5:
                     top_stand_height = 0.16
+
+                elif ref_idx == 6:
+                    top_stand_height = 0.01
                 else :
                     top_stand_height = 0.0
 
