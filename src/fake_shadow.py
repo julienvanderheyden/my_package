@@ -5,7 +5,6 @@ from std_msgs.msg import Float64MultiArray
 from sensor_msgs.msg import JointState
 
 
-
 class ShadowHandLoopback:
     def __init__(self):
         rospy.init_node('fake_shadowhand_bridge', anonymous=True)
@@ -49,9 +48,6 @@ class ShadowHandLoopback:
 
         for i, name in enumerate(self.joint_names_ordered):
             self.simulated_positions[name] = msg.data[i]
-        
-        if not self.control_started:
-            self.control_started = True
 
     def sync_state_callback(self, msg):
         """
