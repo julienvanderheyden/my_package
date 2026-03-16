@@ -68,16 +68,6 @@ class ShadowHandLoopback:
 
         self.state_pub.publish(sim_msg)
 
-        # CSV Logging
-        if self.store_data and self.control_started and self.row_count < self.row_limit:
-            self.write_csv(rospy.get_time(), sim_msg.position)
-            self.row_count += 1
-
-    def write_csv(self, timestamp, positions):
-        with open(self.csv_file, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            # In loopback, cmd and state are identical
-            writer.writerow([timestamp] + positions + positions)
 
 if __name__ == "__main__":
     try:
