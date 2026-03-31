@@ -104,6 +104,9 @@ class ShadowHandBridge:
             "rh SRDMotor THJ1", "rh SRDMotor THJ2", "rh SRDMotor THJ3", "rh SRDMotor THJ4", "rh SRDMotor THJ5",
         ]
 
+        self.diagnostics_joints = ["WRJ1", "WRJ2", "FFJ0", "FFJ3", "FFJ4", "MFJ0", "MFJ3", "MFJ4", "RFJ0", "RFJ3", "RFJ4",
+                                   "LFJ0", "LFJ3", "LFJ4", "LFJ5", "THJ1", "THJ2", "THJ3", "THJ4", "THJ5"]
+
         # Buffer: holds the latest diagnostics values for every motor.
         # Each entry is a dict with keys "current", "effort", "cmd_effort", or "" when unavailable.
         n = len(self.diag_motor_names)
@@ -141,7 +144,7 @@ class ShadowHandBridge:
                 # Diagnostics columns: three metrics per motor, grouped by motor.
                 # Layout: current_WRJ1, effort_WRJ1, cmd_effort_WRJ1, current_WRJ2, …
                 diag_cols = []
-                for name in self.diag_motor_names:
+                for name in self.diagnostics_joints:
                     diag_cols += [
                         f"diag_current_{name}",
                         f"diag_effort_{name}",
