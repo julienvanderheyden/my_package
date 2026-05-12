@@ -7,7 +7,7 @@ ROS-based digital twin for the Shadow Hand using MuJoCo.
 ROS interface
 ─────────────
   PUBLISH  /shadowhand_state_topic   sensor_msgs/JointState   24 hand joints
-  SUBSCRIBE /shadowhand_command_topic sensor_msgs/JointState   20 actuator targets
+  SUBSCRIBE /shadowhand_command_topic std_msgs/Float64MultiArray   24 joint targets
 
 Joint ordering
 ──────────────
@@ -27,6 +27,7 @@ import mujoco.viewer
 import numpy as np
 import rospy
 from sensor_msgs.msg import JointState
+from std_msgs.msg import Float64MultiArray
 import rospkg
 
 # ── Windows high-resolution timer (no-op on Linux) ────────────────────────────
@@ -197,7 +198,7 @@ class ShadowHandDigitalTwin:
         self._ctrl_buffer = None        # None until first command arrives
         self._cmd_sub = rospy.Subscriber(
             "/shadowhand_command_topic",
-            JointState,
+            Float64MultiArray,
             self._command_callback,
             queue_size=1,
         )
@@ -257,35 +258,32 @@ class ShadowHandDigitalTwin:
 
     # ── ROS subscriber callback ────────────────────────────────────────────────
 
-    def _command_callback(self, msg: JointState):
+    def _command_callback(self, msg: Float64MultiArray):
         """
-        Receives 24 joint targets (same order as JOINT_NAMES) and maps them
+        Receives 24 joint targets as a flat Float64MultiArray and maps them
         to the 20 MuJoCo actuators, handling the J0 coupling internally.
 
         Message format
         ──────────────
-          msg.name[]     : joint names matching JOINT_NAMES order
-          msg.position[] : target position for each joint (rad)
+          msg.data : 24 floats in JOINT_NAMES order (rad)
 
         Coupling logic
         ──────────────
           FF/MF/RF/LF J1 and J2 are driven by a single J0 actuator via tendon.
           The commanded individual joint angles are summed here:
-              ctrl[rh_A_FFJ0] = cmd["rh_FFJ2"] + cmd["rh_FFJ1"]
+              ctrl[rh_A_FFJ0] = cmd[rh_FFJ2] + cmd[rh_FFJ1]
           All other joints map 1-to-1 to their actuator (joint → rh_A_<joint>).
         """
-        if len(msg.name) != len(msg.position):
-            rospy.logwarn_throttle(5.0, "Command message: name/position length mismatch.")
+        if len(msg.data) != len(JOINT_NAMES):
+            rospy.logwarn_throttle(
+                5.0,
+                f"Command message: expected {len(JOINT_NAMES)} values, "
+                f"got {len(msg.data)}.",
+            )
             return
 
-        # Build a joint_name → target_position dict
-        cmd = {name: pos for name, pos in zip(msg.name, msg.position)}
-
-        # Validate all 24 joints are present
-        missing = [n for n in JOINT_NAMES if n not in cmd]
-        if missing:
-            rospy.logwarn_throttle(5.0, f"Command missing joints: {missing}")
-            return
+        # Map flat array to joint names using the known JOINT_NAMES order
+        cmd = {name: float(msg.data[i]) for i, name in enumerate(JOINT_NAMES)}
 
         ctrl = np.zeros(self._model.nu)
 
