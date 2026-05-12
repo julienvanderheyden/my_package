@@ -208,7 +208,7 @@ class ShadowHandDigitalTwin:
         # The physics loop reads _lift_active and ramps _lift_current smoothly.
         self._lift_active  = False
         self._lift_target  = 0.2    # target height (m) — tune to your scene
-        self._lift_current = 0.0    # current ctrl setpoint, incremented each step
+        self._lift_current = 0.02    # current ctrl setpoint, incremented each step
         self._lift_speed   = 0.05   # ramp rate (m/s) — tune for desired smoothness
         self._lift_sub = rospy.Subscriber(
             "/lift",
