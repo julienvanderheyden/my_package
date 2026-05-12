@@ -27,7 +27,7 @@ import mujoco.viewer
 import numpy as np
 import rospy
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray, Empty
 import rospkg
 
 # ── Windows high-resolution timer (no-op on Linux) ────────────────────────────
@@ -84,7 +84,7 @@ COUPLED_ACTUATOR_NAMES = [
     "rh_A_LFJ0",   # drives rh_LFJ2 + rh_LFJ1
 ]
 
-ALL_ACTUATOR_NAMES = DIRECT_ACTUATOR_NAMES + COUPLED_ACTUATOR_NAMES   # 20 total
+ALL_ACTUATOR_NAMES = DIRECT_ACTUATOR_NAMES + COUPLED_ACTUATOR_NAMES + ["rh_A_arm_lift"]  # 21 total
 
 # Coupled joints: used by apply_initial_config to compute J0 ctrl from J1+J2
 COUPLED_JOINTS = {
@@ -102,7 +102,7 @@ INITIAL_CONFIG = {
     "rh_LFJ5": 0.0, "rh_LFJ4": 0.0, "rh_LFJ3": 0.0, "rh_LFJ2": 0.0, "rh_LFJ1": 0.0,
     "rh_THJ5": 0.0, "rh_THJ4": 1.21, "rh_THJ3": 0.0, "rh_THJ2": 0.0, "rh_THJ1": 0.0,
     "rh_WRJ2": 0.0, "rh_WRJ1": 0.0,
-    "rh_arm_lift": 0.02,
+    "rh_arm_lift": 0.0,   # start at ground level — no contact force at rest
 }
 
 
@@ -203,6 +203,18 @@ class ShadowHandDigitalTwin:
             queue_size=1,
         )
 
+        # Subscriber: lift trigger
+        # Receiving any Empty message on /lift starts the lifting motion.
+        # The physics loop reads _lift_active and drives arm_A_lift accordingly.
+        self._lift_active = False
+        self._lift_target = 0.2          # target height (m) — tune to your scene
+        self._lift_sub = rospy.Subscriber(
+            "/lift",
+            Empty,
+            self._lift_callback,
+            queue_size=1,
+        )
+
         # ── MuJoCo model ──────────────────────────────────────────────────────
         _ROS_PACK = rospkg.RosPack()
         _MODEL_PATH = os.path.join(
@@ -300,6 +312,21 @@ class ShadowHandDigitalTwin:
         with self._ctrl_lock:
             self._ctrl_buffer = ctrl
 
+    # ── Lift callback ──────────────────────────────────────────────────────────
+
+    def _lift_callback(self, msg: Empty):
+        """
+        Triggered by any message on /lift.
+        Sets _lift_active=True; the physics loop then drives arm_A_lift
+        to _lift_target. The flag stays True so the arm holds its height
+        after reaching the target (the position actuator handles it).
+        To lower the arm, publish a second message and extend this logic
+        with a toggle or a separate /lower topic.
+        """
+        if not self._lift_active:
+            rospy.loginfo("Lift triggered — moving arm to %.2f m.", self._lift_target)
+            self._lift_active = True
+
     # ── Publisher helper ───────────────────────────────────────────────────────
 
     def _publish_state(self):
@@ -366,7 +393,16 @@ class ShadowHandDigitalTwin:
                 if ctrl_snapshot is not None:
                     np.copyto(self._data.ctrl, ctrl_snapshot)
 
-                # 2. Step physics
+                # 2. Drive arm_A_lift independently of the hand command topic.
+                #    Always write the lift ctrl so it is never overwritten by
+                #    ctrl_snapshot (which only covers the 20 hand actuators).
+                lift_aid = self._actuator_ids["rh_A_arm_lift"]
+                if self._lift_active:
+                    self._data.ctrl[lift_aid] = self._lift_target
+                else:
+                    self._data.ctrl[lift_aid] = INITIAL_CONFIG["rh_arm_lift"]  # 0.0
+
+                # 3. Step physics
                 mujoco.mj_step(self._model, self._data)
                 step_count += 1
 
