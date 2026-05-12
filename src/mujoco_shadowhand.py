@@ -218,9 +218,7 @@ class GraspLogger:
         self.n_contacts    = []
         self.normal_force  = []
         self.shear_force   = []
-        self.cop           = []   # shape (T, 3)
         self.pen_depth     = []
-        self.grasp_quality = []
 
     def record(self):
         """Call once per physics step, after mj_step."""
@@ -233,16 +231,12 @@ class GraspLogger:
         self.joint_torques.append(
             [data.qfrc_actuator[i] for i in self._torque_dof_ids]
         )
-
         # ── Contact metrics ────────────────────────────────────────────────────
         n   = data.ncon
         self.n_contacts.append(n)
 
         total_normal  = 0.0
         total_shear   = 0.0
-        cop_num       = np.zeros(3)   # numerator for centre-of-pressure
-        cop_den       = 0.0           # denominator
-        min_margin    = np.inf        # grasp quality: min friction-cone margin
         max_pen       = 0.0           # most negative dist value
 
         for j in range(n):
@@ -257,23 +251,12 @@ class GraspLogger:
             total_normal += fn
             total_shear  += ft
 
-            # Centre of pressure (weighted by normal force)
-            if fn > 0:
-                cop_num += fn * contact.pos
-                cop_den += fn
-
             # Penetration depth (contact.dist < 0 when penetrating)
             max_pen = min(max_pen, float(contact.dist))
 
-            # Friction-cone margin: μ·Fn - Ft  (>0 means inside cone)
-            margin = self._mu * fn - ft
-            min_margin = min(min_margin, margin)
-
         self.normal_force.append(total_normal)
         self.shear_force.append(total_shear)
-        self.cop.append(cop_num / cop_den if cop_den > 0 else np.zeros(3))
         self.pen_depth.append(max_pen)
-        self.grasp_quality.append(min_margin if n > 0 else np.nan)
 
     def reset(self):
         """Clear history on GUI reset."""
@@ -282,9 +265,7 @@ class GraspLogger:
         self.n_contacts.clear()
         self.normal_force.clear()
         self.shear_force.clear()
-        self.cop.clear()
         self.pen_depth.clear()
-        self.grasp_quality.clear()
 
     def plot(self):
         """Generate and display all post-simulation plots."""
@@ -297,9 +278,7 @@ class GraspLogger:
         nf = np.array(self.normal_force)
         sf = np.array(self.shear_force)
         nc = np.array(self.n_contacts)
-        cop = np.array(self.cop)            # (T, 3)
         pd = np.array(self.pen_depth) * 1e3 # convert to mm
-        gq = np.array(self.grasp_quality)
 
         fig = plt.figure(figsize=(16, 18))
         fig.suptitle("Shadow Hand Grasp Analysis", fontsize=15, fontweight="bold")
@@ -324,44 +303,20 @@ class GraspLogger:
         ax2.legend()
         ax2.grid(True, alpha=0.3)
 
-        # ── Panel 3: Friction-cone margin (grasp quality) ──────────────────────
-        ax3 = fig.add_subplot(gs[1, 0])
-        ax3.plot(t, gq, color="tab:green")
-        ax3.axhline(0, color="r", linestyle="--", linewidth=0.8, label="Slip threshold")
-        ax3.set_title("Grasp Quality  (min μ·Fn − Ft)")
-        ax3.set_ylabel("Margin (N)")
-        ax3.legend()
-        ax3.grid(True, alpha=0.3)
-        ax3.fill_between(t, gq, 0,
-                         where=(gq < 0), alpha=0.25, color="red",   label="Slipping")
-        ax3.fill_between(t, gq, 0,
-                         where=(gq >= 0), alpha=0.15, color="green", label="Stable")
-
-        # ── Panel 4: Number of contacts ────────────────────────────────────────
-        ax4 = fig.add_subplot(gs[1, 1])
+        # ── Panel 3: Number of contacts ────────────────────────────────────────
+        ax4 = fig.add_subplot(gs[1, 0])
         ax4.plot(t, nc, color="tab:purple", linewidth=0.9)
         ax4.set_title("Active Contact Points")
         ax4.set_ylabel("Count")
         ax4.grid(True, alpha=0.3)
 
-        # ── Panel 5: Penetration depth ─────────────────────────────────────────
-        ax5 = fig.add_subplot(gs[2, 0])
+        # ── Panel 4: Penetration depth ─────────────────────────────────────────
+        ax5 = fig.add_subplot(gs[1, 1])
         ax5.plot(t, pd, color="tab:red", linewidth=0.9)
         ax5.axhline(0, color="k", linewidth=0.5)
         ax5.set_title("Max Penetration Depth")
         ax5.set_ylabel("Depth (mm)")
         ax5.grid(True, alpha=0.3)
-
-        # ── Panel 6: Centre of pressure trajectory ─────────────────────────────
-        ax6 = fig.add_subplot(gs[2, 1])
-        ax6.plot(t, cop[:, 0], label="X", color="tab:blue")
-        ax6.plot(t, cop[:, 1], label="Y", color="tab:orange")
-        ax6.plot(t, cop[:, 2], label="Z", color="tab:green")
-        ax6.set_title("Centre of Pressure (world frame)")
-        ax6.set_ylabel("Position (m)")
-        ax6.set_xlabel("Time (s)")
-        ax6.legend()
-        ax6.grid(True, alpha=0.3)
 
         plt.show()
 
