@@ -22,6 +22,7 @@ import os
 import threading
 import time
 
+import matplotlib.pyplot as plt
 import mujoco
 import mujoco.viewer
 import numpy as np
@@ -164,7 +165,209 @@ def apply_initial_config(model, data, config: dict, actuator_ids: dict):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 3. ROS NODE
+# 3. GRASP LOGGER
+# ══════════════════════════════════════════════════════════════════════════════
+
+class GraspLogger:
+    """
+    Accumulates simulation data every physics step and produces a
+    post-simulation plot when plot() is called.
+
+    Logged quantities
+    ─────────────────
+      time         : simulation time (s)
+      joint_torques: qfrc_actuator for all 24 hand joints  (Nm)
+      n_contacts   : number of active contact pairs
+      normal_force : total normal force summed over all contacts (N)
+      shear_force  : total tangential force magnitude summed over all contacts (N)
+      cop_x/y/z    : centre of pressure in world frame (m)
+      pen_depth    : maximum penetration depth (m, negative = penetrating)
+      grasp_quality: friction-cone margin proxy — min(μ·Fn - Ft) over contacts
+      arm_lift_pos : arm_lift joint position (m)
+    """
+
+    # Joints to plot individually in the torque panel
+    TORQUE_JOINTS = [
+        "rh_FFJ3", "rh_FFJ2", "rh_MFJ3", "rh_MFJ2",
+        "rh_RFJ3", "rh_RFJ2", "rh_LFJ3", "rh_LFJ2",
+        "rh_THJ2", "rh_THJ1",
+    ]
+
+    def __init__(self, model, data, joint_names, joint_qpos_ids, actuator_ids):
+        self._model          = model
+        self._data           = data
+        self._joint_names    = joint_names
+        self._joint_qpos_ids = joint_qpos_ids
+        self._actuator_ids   = actuator_ids
+
+        # Pre-compute dof addresses for torque joints
+        self._torque_dof_ids = []
+        for name in self.TORQUE_JOINTS:
+            jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+            self._torque_dof_ids.append(model.jnt_dofadr[jid])
+
+        # Friction coefficient (read from first geom or use a default)
+        self._mu = float(model.geom_friction[0, 0]) if model.ngeom > 0 else 0.5
+
+        # Pre-allocate contact force buffer (mj_contactForce needs 6 floats)
+        self._efc_buf = np.zeros(6)
+
+        # History lists — appended every step
+        self.time          = []
+        self.joint_torques = []   # shape (T, len(TORQUE_JOINTS))
+        self.n_contacts    = []
+        self.normal_force  = []
+        self.shear_force   = []
+        self.cop           = []   # shape (T, 3)
+        self.pen_depth     = []
+        self.grasp_quality = []
+
+    def record(self):
+        """Call once per physics step, after mj_step."""
+        data  = self._data
+        model = self._model
+
+        self.time.append(data.time)
+
+        # ── Joint torques (actuator contribution to generalised forces) ────────
+        self.joint_torques.append(
+            [data.qfrc_actuator[i] for i in self._torque_dof_ids]
+        )
+
+        # ── Contact metrics ────────────────────────────────────────────────────
+        n   = data.ncon
+        self.n_contacts.append(n)
+
+        total_normal  = 0.0
+        total_shear   = 0.0
+        cop_num       = np.zeros(3)   # numerator for centre-of-pressure
+        cop_den       = 0.0           # denominator
+        min_margin    = np.inf        # grasp quality: min friction-cone margin
+        max_pen       = 0.0           # most negative dist value
+
+        for j in range(n):
+            contact = data.contact[j]
+            mujoco.mj_contactForce(model, data, j, self._efc_buf)
+
+            # efc_buf[0]   = normal force (positive = compressive in contact frame)
+            # efc_buf[1:3] = tangential (shear) forces
+            fn = float(self._efc_buf[0])
+            ft = float(np.linalg.norm(self._efc_buf[1:3]))
+
+            total_normal += fn
+            total_shear  += ft
+
+            # Centre of pressure (weighted by normal force)
+            if fn > 0:
+                cop_num += fn * contact.pos
+                cop_den += fn
+
+            # Penetration depth (contact.dist < 0 when penetrating)
+            max_pen = min(max_pen, float(contact.dist))
+
+            # Friction-cone margin: μ·Fn - Ft  (>0 means inside cone)
+            margin = self._mu * fn - ft
+            min_margin = min(min_margin, margin)
+
+        self.normal_force.append(total_normal)
+        self.shear_force.append(total_shear)
+        self.cop.append(cop_num / cop_den if cop_den > 0 else np.zeros(3))
+        self.pen_depth.append(max_pen)
+        self.grasp_quality.append(min_margin if n > 0 else np.nan)
+
+    def reset(self):
+        """Clear history on GUI reset."""
+        self.time.clear()
+        self.joint_torques.clear()
+        self.n_contacts.clear()
+        self.normal_force.clear()
+        self.shear_force.clear()
+        self.cop.clear()
+        self.pen_depth.clear()
+        self.grasp_quality.clear()
+
+    def plot(self):
+        """Generate and display all post-simulation plots."""
+        if not self.time:
+            rospy.loginfo("No data recorded — skipping plots.")
+            return
+
+        t  = np.array(self.time)
+        tq = np.array(self.joint_torques)   # (T, J)
+        nf = np.array(self.normal_force)
+        sf = np.array(self.shear_force)
+        nc = np.array(self.n_contacts)
+        cop = np.array(self.cop)            # (T, 3)
+        pd = np.array(self.pen_depth) * 1e3 # convert to mm
+        gq = np.array(self.grasp_quality)
+
+        fig = plt.figure(figsize=(16, 18))
+        fig.suptitle("Shadow Hand Grasp Analysis", fontsize=15, fontweight="bold")
+        gs  = fig.add_gridspec(3, 2, hspace=0.45, wspace=0.35)
+
+        # ── Panel 1: Joint torques ─────────────────────────────────────────────
+        ax1 = fig.add_subplot(gs[0, 0])
+        for i, name in enumerate(self.TORQUE_JOINTS):
+            ax1.plot(t, tq[:, i], label=name, linewidth=0.9)
+        ax1.set_title("Actuator Joint Torques")
+        ax1.set_ylabel("Torque (Nm)")
+        ax1.legend(ncol=5, fontsize=7, loc="upper left")
+        ax1.grid(True, alpha=0.3)
+        ax1.axhline(0, color="k", linewidth=0.5)
+
+        # ── Panel 2: Normal vs shear force ─────────────────────────────────────
+        ax2 = fig.add_subplot(gs[0, 1])
+        ax2.plot(t, nf, label="Normal (N)",  color="tab:blue")
+        ax2.plot(t, sf, label="Shear (N)",   color="tab:orange")
+        ax2.set_title("Contact Forces (summed over all contacts)")
+        ax2.set_ylabel("Force (N)")
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        # ── Panel 3: Friction-cone margin (grasp quality) ──────────────────────
+        ax3 = fig.add_subplot(gs[1, 0])
+        ax3.plot(t, gq, color="tab:green")
+        ax3.axhline(0, color="r", linestyle="--", linewidth=0.8, label="Slip threshold")
+        ax3.set_title("Grasp Quality  (min μ·Fn − Ft)")
+        ax3.set_ylabel("Margin (N)")
+        ax3.legend()
+        ax3.grid(True, alpha=0.3)
+        ax3.fill_between(t, gq, 0,
+                         where=(gq < 0), alpha=0.25, color="red",   label="Slipping")
+        ax3.fill_between(t, gq, 0,
+                         where=(gq >= 0), alpha=0.15, color="green", label="Stable")
+
+        # ── Panel 4: Number of contacts ────────────────────────────────────────
+        ax4 = fig.add_subplot(gs[1, 1])
+        ax4.plot(t, nc, color="tab:purple", linewidth=0.9)
+        ax4.set_title("Active Contact Points")
+        ax4.set_ylabel("Count")
+        ax4.grid(True, alpha=0.3)
+
+        # ── Panel 5: Penetration depth ─────────────────────────────────────────
+        ax5 = fig.add_subplot(gs[2, 0])
+        ax5.plot(t, pd, color="tab:red", linewidth=0.9)
+        ax5.axhline(0, color="k", linewidth=0.5)
+        ax5.set_title("Max Penetration Depth")
+        ax5.set_ylabel("Depth (mm)")
+        ax5.grid(True, alpha=0.3)
+
+        # ── Panel 6: Centre of pressure trajectory ─────────────────────────────
+        ax6 = fig.add_subplot(gs[2, 1])
+        ax6.plot(t, cop[:, 0], label="X", color="tab:blue")
+        ax6.plot(t, cop[:, 1], label="Y", color="tab:orange")
+        ax6.plot(t, cop[:, 2], label="Z", color="tab:green")
+        ax6.set_title("Centre of Pressure (world frame)")
+        ax6.set_ylabel("Position (m)")
+        ax6.set_xlabel("Time (s)")
+        ax6.legend()
+        ax6.grid(True, alpha=0.3)
+
+        plt.show()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 4. ROS NODE
 # ══════════════════════════════════════════════════════════════════════════════
 
 class ShadowHandDigitalTwin:
@@ -229,6 +432,12 @@ class ShadowHandDigitalTwin:
 
         # Pre-compute index maps (no name lookups in the hot loop)
         self._joint_qpos_ids, self._joint_qvel_ids, self._actuator_ids = build_index_maps(self._model)
+
+        # Grasp logger — records every physics step, plots on exit
+        self._logger = GraspLogger(
+            self._model, self._data,
+            JOINT_NAMES, self._joint_qpos_ids, self._actuator_ids,
+        )
 
         # ── Viewer ────────────────────────────────────────────────────────────
         # _viewer_ready is set by the viewer thread once launch_passive has
@@ -408,6 +617,8 @@ class ShadowHandDigitalTwin:
                     # config rather than jumping back to the last ROS command.
                     with self._ctrl_lock:
                         self._ctrl_buffer = None
+                    # Clear log so plots only show the latest run
+                    self._logger.reset()
                 last_time = self._data.time
 
                 # 1. Apply ROS command -> data.ctrl
@@ -432,7 +643,10 @@ class ShadowHandDigitalTwin:
                 mujoco.mj_step(self._model, self._data)
                 step_count += 1
 
-                # 3. Publish joint states at 125 Hz (every 4th physics step)
+                # 4. Log data for post-simulation plots
+                self._logger.record()
+
+                # 5. Publish joint states at 125 Hz (every 4th physics step)
                 if step_count % PUBLISH_EVERY == 0:
                     self._publish_state()
 
@@ -467,3 +681,6 @@ if __name__ == "__main__":
     finally:
         if _WINDOWS_TIMER:
             ctypes.windll.winmm.timeEndPeriod(1)
+
+    # Generate plots after the simulation ends (viewer closed or Ctrl-C)
+    node._logger.plot()
