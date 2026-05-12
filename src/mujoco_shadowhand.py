@@ -200,7 +200,7 @@ class ShadowHandDigitalTwin:
         )
 
         # ── MuJoCo model ──────────────────────────────────────────────────────
-        self._model = mujoco.MjModel.from_xml_path("shadow_hand/scene_right_perso.xml")
+        self._model = mujoco.MjModel.from_xml_path("../mjcf/shadow_hand/scene_right_perso.xml")
         self._data  = mujoco.MjData(self._model)
 
         # Pre-compute index maps (no name lookups in the hot loop)
