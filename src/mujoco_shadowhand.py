@@ -20,6 +20,7 @@ joint ordering, handle the J0 coupling within the callback, sleep really require
 """
 
 import ctypes
+import os
 import threading
 import time
 
@@ -28,6 +29,9 @@ import mujoco.viewer
 import numpy as np
 import rospy
 from sensor_msgs.msg import JointState
+import rospkg
+
+
 
 # ── Windows high-resolution timer (no-op on Linux) ────────────────────────────
 try:
@@ -200,7 +204,13 @@ class ShadowHandDigitalTwin:
         )
 
         # ── MuJoCo model ──────────────────────────────────────────────────────
-        self._model = mujoco.MjModel.from_xml_path("../mjcf/shadow_hand/scene_right_perso.xml")
+        _ROS_PACK = rospkg.RosPack()
+        _MODEL_PATH = os.path.join(
+            _ROS_PACK.get_path("my_package"),
+            "mjcf", "shadow_hand", "scene_right_perso.xml"
+        )
+
+        self._model = mujoco.MjModel.from_xml_path(_MODEL_PATH)
         self._data  = mujoco.MjData(self._model)
 
         # Pre-compute index maps (no name lookups in the hot loop)
