@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 shadow_hand_simulation.py
 ─────────────────────────
