@@ -382,6 +382,11 @@ class ShadowHandDigitalTwin:
                 # Detect GUI reset (data.time jumps back to 0)
                 if self._data.time < last_time:
                     rospy.loginfo("GUI reset detected - re-applying initial config.")
+                    # mj_resetData wipes qpos, qvel, contacts and forces to a
+                    # clean default state before we overwrite with our config.
+                    # This prevents stale contact frames from causing
+                    # mju_makeFrames fatal errors during the transition.
+                    mujoco.mj_resetData(self._model, self._data)
                     apply_initial_config(
                         self._model, self._data, INITIAL_CONFIG, self._actuator_ids
                     )
