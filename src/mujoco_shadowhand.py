@@ -102,7 +102,7 @@ INITIAL_CONFIG = {
     "rh_LFJ5": 0.0, "rh_LFJ4": 0.0, "rh_LFJ3": 0.0, "rh_LFJ2": 0.0, "rh_LFJ1": 0.0,
     "rh_THJ5": 0.0, "rh_THJ4": 1.21, "rh_THJ3": 0.0, "rh_THJ2": 0.0, "rh_THJ1": 0.0,
     "rh_WRJ2": 0.0, "rh_WRJ1": 0.0,
-    "rh_arm_lift": 0.0,   # start at ground level — no contact force at rest
+    "rh_arm_lift": 0.02,   # start at ground level — no contact force at rest
 }
 
 
@@ -205,9 +205,11 @@ class ShadowHandDigitalTwin:
 
         # Subscriber: lift trigger
         # Receiving any Empty message on /lift starts the lifting motion.
-        # The physics loop reads _lift_active and drives arm_A_lift accordingly.
-        self._lift_active = False
-        self._lift_target = 0.2          # target height (m) — tune to your scene
+        # The physics loop reads _lift_active and ramps _lift_current smoothly.
+        self._lift_active  = False
+        self._lift_target  = 0.2    # target height (m) — tune to your scene
+        self._lift_current = 0.02    # current ctrl setpoint, incremented each step
+        self._lift_speed   = 0.05   # ramp rate (m/s) — tune for desired smoothness
         self._lift_sub = rospy.Subscriber(
             "/lift",
             Empty,
@@ -384,6 +386,8 @@ class ShadowHandDigitalTwin:
                         self._model, self._data, INITIAL_CONFIG, self._actuator_ids
                     )
                     step_count = 0
+                    self._lift_active  = False
+                    self._lift_current = 0.02
                 last_time = self._data.time
 
                 # 1. Apply ROS command -> data.ctrl
@@ -394,13 +398,15 @@ class ShadowHandDigitalTwin:
                     np.copyto(self._data.ctrl, ctrl_snapshot)
 
                 # 2. Drive arm_A_lift independently of the hand command topic.
-                #    Always write the lift ctrl so it is never overwritten by
-                #    ctrl_snapshot (which only covers the 20 hand actuators).
+                #    Ramp _lift_current toward _lift_target at _lift_speed (m/s)
+                #    so the motion is smooth rather than a step change in ctrl.
                 lift_aid = self._actuator_ids["rh_A_arm_lift"]
-                if self._lift_active:
-                    self._data.ctrl[lift_aid] = self._lift_target
-                else:
-                    self._data.ctrl[lift_aid] = INITIAL_CONFIG["rh_arm_lift"]  # 0.0
+                if self._lift_active and self._lift_current < self._lift_target:
+                    step = self._lift_speed * dt   # metres advanced this physics step
+                    self._lift_current = min(
+                        self._lift_current + step, self._lift_target
+                    )
+                self._data.ctrl[lift_aid] = self._lift_current
 
                 # 3. Step physics
                 mujoco.mj_step(self._model, self._data)
