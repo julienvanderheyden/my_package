@@ -102,7 +102,7 @@ INITIAL_CONFIG = {
     "rh_LFJ5": 0.0, "rh_LFJ4": 0.0, "rh_LFJ3": 0.0, "rh_LFJ2": 0.0, "rh_LFJ1": 0.0,
     "rh_THJ5": 0.0, "rh_THJ4": 1.21, "rh_THJ3": 0.0, "rh_THJ2": 0.0, "rh_THJ1": 0.0,
     "rh_WRJ2": 0.0, "rh_WRJ1": 0.0,
-    "rh_arm_lift": 0.02,   # start at ground level — no contact force at rest
+    "rh_arm_lift": 0.02,   # 2 cm above ground — avoids contact force at rest
 }
 
 
@@ -208,7 +208,7 @@ class ShadowHandDigitalTwin:
         # The physics loop reads _lift_active and ramps _lift_current smoothly.
         self._lift_active  = False
         self._lift_target  = 0.2    # target height (m) — tune to your scene
-        self._lift_current = 0.02    # current ctrl setpoint, incremented each step
+        self._lift_current = 0.0    # current ctrl setpoint, incremented each step
         self._lift_speed   = 0.05   # ramp rate (m/s) — tune for desired smoothness
         self._lift_sub = rospy.Subscriber(
             "/lift",
@@ -387,7 +387,11 @@ class ShadowHandDigitalTwin:
                     )
                     step_count = 0
                     self._lift_active  = False
-                    self._lift_current = 0.02
+                    self._lift_current = INITIAL_CONFIG["rh_arm_lift"]  # 0.02
+                    # Flush the command buffer so the hand holds the initial
+                    # config rather than jumping back to the last ROS command.
+                    with self._ctrl_lock:
+                        self._ctrl_buffer = None
                 last_time = self._data.time
 
                 # 1. Apply ROS command -> data.ctrl
