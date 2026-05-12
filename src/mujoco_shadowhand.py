@@ -15,8 +15,6 @@ Joint ordering
   Subscribed commands: ACTUATOR_NAMES (20 entries, written to data.ctrl)
   Coupled joints (J0): rh_A_FFJ0/MFJ0/RFJ0/LFJ0 each drive J2+J1 via tendon.
                         The subscriber sums J2+J1 and writes to the J0 actuator.
-
-joint ordering, handle the J0 coupling within the callback, sleep really required? 
 """
 
 import ctypes
@@ -30,8 +28,6 @@ import numpy as np
 import rospy
 from sensor_msgs.msg import JointState
 import rospkg
-
-
 
 # ── Windows high-resolution timer (no-op on Linux) ────────────────────────────
 try:
@@ -55,14 +51,15 @@ def precise_sleep(duration: float) -> None:
 # 1. JOINT / ACTUATOR MAPS
 # ══════════════════════════════════════════════════════════════════════════════
 
-# 24 joints published on /shadowhand_state_topic (in qpos order)
+# 24 joints published on /shadowhand_state_topic and received on
+# /shadowhand_command_topic — both topics share this exact ordering.
 JOINT_NAMES = [
-    "rh_WRJ2", "rh_WRJ1",
-    "rh_FFJ4", "rh_FFJ3", "rh_FFJ2", "rh_FFJ1",
-    "rh_MFJ4", "rh_MFJ3", "rh_MFJ2", "rh_MFJ1",
-    "rh_RFJ4", "rh_RFJ3", "rh_RFJ2", "rh_RFJ1",
-    "rh_LFJ5", "rh_LFJ4", "rh_LFJ3", "rh_LFJ2", "rh_LFJ1",
-    "rh_THJ5", "rh_THJ4", "rh_THJ3", "rh_THJ2", "rh_THJ1",
+    "rh_WRJ1", "rh_WRJ2",
+    "rh_FFJ1", "rh_FFJ2", "rh_FFJ3", "rh_FFJ4",
+    "rh_MFJ1", "rh_MFJ2", "rh_MFJ3", "rh_MFJ4",
+    "rh_RFJ1", "rh_RFJ2", "rh_RFJ3", "rh_RFJ4",
+    "rh_LFJ1", "rh_LFJ2", "rh_LFJ3", "rh_LFJ4", "rh_LFJ5",
+    "rh_THJ1", "rh_THJ2", "rh_THJ3", "rh_THJ4", "rh_THJ5",
 ]
 
 # 20 actuator commands received on /shadowhand_command_topic.
@@ -260,33 +257,45 @@ class ShadowHandDigitalTwin:
 
     def _command_callback(self, msg: JointState):
         """
-        Receives 20 actuator targets and stores them in a thread-safe buffer.
+        Receives 24 joint targets (same order as JOINT_NAMES) and maps them
+        to the 20 MuJoCo actuators, handling the J0 coupling internally.
 
         Message format
         ──────────────
-          msg.name[]     : actuator names (must match ALL_ACTUATOR_NAMES)
-          msg.position[] : target position for each actuator (rad / m)
+          msg.name[]     : joint names matching JOINT_NAMES order
+          msg.position[] : target position for each joint (rad)
 
-        The physics loop reads this buffer once per step and writes data.ctrl.
-        Using a lock + copy avoids partial writes from concurrent access.
+        Coupling logic
+        ──────────────
+          FF/MF/RF/LF J1 and J2 are driven by a single J0 actuator via tendon.
+          The commanded individual joint angles are summed here:
+              ctrl[rh_A_FFJ0] = cmd["rh_FFJ2"] + cmd["rh_FFJ1"]
+          All other joints map 1-to-1 to their actuator (joint → rh_A_<joint>).
         """
         if len(msg.name) != len(msg.position):
             rospy.logwarn_throttle(5.0, "Command message: name/position length mismatch.")
             return
 
-        # Build a name→value dict from the incoming message
+        # Build a joint_name → target_position dict
         cmd = {name: pos for name, pos in zip(msg.name, msg.position)}
 
-        # Validate all expected actuators are present
-        missing = [n for n in ALL_ACTUATOR_NAMES if n not in cmd]
+        # Validate all 24 joints are present
+        missing = [n for n in JOINT_NAMES if n not in cmd]
         if missing:
-            rospy.logwarn_throttle(5.0, f"Command missing actuators: {missing}")
+            rospy.logwarn_throttle(5.0, f"Command missing joints: {missing}")
             return
 
-        # Write ordered ctrl array (indexed by actuator order in self._actuator_ids)
         ctrl = np.zeros(self._model.nu)
-        for name, aid in self._actuator_ids.items():
-            ctrl[aid] = cmd[name]
+
+        # 1. Direct actuators: joint name → rh_A_<joint> (1-to-1)
+        for joint_name in JOINT_NAMES:
+            actuator_name = joint_name.replace("rh_", "rh_A_")
+            if actuator_name in self._actuator_ids:
+                ctrl[self._actuator_ids[actuator_name]] = cmd[joint_name]
+
+        # 2. Coupled J0 actuators: sum J2 + J1 targets into the single J0 ctrl
+        for actuator_name, (j2_name, j1_name) in COUPLED_JOINTS.items():
+            ctrl[self._actuator_ids[actuator_name]] = cmd[j2_name] + cmd[j1_name]
 
         with self._ctrl_lock:
             self._ctrl_buffer = ctrl
