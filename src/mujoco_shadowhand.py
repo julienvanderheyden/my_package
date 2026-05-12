@@ -230,12 +230,12 @@ class ShadowHandDigitalTwin:
         # Pre-compute index maps (no name lookups in the hot loop)
         self._joint_qpos_ids, self._joint_qvel_ids, self._actuator_ids = build_index_maps(self._model)
 
-        apply_initial_config(
-            self._model, self._data, INITIAL_CONFIG, self._actuator_ids
-        )
-
         # ── Viewer ────────────────────────────────────────────────────────────
-        self._stop_event  = threading.Event()
+        # _viewer_ready is set by the viewer thread once launch_passive has
+        # completed its internal mj_forward, so our apply_initial_config is
+        # guaranteed to run after and not be overwritten.
+        self._stop_event   = threading.Event()
+        self._viewer_ready = threading.Event()
         self._viewer_thread = threading.Thread(
             target=self._run_viewer, daemon=True
         )
@@ -260,6 +260,9 @@ class ShadowHandDigitalTwin:
             viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = True
             viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTFORCE] = True
             self._model.vis.map.force = 0.03
+            # Signal that launch_passive has finished its internal mj_forward —
+            # the physics loop may now safely apply the initial config.
+            self._viewer_ready.set()
 
             while viewer.is_running() and not self._stop_event.is_set():
                 viewer.sync()
@@ -371,6 +374,14 @@ class ShadowHandDigitalTwin:
             "Physics loop: %d Hz  |  state publish: %d Hz  (every %d steps).",
             PHYSICS_HZ, PUBLISH_HZ, PUBLISH_EVERY,
         )
+
+        # Wait until the viewer has finished its internal mj_forward so our
+        # apply_initial_config is the last thing written before the first step.
+        rospy.loginfo("Waiting for viewer to initialise...")
+        self._viewer_ready.wait()
+        mujoco.mj_resetData(self._model, self._data)
+        apply_initial_config(self._model, self._data, INITIAL_CONFIG, self._actuator_ids)
+        rospy.loginfo("Viewer ready — starting physics loop.")
 
         last_time  = 0.0
         step_count = 0
