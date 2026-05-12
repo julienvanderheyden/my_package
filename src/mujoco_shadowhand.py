@@ -14,6 +14,8 @@ Joint ordering
   Subscribed commands: ACTUATOR_NAMES (20 entries, written to data.ctrl)
   Coupled joints (J0): rh_A_FFJ0/MFJ0/RFJ0/LFJ0 each drive J2+J1 via tendon.
                         The subscriber sums J2+J1 and writes to the J0 actuator.
+
+joint ordering, handle the J0 coupling within the callback, sleep really required? 
 """
 
 import ctypes
