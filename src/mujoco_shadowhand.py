@@ -119,11 +119,13 @@ def build_index_maps(model):
     actuator_ids     : dict[str, int]  actuator name → ctrl index
     """
     joint_qpos_ids = []
+    joint_qvel_ids = []
     for name in JOINT_NAMES:
         jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
         if jid == -1:
             raise RuntimeError(f"Joint '{name}' not found in model.")
         joint_qpos_ids.append(model.jnt_qposadr[jid])
+        joint_qvel_ids.append(model.jnt_dofadr[jid])   # velocity index (dof space)
 
     actuator_ids = {}
     for name in ALL_ACTUATOR_NAMES:
@@ -132,7 +134,7 @@ def build_index_maps(model):
             raise RuntimeError(f"Actuator '{name}' not found in model.")
         actuator_ids[name] = aid
 
-    return joint_qpos_ids, actuator_ids
+    return joint_qpos_ids, joint_qvel_ids, actuator_ids
 
 
 def apply_initial_config(model, data, config: dict, actuator_ids: dict):
@@ -211,7 +213,7 @@ class ShadowHandDigitalTwin:
         self._data  = mujoco.MjData(self._model)
 
         # Pre-compute index maps (no name lookups in the hot loop)
-        self._joint_qpos_ids, self._actuator_ids = build_index_maps(self._model)
+        self._joint_qpos_ids, self._joint_qvel_ids, self._actuator_ids = build_index_maps(self._model)
 
         apply_initial_config(
             self._model, self._data, INITIAL_CONFIG, self._actuator_ids
@@ -304,7 +306,7 @@ class ShadowHandDigitalTwin:
 
     def _publish_state(self):
         """
-        Reads the 24 hand joint positions from qpos and publishes them.
+        Reads the 24 hand joint positions and velocities and publishes them.
 
         The arm_lift prismatic joint is intentionally excluded — it is an
         infrastructure joint, not part of the Shadow Hand's joint state.
@@ -315,9 +317,9 @@ class ShadowHandDigitalTwin:
         msg.position     = [
             float(self._data.qpos[idx]) for idx in self._joint_qpos_ids
         ]
-        # Velocities and efforts are also available if needed:
-        # msg.velocity = [float(self._data.qvel[...]) for ...]
-        # msg.effort   = [float(self._data.qfrc_actuator[...]) for ...]
+        msg.velocity     = [
+            float(self._data.qvel[idx]) for idx in self._joint_qvel_ids
+        ]
         self._state_pub.publish(msg)
 
     # ── Main physics loop ──────────────────────────────────────────────────────
