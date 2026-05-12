@@ -20,7 +20,7 @@
     <light pos="0 0 1"/>
     <light pos="0.3 0 1.5" dir="0 0 -1" directional="true"/>
     <geom name="floor" pos="0 0 -0.1" size="0 0 0.05" type="plane" material="groundplane"/>
-    <body name= "table" pos="0.6 0 0.0">
+    <body name= "table" pos="0.61 0 0.0">
       <geom type="box" size="0.22 0.2 0.1" rgba="0.5 0.7 0.5 1" friction="0.5 0.01 0.003"/>
     </body>
     <body name="object" pos="0.39 0.025 0.12">
