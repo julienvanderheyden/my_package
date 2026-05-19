@@ -73,8 +73,6 @@ JOINT_NAMES = [
 package_path = rospkg.RosPack().get_path('my_package')
 DEFAULT_URDF = os.path.join(package_path, 'urdf/sr_hand_vm_compatible.urdf')
 
-pb.configureDebugVisualizer(pb.COV_ENABLE_GUI, 0)
-
 # ---------------------------------------------------------------------------
 # State container (thread-safe via lock)
 # ---------------------------------------------------------------------------
@@ -252,12 +250,13 @@ class DualHandVisualizer:
         client = pb.connect(pb.GUI)
         pb.setAdditionalSearchPath(pybullet_data.getDataPath())
         pb.setGravity(0, 0, 0)
-        pb.resetDebugVisualizerCamera(
-            cameraDistance=0.55,
-            cameraYaw=30,
-            cameraPitch=-20,
-            cameraTargetPosition=[0, 0, 0.1],
-        )
+        pb.configureDebugVisualizer(pb.COV_ENABLE_GUI, 0)
+        # pb.resetDebugVisualizerCamera(
+        #     cameraDistance=0.55,
+        #     cameraYaw=30,
+        #     cameraPitch=-20,
+        #     cameraTargetPosition=[0, 0, 0.1],
+        # )
 
         # Nice dark background
         pb.configureDebugVisualizer(pb.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
