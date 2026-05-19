@@ -346,7 +346,7 @@ class DualHandVisualizer:
             )
 
             # Step simulation (needed to refresh the GUI)
-            pb.stepSimulation()
+            # pb.stepSimulation()
 
         pb.disconnect()
         rospy.loginfo("[DualHandVisualizer] Shutting down.")
