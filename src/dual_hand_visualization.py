@@ -250,17 +250,20 @@ class DualHandVisualizer:
         client = pb.connect(pb.GUI)
         pb.setAdditionalSearchPath(pybullet_data.getDataPath())
         pb.setGravity(0, 0, 0)
-        pb.configureDebugVisualizer(pb.COV_ENABLE_GUI, 0)
-        # pb.resetDebugVisualizerCamera(
-        #     cameraDistance=0.55,
-        #     cameraYaw=30,
-        #     cameraPitch=-20,
-        #     cameraTargetPosition=[0, 0, 0.1],
-        # )
+        
+        pb.resetDebugVisualizerCamera(
+            cameraDistance=0.55,
+            cameraYaw=30,
+            cameraPitch=-20,
+            cameraTargetPosition=[0, 0, 0.1],
+        )
 
         # Nice dark background
         pb.configureDebugVisualizer(pb.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
         pb.configureDebugVisualizer(pb.COV_ENABLE_SHADOWS, 1)
+        pb.configureDebugVisualizer(pb.COV_ENABLE_GUI, 0)
+        pb.configureDebugVisualizer(pb.COV_ENABLE_RENDERING, 1)
+        pb.configureDebugVisualizer(pb.COV_ENABLE_KEYBOARD_SHORTCUTS, 1)
 
         # Load ground plane (optional, for spatial reference)
         pb.loadURDF("plane.urdf", [0, 0, -0.01], useFixedBase=True)
