@@ -42,7 +42,7 @@ import rospkg
 # ShadowHand typically publishes sensor_msgs/JointState or a custom type.
 # Change the import and the extractor functions below if yours differs.
 from sensor_msgs.msg import JointState
-from std.msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ---------------------------------------------------------------------------
