@@ -388,14 +388,14 @@ class ShadowHandDigitalTwin:
 
         # ── MuJoCo model ──────────────────────────────────────────────────────
         _ROS_PACK = rospkg.RosPack()
-        # _MODEL_PATH = os.path.join(
-        #     _ROS_PACK.get_path("my_package"),
-        #     "mjcf", "shadow_hand", "scene_right_perso.xml"
-        # )
         _MODEL_PATH = os.path.join(
             _ROS_PACK.get_path("my_package"),
-            "mjcf", "shadow_hand", "scene_lateral_pinch.xml"
+            "mjcf", "shadow_hand", "scene_right_perso.xml"
         )
+        # _MODEL_PATH = os.path.join(
+        #     _ROS_PACK.get_path("my_package"),
+        #     "mjcf", "shadow_hand", "scene_lateral_pinch.xml"
+        # )
 
         self._model = mujoco.MjModel.from_xml_path(_MODEL_PATH)
         self._data  = mujoco.MjData(self._model)
