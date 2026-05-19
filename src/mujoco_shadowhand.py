@@ -97,25 +97,25 @@ COUPLED_JOINTS = {
 
 # Initial hand pose (joint_name → angle in rad)
 # MEDIUM WRAP PRESHAPE
-# INITIAL_CONFIG = {
-#     "rh_FFJ4": 0.0, "rh_FFJ3": 0.0, "rh_FFJ2": 0.0, "rh_FFJ1": 0.0,
-#     "rh_MFJ4": 0.0, "rh_MFJ3": 0.0, "rh_MFJ2": 0.0, "rh_MFJ1": 0.0,
-#     "rh_RFJ4": 0.0, "rh_RFJ3": 0.0, "rh_RFJ2": 0.0, "rh_RFJ1": 0.0,
-#     "rh_LFJ5": 0.0, "rh_LFJ4": 0.0, "rh_LFJ3": 0.0, "rh_LFJ2": 0.0, "rh_LFJ1": 0.0,
-#     "rh_THJ5": 0.0, "rh_THJ4": 1.21, "rh_THJ3": 0.0, "rh_THJ2": 0.0, "rh_THJ1": 0.0,
-#     "rh_WRJ2": 0.0, "rh_WRJ1": 0.0,
-#     "rh_arm_lift": 0.02,   # 2 cm above ground — avoids contact force at rest
-# }
+INITIAL_CONFIG = {
+    "rh_FFJ4": 0.0, "rh_FFJ3": 0.0, "rh_FFJ2": 0.0, "rh_FFJ1": 0.0,
+    "rh_MFJ4": 0.0, "rh_MFJ3": 0.0, "rh_MFJ2": 0.0, "rh_MFJ1": 0.0,
+    "rh_RFJ4": 0.0, "rh_RFJ3": 0.0, "rh_RFJ2": 0.0, "rh_RFJ1": 0.0,
+    "rh_LFJ5": 0.0, "rh_LFJ4": 0.0, "rh_LFJ3": 0.0, "rh_LFJ2": 0.0, "rh_LFJ1": 0.0,
+    "rh_THJ5": 0.0, "rh_THJ4": 1.21, "rh_THJ3": 0.0, "rh_THJ2": 0.0, "rh_THJ1": 0.0,
+    "rh_WRJ2": 0.0, "rh_WRJ1": 0.0,
+    "rh_arm_lift": 0.02,   # 2 cm above ground — avoids contact force at rest
+}
 
 # LATERAL PINCH PRESHAPE
-INITIAL_CONFIG = {
-    "rh_FFJ4": 0.0, "rh_FFJ3": 1.0, "rh_FFJ2": 1.57, "rh_FFJ1": 0.0,
-    "rh_MFJ4": 0.0, "rh_MFJ3": 1.57, "rh_MFJ2": 1.57, "rh_MFJ1": 1.57,
-    "rh_RFJ4": 0.0, "rh_RFJ3": 1.57, "rh_RFJ2": 1.57, "rh_RFJ1": 1.57,
-    "rh_LFJ5": 0.0, "rh_LFJ4": 0.0, "rh_LFJ3": 1.57, "rh_LFJ2": 1.57, "rh_LFJ1": 1.57,
-    "rh_THJ5": 0.0, "rh_THJ4": 0.0, "rh_THJ3": 0.0, "rh_THJ2": -0.7, "rh_THJ1": 0.0,
-    "rh_WRJ2": 0.0, "rh_WRJ1": 0.0, "rh_arm_lift" : 0.1
-}
+# INITIAL_CONFIG = {
+#     "rh_FFJ4": 0.0, "rh_FFJ3": 1.0, "rh_FFJ2": 1.57, "rh_FFJ1": 0.0,
+#     "rh_MFJ4": 0.0, "rh_MFJ3": 1.57, "rh_MFJ2": 1.57, "rh_MFJ1": 1.57,
+#     "rh_RFJ4": 0.0, "rh_RFJ3": 1.57, "rh_RFJ2": 1.57, "rh_RFJ1": 1.57,
+#     "rh_LFJ5": 0.0, "rh_LFJ4": 0.0, "rh_LFJ3": 1.57, "rh_LFJ2": 1.57, "rh_LFJ1": 1.57,
+#     "rh_THJ5": 0.0, "rh_THJ4": 0.0, "rh_THJ3": 0.0, "rh_THJ2": -0.7, "rh_THJ1": 0.0,
+#     "rh_WRJ2": 0.0, "rh_WRJ1": 0.0, "rh_arm_lift" : 0.1
+# }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
