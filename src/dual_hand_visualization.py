@@ -115,11 +115,43 @@ def extract_joint_state_array(msg: Float64MultiArray) -> list[tuple[str, float]]
 # PyBullet helpers
 # ---------------------------------------------------------------------------
 
+# def load_hand(urdf_path: str, base_position: list, color: tuple) -> tuple[int, dict[str, int]]:
+#     """
+#     Load the hand URDF at *base_position* and recolour all links.
+#     Returns (body_id, joint_name_to_index_map).
+#     """
+#     body_id = pb.loadURDF(
+#         urdf_path,
+#         basePosition=base_position,
+#         baseOrientation=pb.getQuaternionFromEuler([0, 0, 0]),
+#         useFixedBase=True,
+#         flags=pb.URDF_USE_SELF_COLLISION | pb.URDF_MERGE_FIXED_LINKS,
+#     )
+
+#     joint_map: dict[str, int] = {}
+#     n_joints = pb.getNumJoints(body_id)
+
+#     for i in range(n_joints):
+#         info = pb.getJointInfo(body_id, i)
+#         name = info[1].decode("utf-8")
+#         joint_type = info[2]
+
+#         # Map only revolute / prismatic joints
+#         if joint_type in (pb.JOINT_REVOLUTE, pb.JOINT_PRISMATIC):
+#             joint_map[name] = i
+
+#         # Recolour every link
+#         pb.changeVisualShape(
+#             body_id, i,
+#             rgbaColor=color,
+#         )
+
+#     # Also recolour base link (-1)
+#     pb.changeVisualShape(body_id, -1, rgbaColor=color)
+
+#     return body_id, joint_map
+
 def load_hand(urdf_path: str, base_position: list, color: tuple) -> tuple[int, dict[str, int]]:
-    """
-    Load the hand URDF at *base_position* and recolour all links.
-    Returns (body_id, joint_name_to_index_map).
-    """
     body_id = pb.loadURDF(
         urdf_path,
         basePosition=base_position,
@@ -136,30 +168,42 @@ def load_hand(urdf_path: str, base_position: list, color: tuple) -> tuple[int, d
         name = info[1].decode("utf-8")
         joint_type = info[2]
 
-        # Map only revolute / prismatic joints
         if joint_type in (pb.JOINT_REVOLUTE, pb.JOINT_PRISMATIC):
             joint_map[name] = i
+            
+            # FIX: Disable the default motor control so physics solver doesn't fight you
+            pb.setJointMotorControl2(
+                bodyUniqueId=body_id,
+                jointIndex=i,
+                controlMode=pb.VELOCITY_CONTROL,
+                targetVelocity=0,
+                force=0
+            )
 
-        # Recolour every link
-        pb.changeVisualShape(
-            body_id, i,
-            rgbaColor=color,
-        )
+        pb.changeVisualShape(body_id, i, rgbaColor=color)
 
-    # Also recolour base link (-1)
     pb.changeVisualShape(body_id, -1, rgbaColor=color)
-
     return body_id, joint_map
 
+
+# def apply_positions(body_id: int,
+#                     joint_map: dict[str, int],
+#                     positions: dict[str, float]) -> None:
+#     """Push joint positions into PyBullet (kinematic reset, no physics)."""
+#     for name, idx in joint_map.items():
+#         angle = positions.get(name, 0.0)
+#         pb.resetJointState(body_id, idx, angle)
 
 def apply_positions(body_id: int,
                     joint_map: dict[str, int],
                     positions: dict[str, float]) -> None:
     """Push joint positions into PyBullet (kinematic reset, no physics)."""
     for name, idx in joint_map.items():
-        angle = positions.get(name, 0.0)
-        pb.resetJointState(body_id, idx, angle)
-
+        # FIX: Check if the joint name actually arrived in the ROS message
+        if name in positions:
+            angle = positions[name]
+            pb.resetJointState(body_id, idx, angle)
+        # If it's not in positions, LEAVE IT ALONE so mimic/default structures hold
 
 # ---------------------------------------------------------------------------
 # Main node
