@@ -27,6 +27,8 @@ standard Shadow Dexterous Hand URDF naming, e.g.:
 Adjust JOINT_NAMES below if your URDF uses different conventions.
 """
 
+from __future__ import annotations  # Enables Python 3.9+ type hinting syntax in Python 3.8
+
 import argparse
 import math
 import os
@@ -179,9 +181,10 @@ class DualHandVisualizer:
             self._cb_real,
             queue_size=1,
         )
+        # BUGFIX: Changed message type from JointState to Float64MultiArray to match the callback
         rospy.Subscriber(
             "/shadowhand_command_topic",
-            JointState,
+            Float64MultiArray,
             self._cb_virtual,
             queue_size=1,
         )
