@@ -73,6 +73,8 @@ JOINT_NAMES = [
 package_path = rospkg.RosPack().get_path('my_package')
 DEFAULT_URDF = os.path.join(package_path, 'urdf/sr_hand_vm_compatible.urdf')
 
+pb.configureDebugVisualizer(pb.COV_ENABLE_GUI, 0)
+
 # ---------------------------------------------------------------------------
 # State container (thread-safe via lock)
 # ---------------------------------------------------------------------------
