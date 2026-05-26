@@ -12,9 +12,19 @@ ROS interface
 Joint ordering
 ──────────────
   Published joints  : JOINT_NAMES  (24 entries, read from qpos)
-  Subscribed commands: ACTUATOR_NAMES (20 entries, written to data.ctrl)
-  Coupled joints (J0): rh_A_FFJ0/MFJ0/RFJ0/LFJ0 each drive J2+J1 via tendon.
-                        The subscriber sums J2+J1 and writes to the J0 actuator.
+  Subscribed commands: 24 values in JOINT_NAMES order (written to data.ctrl)
+
+Coupling mode (auto-detected at startup from the loaded MJCF)
+──────────────────────────────────────────────────────────────
+  COUPLED   (standard model, e.g. scene_right_perso.xml)
+    rh_A_FFJ0/MFJ0/RFJ0/LFJ0 each drive J2+J1 via tendon.
+    The subscriber sums J2_target + J1_target before writing to the J0 actuator.
+    Total actuators: 20 (16 direct + 4 coupled J0).
+
+  UNCOUPLED (perso model, e.g. scene_right_perso_uncoupled.xml)
+    Every joint has its own actuator (rh_A_FFJ1, rh_A_FFJ2, …).
+    Commands map 1-to-1; no summation is performed.
+    Total actuators: 24 (one per joint, no J0).
 """
 
 import ctypes
@@ -64,8 +74,7 @@ JOINT_NAMES = [
     "rh_THJ1", "rh_THJ2", "rh_THJ3", "rh_THJ4", "rh_THJ5",
 ]
 
-# 20 actuator commands received on /shadowhand_command_topic.
-# The message's name[] field must match these strings exactly.
+# ── Coupled model (standard): 16 direct + 4 J0 tendon actuators ───────────────
 # Direct actuators (1 joint → 1 actuator):
 DIRECT_ACTUATOR_NAMES = [
     "rh_A_WRJ2", "rh_A_WRJ1",
@@ -77,7 +86,8 @@ DIRECT_ACTUATOR_NAMES = [
 ]
 
 # Coupled actuators: one actuator drives two joints via tendon (J2 + J1).
-# The command message should provide the *summed* target (J2_target + J1_target).
+# The subscriber receives individual J1/J2 targets and sums them before
+# writing to the single J0 ctrl channel.
 COUPLED_ACTUATOR_NAMES = [
     "rh_A_FFJ0",   # drives rh_FFJ2 + rh_FFJ1
     "rh_A_MFJ0",   # drives rh_MFJ2 + rh_MFJ1
@@ -85,15 +95,34 @@ COUPLED_ACTUATOR_NAMES = [
     "rh_A_LFJ0",   # drives rh_LFJ2 + rh_LFJ1
 ]
 
-ALL_ACTUATOR_NAMES = DIRECT_ACTUATOR_NAMES + COUPLED_ACTUATOR_NAMES + ["rh_A_arm_lift"]  # 21 total
+ALL_ACTUATOR_NAMES_COUPLED = DIRECT_ACTUATOR_NAMES + COUPLED_ACTUATOR_NAMES + ["rh_A_arm_lift"]  # 21 total
 
-# Coupled joints: used by apply_initial_config to compute J0 ctrl from J1+J2
+# Coupled joints map: J0 actuator → (J2 joint, J1 joint)
+# Used both in apply_initial_config and _command_callback (coupled mode).
 COUPLED_JOINTS = {
     "rh_A_FFJ0": ("rh_FFJ2", "rh_FFJ1"),
     "rh_A_MFJ0": ("rh_MFJ2", "rh_MFJ1"),
     "rh_A_RFJ0": ("rh_RFJ2", "rh_RFJ1"),
     "rh_A_LFJ0": ("rh_LFJ2", "rh_LFJ1"),
 }
+
+# ── Uncoupled model (perso): one actuator per joint, no J0 ────────────────────
+# Actuator names mirror JOINT_NAMES exactly ("rh_" → "rh_A_").
+ALL_ACTUATOR_NAMES_UNCOUPLED = (
+    [name.replace("rh_", "rh_A_") for name in JOINT_NAMES]
+    + ["rh_A_arm_lift"]
+)   # 25 total
+
+
+def detect_coupling_mode(model) -> bool:
+    """
+    Return True  → coupled model   (standard hand, J0 tendon actuators present).
+    Return False → uncoupled model (perso hand, one actuator per joint).
+
+    Detection probes for rh_A_FFJ0: it exists in the coupled model and is
+    absent in the uncoupled one.
+    """
+    return mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, "rh_A_FFJ0") != -1
 
 # Initial hand pose (joint_name → angle in rad)
 # MEDIUM WRAP PRESHAPE
@@ -122,14 +151,22 @@ INITIAL_CONFIG = {
 # 2. MODEL HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def build_index_maps(model):
+def build_index_maps(model, actuator_names: list):
     """
     Pre-compute integer indices so the hot loop never calls mj_name2id.
 
+    Parameters
+    ----------
+    model          : MjModel
+    actuator_names : list[str]
+        Pass ALL_ACTUATOR_NAMES_COUPLED or ALL_ACTUATOR_NAMES_UNCOUPLED
+        depending on the model loaded (see detect_coupling_mode).
+
     Returns
     -------
-    joint_qpos_ids   : list[int]  qpos address for each entry in JOINT_NAMES
-    actuator_ids     : dict[str, int]  actuator name → ctrl index
+    joint_qpos_ids : list[int]       qpos address for each entry in JOINT_NAMES
+    joint_qvel_ids : list[int]       dof address for each entry in JOINT_NAMES
+    actuator_ids   : dict[str, int]  actuator name → ctrl index
     """
     joint_qpos_ids = []
     joint_qvel_ids = []
@@ -138,10 +175,10 @@ def build_index_maps(model):
         if jid == -1:
             raise RuntimeError(f"Joint '{name}' not found in model.")
         joint_qpos_ids.append(model.jnt_qposadr[jid])
-        joint_qvel_ids.append(model.jnt_dofadr[jid])   # velocity index (dof space)
+        joint_qvel_ids.append(model.jnt_dofadr[jid])
 
     actuator_ids = {}
-    for name in ALL_ACTUATOR_NAMES:
+    for name in actuator_names:
         aid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
         if aid == -1:
             raise RuntimeError(f"Actuator '{name}' not found in model.")
@@ -150,27 +187,41 @@ def build_index_maps(model):
     return joint_qpos_ids, joint_qvel_ids, actuator_ids
 
 
-def apply_initial_config(model, data, config: dict, actuator_ids: dict):
-    """Set qpos and ctrl so the hand starts in `config` without fighting itself."""
+def apply_initial_config(model, data, config: dict, actuator_ids: dict, coupled: bool):
+    """
+    Set qpos and ctrl so the hand starts in `config` without fighting itself.
 
+    Parameters
+    ----------
+    coupled : bool
+        True  → J0 tendon model: J0 ctrl = J2_angle + J1_angle.
+        False → uncoupled model: every joint maps 1-to-1 to its actuator.
+    """
     # 1. All joint positions
     for joint_name, angle in config.items():
         jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
         if jid != -1:
             data.qpos[model.jnt_qposadr[jid]] = angle
 
-    # 2. Direct actuators (joint_name → rh_A_<joint_name>)
-    for joint_name, angle in config.items():
-        actuator_name = joint_name.replace("rh_", "rh_A_")
-        if actuator_name in actuator_ids:
-            data.ctrl[actuator_ids[actuator_name]] = angle
+    if coupled:
+        # 2a. Direct actuators (joint_name → rh_A_<joint_name>)
+        for joint_name, angle in config.items():
+            actuator_name = joint_name.replace("rh_", "rh_A_")
+            if actuator_name in actuator_ids:
+                data.ctrl[actuator_ids[actuator_name]] = angle
 
-    # 3. Coupled J0 actuators: ctrl = J2_angle + J1_angle
-    for actuator_name, (j2_name, j1_name) in COUPLED_JOINTS.items():
-        if actuator_name in actuator_ids:
-            j2 = config.get(j2_name, 0.0)
-            j1 = config.get(j1_name, 0.0)
-            data.ctrl[actuator_ids[actuator_name]] = j2 + j1
+        # 2b. Coupled J0 actuators: ctrl = J2_angle + J1_angle
+        for actuator_name, (j2_name, j1_name) in COUPLED_JOINTS.items():
+            if actuator_name in actuator_ids:
+                data.ctrl[actuator_ids[actuator_name]] = (
+                    config.get(j2_name, 0.0) + config.get(j1_name, 0.0)
+                )
+    else:
+        # 2c. Uncoupled: every joint maps directly to rh_A_<joint>
+        for joint_name, angle in config.items():
+            actuator_name = joint_name.replace("rh_", "rh_A_")
+            if actuator_name in actuator_ids:
+                data.ctrl[actuator_ids[actuator_name]] = angle
 
     mujoco.mj_forward(model, data)
 
@@ -400,8 +451,18 @@ class ShadowHandDigitalTwin:
         self._model = mujoco.MjModel.from_xml_path(_MODEL_PATH)
         self._data  = mujoco.MjData(self._model)
 
-        # Pre-compute index maps (no name lookups in the hot loop)
-        self._joint_qpos_ids, self._joint_qvel_ids, self._actuator_ids = build_index_maps(self._model)
+        # Auto-detect coupling mode from the loaded model
+        self._coupled = detect_coupling_mode(self._model)
+        _mode_label   = "coupled (J0 tendon)" if self._coupled else "uncoupled (per-joint)"
+        rospy.loginfo("Coupling mode detected: %s", _mode_label)
+
+        # Pre-compute index maps using the actuator list that matches the model
+        _actuator_names = (
+            ALL_ACTUATOR_NAMES_COUPLED if self._coupled else ALL_ACTUATOR_NAMES_UNCOUPLED
+        )
+        self._joint_qpos_ids, self._joint_qvel_ids, self._actuator_ids = (
+            build_index_maps(self._model, _actuator_names)
+        )
 
         # Grasp logger — records every physics step, plots on exit
         self._logger = GraspLogger(
@@ -456,19 +517,15 @@ class ShadowHandDigitalTwin:
 
     def _command_callback(self, msg: Float64MultiArray):
         """
-        Receives 24 joint targets as a flat Float64MultiArray and maps them
-        to the 20 MuJoCo actuators, handling the J0 coupling internally.
-
-        Message format
-        ──────────────
-          msg.data : 24 floats in JOINT_NAMES order (rad)
+        Receives 24 joint targets as a flat Float64MultiArray (in JOINT_NAMES
+        order) and maps them to MuJoCo actuator ctrl indices.
 
         Coupling logic
         ──────────────
-          FF/MF/RF/LF J1 and J2 are driven by a single J0 actuator via tendon.
-          The commanded individual joint angles are summed here:
-              ctrl[rh_A_FFJ0] = cmd[rh_FFJ2] + cmd[rh_FFJ1]
-          All other joints map 1-to-1 to their actuator (joint → rh_A_<joint>).
+          Coupled model   : direct joints map 1-to-1; J1+J2 targets are summed
+                            and written to the single J0 actuator.
+          Uncoupled model : every value maps 1-to-1 to its rh_A_<joint> actuator;
+                            no summation is performed.
         """
         if len(msg.data) != len(JOINT_NAMES):
             rospy.logwarn_throttle(
@@ -483,15 +540,22 @@ class ShadowHandDigitalTwin:
 
         ctrl = np.zeros(self._model.nu)
 
-        # 1. Direct actuators: joint name → rh_A_<joint> (1-to-1)
-        for joint_name in JOINT_NAMES:
-            actuator_name = joint_name.replace("rh_", "rh_A_")
-            if actuator_name in self._actuator_ids:
-                ctrl[self._actuator_ids[actuator_name]] = cmd[joint_name]
+        if self._coupled:
+            # 1. Direct actuators: joint name → rh_A_<joint> (1-to-1)
+            for joint_name in JOINT_NAMES:
+                actuator_name = joint_name.replace("rh_", "rh_A_")
+                if actuator_name in self._actuator_ids:
+                    ctrl[self._actuator_ids[actuator_name]] = cmd[joint_name]
 
-        # 2. Coupled J0 actuators: sum J2 + J1 targets into the single J0 ctrl
-        for actuator_name, (j2_name, j1_name) in COUPLED_JOINTS.items():
-            ctrl[self._actuator_ids[actuator_name]] = cmd[j2_name] + cmd[j1_name]
+            # 2. Coupled J0 actuators: sum J2 + J1 targets into the single J0 ctrl
+            for actuator_name, (j2_name, j1_name) in COUPLED_JOINTS.items():
+                ctrl[self._actuator_ids[actuator_name]] = cmd[j2_name] + cmd[j1_name]
+        else:
+            # Uncoupled: every joint maps 1-to-1 to its own actuator
+            for joint_name in JOINT_NAMES:
+                actuator_name = joint_name.replace("rh_", "rh_A_")
+                if actuator_name in self._actuator_ids:
+                    ctrl[self._actuator_ids[actuator_name]] = cmd[joint_name]
 
         with self._ctrl_lock:
             self._ctrl_buffer = ctrl
@@ -559,7 +623,7 @@ class ShadowHandDigitalTwin:
         rospy.loginfo("Waiting for viewer to initialise...")
         self._viewer_ready.wait()
         mujoco.mj_resetData(self._model, self._data)
-        apply_initial_config(self._model, self._data, INITIAL_CONFIG, self._actuator_ids)
+        apply_initial_config(self._model, self._data, INITIAL_CONFIG, self._actuator_ids, self._coupled)
         rospy.loginfo("Viewer ready — starting physics loop.")
 
         last_time  = 0.0
@@ -578,7 +642,7 @@ class ShadowHandDigitalTwin:
                     # mju_makeFrames fatal errors during the transition.
                     mujoco.mj_resetData(self._model, self._data)
                     apply_initial_config(
-                        self._model, self._data, INITIAL_CONFIG, self._actuator_ids
+                        self._model, self._data, INITIAL_CONFIG, self._actuator_ids, self._coupled
                     )
                     step_count = 0
                     self._lift_active  = False
