@@ -494,6 +494,8 @@ class ShadowHandDigitalTwin:
 
     def _run_viewer(self):
         with mujoco.viewer.launch_passive(self._model, self._data) as viewer:
+            self._viewer = viewer
+
             viewer.cam.lookat    = [0.2, 0, 0.2]
             viewer.cam.distance  = 0.8
             viewer.cam.elevation = -20
@@ -505,7 +507,8 @@ class ShadowHandDigitalTwin:
             self._viewer_ready.set()
 
             while viewer.is_running() and not self._stop_event.is_set():
-                viewer.sync()
+                with viewer.lock():
+                    viewer.sync()
                 time.sleep(1 / 60)
 
         # Closing the viewer shuts down the node cleanly
@@ -640,10 +643,12 @@ class ShadowHandDigitalTwin:
                     # clean default state before we overwrite with our config.
                     # This prevents stale contact frames from causing
                     # mju_makeFrames fatal errors during the transition.
-                    mujoco.mj_resetData(self._model, self._data)
-                    apply_initial_config(
-                        self._model, self._data, INITIAL_CONFIG, self._actuator_ids, self._coupled
-                    )
+                    with self._viewer.lock():
+                        mujoco.mj_resetData(self._model, self._data)
+                        apply_initial_config(
+                            self._model, self._data, INITIAL_CONFIG, self._actuator_ids, self._coupled
+                        )
+
                     step_count = 0
                     self._lift_active  = False
                     self._lift_current = INITIAL_CONFIG["rh_arm_lift"]  # 0.02
@@ -658,24 +663,24 @@ class ShadowHandDigitalTwin:
                 # 1. Apply ROS command -> data.ctrl
                 with self._ctrl_lock:
                     ctrl_snapshot = self._ctrl_buffer
+                with self._viewer.lock():
+                    if ctrl_snapshot is not None:
+                        np.copyto(self._data.ctrl, ctrl_snapshot)
 
-                if ctrl_snapshot is not None:
-                    np.copyto(self._data.ctrl, ctrl_snapshot)
+                    # 2. Drive arm_A_lift independently of the hand command topic.
+                    #    Ramp _lift_current toward _lift_target at _lift_speed (m/s)
+                    #    so the motion is smooth rather than a step change in ctrl.
+                    lift_aid = self._actuator_ids["rh_A_arm_lift"]
+                    if self._lift_active and self._lift_current < self._lift_target:
+                        step = self._lift_speed * dt   # metres advanced this physics step
+                        self._lift_current = min(
+                            self._lift_current + step, self._lift_target
+                        )
+                    self._data.ctrl[lift_aid] = self._lift_current
 
-                # 2. Drive arm_A_lift independently of the hand command topic.
-                #    Ramp _lift_current toward _lift_target at _lift_speed (m/s)
-                #    so the motion is smooth rather than a step change in ctrl.
-                lift_aid = self._actuator_ids["rh_A_arm_lift"]
-                if self._lift_active and self._lift_current < self._lift_target:
-                    step = self._lift_speed * dt   # metres advanced this physics step
-                    self._lift_current = min(
-                        self._lift_current + step, self._lift_target
-                    )
-                self._data.ctrl[lift_aid] = self._lift_current
-
-                # 3. Step physics
-                mujoco.mj_step(self._model, self._data)
-                step_count += 1
+                    # 3. Step physics
+                    mujoco.mj_step(self._model, self._data)
+                    step_count += 1
 
                 # 4. Log data for post-simulation plots
                 self._logger.record()
