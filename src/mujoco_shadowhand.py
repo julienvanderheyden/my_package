@@ -399,7 +399,7 @@ class ShadowHandDigitalTwin:
                       to self._ctrl_buffer under a lock
     """
 
-    def __init__(self):
+    def __init__(self, enable_logging: bool= False):
         # ── ROS init ──────────────────────────────────────────────────────────
         rospy.init_node("shadow_hand_digital_twin", anonymous=False)
         self._rate_hz   = 500           # must match 1 / model.opt.timestep
@@ -465,10 +465,15 @@ class ShadowHandDigitalTwin:
         )
 
         # Grasp logger — records every physics step, plots on exit
-        self._logger = GraspLogger(
-            self._model, self._data,
-            JOINT_NAMES, self._joint_qpos_ids, self._actuator_ids,
-        )
+        if enable_logging:
+            self._logger = GraspLogger(
+                self._model, self._data,
+                JOINT_NAMES, self._joint_qpos_ids, self._actuator_ids,
+            )
+            rospy.loginfo("Grasp logging is ENABLED.")
+        else:
+            self._logger = None
+            rospy.loginfo("Grasp logging is DISABLED.")
 
         # ── Viewer ────────────────────────────────────────────────────────────
         # _viewer_ready is set by the viewer thread once launch_passive has
@@ -657,7 +662,8 @@ class ShadowHandDigitalTwin:
                     with self._ctrl_lock:
                         self._ctrl_buffer = None
                     # Clear log so plots only show the latest run
-                    self._logger.reset()
+                    if self._logger is not None:
+                        self._logger.reset()
                 last_time = self._data.time
 
                 # 1. Apply ROS command -> data.ctrl
@@ -683,7 +689,8 @@ class ShadowHandDigitalTwin:
                     step_count += 1
 
                 # 4. Log data for post-simulation plots
-                self._logger.record()
+                if self._logger is not None:
+                    self._logger.record()
 
                 # 5. Publish joint states at 125 Hz (every 4th physics step)
                 if step_count % PUBLISH_EVERY == 0:
@@ -707,6 +714,18 @@ class ShadowHandDigitalTwin:
 # ══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
+    import argparse
+
+    # 1. Set up argument parser
+    parser = argparse.ArgumentParser(description="Shadow Hand MuJoCo Simulation")
+    parser.add_argument(
+        "--plot", 
+        action="store_true", 
+        help="Enable data logging and display plots upon exit"
+    )
+    # parse_known_args isolates our flag and ignores unexpected ROS arguments
+    args, unknown = parser.parse_known_args()
+
     # Windows timer resolution
     try:
         ctypes.windll.winmm.timeBeginPeriod(1)
@@ -715,11 +734,13 @@ if __name__ == "__main__":
         _WINDOWS_TIMER = False
 
     try:
-        node = ShadowHandDigitalTwin()
+        # 2. Pass the parsed argument to the node
+        node = ShadowHandDigitalTwin(enable_logging=args.plot)
         node.run()
     finally:
         if _WINDOWS_TIMER:
             ctypes.windll.winmm.timeEndPeriod(1)
 
-    # Generate plots after the simulation ends (viewer closed or Ctrl-C)
-    node._logger.plot()
+    # 3. Only plot if the logger was actually created
+    if node._logger is not None:
+        node._logger.plot()
