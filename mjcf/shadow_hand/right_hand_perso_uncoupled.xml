@@ -52,15 +52,15 @@
 
       <default class="metacarpal">
         <joint axis="0.573576 0 0.819152" range="0 0.785398"/>
-        <position ctrlrange="0 0.785398"/>
+        <position kp="4" ctrlrange="0 0.785398"/>
       </default>
       <default class="knuckle">
         <joint axis="0 -1 0" range="-0.349066 0.349066"/>
-        <position ctrlrange="-0.349066 0.349066"/>
+        <position kp="4" ctrlrange="-0.349066 0.349066"/>
       </default>
       <default class="proximal">
         <joint range="-0.261799 1.5708"/>
-        <position ctrlrange="-0.261799 1.5708"/>
+        <position kp="4" ctrlrange="-0.261799 1.5708"/>
       </default>
       <!-- <default class="middle_distal">
         <joint range="0 1.5708"/>
@@ -68,7 +68,7 @@
       </default> -->
       <default class="middle_distal">
         <joint range="0 1.5708"/>
-        <position ctrlrange="0 1.5708"/>
+        <position kp="4" ctrlrange="0 1.5708"/>
       </default>
       
 
