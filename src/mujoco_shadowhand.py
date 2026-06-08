@@ -409,7 +409,7 @@ class ShadowHandDigitalTwin:
                       to self._ctrl_buffer under a lock
     """
 
-    def __init__(self, enable_logging: bool= False):
+    def __init__(self, enable_logging: bool = False, auto_lift: bool = False):
         # ── ROS init ──────────────────────────────────────────────────────────
         rospy.init_node("shadow_hand_digital_twin", anonymous=False)
         self._rate_hz   = 500           # must match 1 / model.opt.timestep
@@ -446,6 +446,19 @@ class ShadowHandDigitalTwin:
             self._lift_callback,
             queue_size=1,
         )
+
+        # Auto-lift: if --lift was passed and no /lift message has arrived by
+        # AUTO_LIFT_TIMEOUT seconds of simulation time, trigger lift automatically.
+        self._auto_lift         = auto_lift
+        self._auto_lift_timeout = 20.0   # seconds of simulation time
+        self._auto_lift_fired   = False  # becomes True once the auto-trigger runs
+        if auto_lift:
+            rospy.loginfo(
+                "Auto-lift ENABLED — will trigger at t=%.1f s if /lift not received.",
+                self._auto_lift_timeout,
+            )
+        else:
+            rospy.loginfo("Auto-lift DISABLED.")
 
         # ── MuJoCo model ──────────────────────────────────────────────────────
         _ROS_PACK = rospkg.RosPack()
@@ -667,6 +680,7 @@ class ShadowHandDigitalTwin:
                     step_count = 0
                     self._lift_active  = False
                     self._lift_current = INITIAL_CONFIG["rh_arm_lift"]  # 0.02
+                    self._auto_lift_fired = False  # re-arm auto-lift for the new run
                     # Flush the command buffer so the hand holds the initial
                     # config rather than jumping back to the last ROS command.
                     with self._ctrl_lock:
@@ -684,6 +698,21 @@ class ShadowHandDigitalTwin:
                         np.copyto(self._data.ctrl, ctrl_snapshot)
 
                     # 2. Drive arm_A_lift independently of the hand command topic.
+                    #    Auto-lift: if --lift was passed, fire at the timeout if
+                    #    the /lift topic has not already triggered it.
+                    if (
+                        self._auto_lift
+                        and not self._auto_lift_fired
+                        and not self._lift_active
+                        and self._data.time >= self._auto_lift_timeout
+                    ):
+                        rospy.loginfo(
+                            "Auto-lift: no /lift received by t=%.1f s — triggering now.",
+                            self._data.time,
+                        )
+                        self._lift_active     = True
+                        self._auto_lift_fired = True
+
                     #    Ramp _lift_current toward _lift_target at _lift_speed (m/s)
                     #    so the motion is smooth rather than a step change in ctrl.
                     lift_aid = self._actuator_ids["rh_A_arm_lift"]
@@ -729,11 +758,19 @@ if __name__ == "__main__":
     # 1. Set up argument parser
     parser = argparse.ArgumentParser(description="Shadow Hand MuJoCo Simulation")
     parser.add_argument(
-        "--plot", 
-        action="store_true", 
-        help="Enable data logging and display plots upon exit"
+        "--plot",
+        action="store_true",
+        help="Enable data logging and display plots upon exit",
     )
-    # parse_known_args isolates our flag and ignores unexpected ROS arguments
+    parser.add_argument(
+        "--lift",
+        action="store_true",
+        help=(
+            "Automatically trigger a lift command at t=20 s if no lift "
+            "has been received from the /lift topic by that time."
+        ),
+    )
+    # parse_known_args isolates our flags and ignores ROS-injected arguments
     args, unknown = parser.parse_known_args()
 
     # Windows timer resolution
@@ -745,7 +782,7 @@ if __name__ == "__main__":
 
     try:
         # 2. Pass the parsed argument to the node
-        node = ShadowHandDigitalTwin(enable_logging=args.plot)
+        node = ShadowHandDigitalTwin(enable_logging=args.plot, auto_lift=args.lift)
         node.run()
     finally:
         if _WINDOWS_TIMER:
