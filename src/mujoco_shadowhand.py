@@ -25,6 +25,17 @@ Coupling mode (auto-detected at startup from the loaded MJCF)
     Every joint has its own actuator (rh_A_FFJ1, rh_A_FFJ2, …).
     Commands map 1-to-1; no summation is performed.
     Total actuators: 24 (one per joint, no J0).
+
+CLI flags
+─────────
+  --plot  Enable data logging and display plots on exit.
+  --auto  Enables --plot and activates a reproducible experiment timeline
+          whose t = 0 is the simulation time of the first received command:
+            t =  0 s  first command received → logging starts
+            t = 20 s  lift triggered automatically
+            t = 40 s  simulation stops and plots are displayed
+          All runs therefore share the same time axis regardless of when
+          the ROS controller sends its first message.
 """
 
 import ctypes
@@ -238,15 +249,20 @@ class GraspLogger:
 
     Logged quantities
     ─────────────────
-      time         : simulation time (s)
+      time         : relative time since first command (s)  — see set_time_origin()
       joint_torques: qfrc_actuator for all 24 hand joints  (Nm)
       n_contacts   : number of active contact pairs
       normal_force : total normal force summed over all contacts (N)
       shear_force  : total tangential force magnitude summed over all contacts (N)
-      cop_x/y/z    : centre of pressure in world frame (m)
       pen_depth    : maximum penetration depth (m, negative = penetrating)
-      grasp_quality: friction-cone margin proxy — min(μ·Fn - Ft) over contacts
-      arm_lift_pos : arm_lift joint position (m)
+
+    Time origin
+    ───────────
+      By default the raw MuJoCo simulation time is recorded.
+      Call set_time_origin(t0) once to shift all subsequent timestamps so that
+      t = 0 corresponds to the moment the first command was received.  This
+      makes the time axis reproducible across runs regardless of how long the
+      controller takes to send its first message.
     """
 
     # Joints to plot individually in the torque panel
@@ -278,6 +294,10 @@ class GraspLogger:
         # Floor geom ID for filtering contacts 
         self.floor_geom_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
 
+        # t0: subtracted from data.time in every record() call.
+        # None means "use raw simulation time" (default / non-auto mode).
+        self._t0: float | None = None
+
         # History lists — appended every step
         self.time          = []
         self.joint_torques = []   # shape (T, len(TORQUE_JOINTS))
@@ -286,12 +306,24 @@ class GraspLogger:
         self.shear_force   = []
         self.pen_depth     = []
 
+    # ── Time origin ────────────────────────────────────────────────────────────
+
+    def set_time_origin(self, t0: float) -> None:
+        """
+        Shift the logged time axis so that t = 0 corresponds to sim time t0.
+        Must be called before the first record() call for the offset to apply
+        to all samples.  Subsequent calls overwrite the previous origin.
+        """
+        self._t0 = t0
+        rospy.loginfo("GraspLogger: time origin set to %.4f s (sim time).", t0)
+
     def record(self):
         """Call once per physics step, after mj_step."""
         data  = self._data
         model = self._model
 
-        self.time.append(data.time)
+        t = data.time if self._t0 is None else data.time - self._t0
+        self.time.append(t)
 
         # ── Joint torques (actuator contribution to generalised forces) ────────
         self.joint_torques.append(
@@ -331,7 +363,9 @@ class GraspLogger:
         self.pen_depth.append(max_pen)
 
     def reset(self):
-        """Clear history on GUI reset."""
+        """Clear history on GUI reset; also clears the time origin so it is
+        re-established when the first command arrives in the new run."""
+        self._t0 = None
         self.time.clear()
         self.joint_torques.clear()
         self.n_contacts.clear()
@@ -409,7 +443,9 @@ class ShadowHandDigitalTwin:
                       to self._ctrl_buffer under a lock
     """
 
-    def __init__(self, enable_logging: bool = False, auto_lift: bool = False):
+    def __init__(self, enable_logging: bool = False, auto_mode: bool = False):
+        # --auto implies logging; honour an explicit --plot too.
+        enable_logging = enable_logging or auto_mode
         # ── ROS init ──────────────────────────────────────────────────────────
         rospy.init_node("shadow_hand_digital_twin", anonymous=False)
         self._rate_hz   = 500           # must match 1 / model.opt.timestep
@@ -447,20 +483,20 @@ class ShadowHandDigitalTwin:
             queue_size=1,
         )
 
-        # Auto-lift: if --lift was passed and no /lift message has arrived by
-        # AUTO_LIFT_TIMEOUT seconds of simulation time, trigger lift automatically.
-        self._auto_lift         = auto_lift
-        self._auto_lift_timeout = 20.0   # seconds of simulation time
-        self._auto_lift_fired   = False  # becomes True once the auto-trigger runs
-        if auto_lift:
+        # ── Auto mode ─────────────────────────────────────────────────────────
+        # When --auto is active the physics loop uses simulation time relative
+        # to the first received command as its clock:
+        #   t_rel =  0 s  → first command: logging starts, time origin set
+        #   t_rel = 20 s  → lift triggered automatically
+        #   t_rel = 40 s  → simulation stops
+        # _first_cmd_sim_time is set once (in _command_callback) and then read
+        # in the physics loop; it lives under _ctrl_lock so the write is safe.
+        self._auto_mode          = auto_mode
+        self._first_cmd_sim_time = None   # float once set, None until then
+        if auto_mode:
             rospy.loginfo(
-                "Auto-lift ENABLED — will trigger at t=%.1f s if /lift not received.",
-                self._auto_lift_timeout,
+                "Auto mode ENABLED — t=0 at first command, lift at +20 s, stop at +40 s."
             )
-        else:
-            rospy.loginfo("Auto-lift DISABLED.")
-
-        # ── MuJoCo model ──────────────────────────────────────────────────────
         _ROS_PACK = rospkg.RosPack()
         _MODEL_PATH = os.path.join(
             _ROS_PACK.get_path("my_package"),
@@ -589,6 +625,17 @@ class ShadowHandDigitalTwin:
                     ctrl[self._actuator_ids[actuator_name]] = cmd[joint_name]
 
         with self._ctrl_lock:
+            # Record the sim time of the very first command (auto mode uses it
+            # as t=0).  We read data.time here; it is written only by the
+            # physics thread (which holds no lock at this point), so the read
+            # is safe — at worst we capture a value one step stale, which is
+            # negligible.
+            if self._auto_mode and self._first_cmd_sim_time is None:
+                self._first_cmd_sim_time = float(self._data.time)
+                rospy.loginfo(
+                    "Auto mode: first command received at sim time %.4f s.",
+                    self._first_cmd_sim_time,
+                )
             self._ctrl_buffer = ctrl
 
     # ── Lift callback ──────────────────────────────────────────────────────────
@@ -680,7 +727,7 @@ class ShadowHandDigitalTwin:
                     step_count = 0
                     self._lift_active  = False
                     self._lift_current = INITIAL_CONFIG["rh_arm_lift"]  # 0.02
-                    self._auto_lift_fired = False  # re-arm auto-lift for the new run
+                    self._first_cmd_sim_time = None   # re-arm for the new run
                     # Flush the command buffer so the hand holds the initial
                     # config rather than jumping back to the last ROS command.
                     with self._ctrl_lock:
@@ -692,27 +739,40 @@ class ShadowHandDigitalTwin:
 
                 # 1. Apply ROS command -> data.ctrl
                 with self._ctrl_lock:
-                    ctrl_snapshot = self._ctrl_buffer
+                    ctrl_snapshot        = self._ctrl_buffer
+                    first_cmd_sim_time   = self._first_cmd_sim_time   # atomic read
                 with self._viewer.lock():
                     if ctrl_snapshot is not None:
                         np.copyto(self._data.ctrl, ctrl_snapshot)
 
-                    # 2. Drive arm_A_lift independently of the hand command topic.
-                    #    Auto-lift: if --lift was passed, fire at the timeout if
-                    #    the /lift topic has not already triggered it.
-                    if (
-                        self._auto_lift
-                        and not self._auto_lift_fired
-                        and not self._lift_active
-                        and self._data.time >= self._auto_lift_timeout
-                    ):
-                        rospy.loginfo(
-                            "Auto-lift: no /lift received by t=%.1f s — triggering now.",
-                            self._data.time,
-                        )
-                        self._lift_active     = True
-                        self._auto_lift_fired = True
+                    # ── Auto-mode orchestration ────────────────────────────────
+                    # All timings are relative to the first received command.
+                    if self._auto_mode and first_cmd_sim_time is not None:
+                        t_rel = self._data.time - first_cmd_sim_time
 
+                        # Set logger time origin exactly once, on the step the
+                        # first command is first seen by the physics loop.
+                        if (
+                            self._logger is not None
+                            and self._logger._t0 is None
+                        ):
+                            self._logger.set_time_origin(first_cmd_sim_time)
+
+                        # t_rel >= 20 s → trigger lift (once)
+                        if not self._lift_active and t_rel >= 20.0:
+                            rospy.loginfo(
+                                "Auto mode: lifting at t_rel=%.2f s.", t_rel
+                            )
+                            self._lift_active = True
+
+                        # t_rel >= 40 s → stop the simulation
+                        if t_rel >= 40.0:
+                            rospy.loginfo(
+                                "Auto mode: 40 s elapsed — stopping simulation."
+                            )
+                            self._stop_event.set()
+
+                    # 2. Drive arm_A_lift independently of the hand command topic.
                     #    Ramp _lift_current toward _lift_target at _lift_speed (m/s)
                     #    so the motion is smooth rather than a step change in ctrl.
                     lift_aid = self._actuator_ids["rh_A_arm_lift"]
@@ -760,14 +820,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--plot",
         action="store_true",
-        help="Enable data logging and display plots upon exit",
+        help="Enable data logging and display plots upon exit.",
     )
     parser.add_argument(
-        "--lift",
+        "--auto",
         action="store_true",
         help=(
-            "Automatically trigger a lift command at t=20 s if no lift "
-            "has been received from the /lift topic by that time."
+            "Reproducible experiment mode. "
+            "t=0 is the sim time of the first received command. "
+            "Logging is enabled automatically. "
+            "Lift is triggered at t=+20 s; simulation stops at t=+40 s."
         ),
     )
     # parse_known_args isolates our flags and ignores ROS-injected arguments
@@ -782,7 +844,7 @@ if __name__ == "__main__":
 
     try:
         # 2. Pass the parsed argument to the node
-        node = ShadowHandDigitalTwin(enable_logging=args.plot, auto_lift=args.lift)
+        node = ShadowHandDigitalTwin(enable_logging=args.plot, auto_mode=args.auto)
         node.run()
     finally:
         if _WINDOWS_TIMER:
