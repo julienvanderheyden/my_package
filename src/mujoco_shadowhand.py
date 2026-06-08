@@ -31,6 +31,7 @@ import ctypes
 import os
 import threading
 import time
+from xml.parsers.expat import model
 
 import matplotlib.pyplot as plt
 import mujoco
@@ -303,6 +304,10 @@ class GraspLogger:
 
         for j in range(n):
             contact = data.contact[j]
+            body1 = model.geom_bodyid[contact.geom1]
+            print(body1)
+            body2 = model.geom_bodyid[contact.geom2]
+            print(body2)
             mujoco.mj_contactForce(model, data, j, self._efc_buf)
 
             # efc_buf[0]   = normal force (positive = compressive in contact frame)
