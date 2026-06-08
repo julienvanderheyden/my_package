@@ -299,11 +299,11 @@ class GraspLogger:
         )
         # ── Contact metrics ────────────────────────────────────────────────────
         n   = data.ncon
-        self.n_contacts.append(n)
 
         total_normal  = 0.0
         total_shear   = 0.0
         max_pen       = 0.0           # most negative dist value
+        active_contacts_count = 0
 
         for j in range(n):
             contact = data.contact[j]
@@ -311,6 +311,8 @@ class GraspLogger:
 
             if contact.geom1 == self.floor_geom_id or contact.geom2 == self.floor_geom_id:
                 continue  # Skip logging this contact completely
+        
+            active_contacts_count += 1
 
             # efc_buf[0]   = normal force (positive = compressive in contact frame)
             # efc_buf[1:3] = tangential (shear) forces
@@ -323,6 +325,7 @@ class GraspLogger:
             # Penetration depth (contact.dist < 0 when penetrating)
             max_pen = min(max_pen, float(contact.dist))
 
+        self.n_contacts.append(active_contacts_count)
         self.normal_force.append(total_normal)
         self.shear_force.append(total_shear)
         self.pen_depth.append(max_pen)
