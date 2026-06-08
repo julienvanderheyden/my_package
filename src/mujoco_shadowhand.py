@@ -275,6 +275,9 @@ class GraspLogger:
         # Pre-allocate contact force buffer (mj_contactForce needs 6 floats)
         self._efc_buf = np.zeros(6)
 
+        # Floor geom ID for filtering contacts 
+        self.floor_geom_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
+
         # History lists — appended every step
         self.time          = []
         self.joint_torques = []   # shape (T, len(TORQUE_JOINTS))
@@ -304,8 +307,10 @@ class GraspLogger:
 
         for j in range(n):
             contact = data.contact[j]
-            print(contact.geom1, contact.geom2)
             mujoco.mj_contactForce(model, data, j, self._efc_buf)
+
+            if contact.geom1 == self.floor_geom_id or contact.geom2 == self.floor_geom_id:
+                continue  # Skip logging this contact completely
 
             # efc_buf[0]   = normal force (positive = compressive in contact frame)
             # efc_buf[1:3] = tangential (shear) forces
