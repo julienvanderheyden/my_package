@@ -765,10 +765,10 @@ class ShadowHandDigitalTwin:
                             )
                             self._lift_active = True
 
-                        # t_rel >= 40 s → stop the simulation
-                        if t_rel >= 40.0:
+                        # t_rel >= 60 s → stop the simulation
+                        if t_rel >= 60.0:
                             rospy.loginfo(
-                                "Auto mode: 40 s elapsed — stopping simulation."
+                                "Auto mode: 60 s elapsed — stopping simulation."
                             )
                             self._stop_event.set()
 
@@ -829,7 +829,7 @@ if __name__ == "__main__":
             "Reproducible experiment mode. "
             "t=0 is the sim time of the first received command. "
             "Logging is enabled automatically. "
-            "Lift is triggered at t=+20 s; simulation stops at t=+40 s."
+            "Lift is triggered at t=+20 s; simulation stops at t=+60 s."
         ),
     )
     # parse_known_args isolates our flags and ignores ROS-injected arguments
