@@ -342,24 +342,14 @@ class GraspLogger:
             contact = data.contact[j]
             mujoco.mj_contactForce(model, data, j, self._efc_buf)
 
+            # filtering contact 
             if contact.geom1 == self.floor_geom_id or contact.geom2 == self.floor_geom_id:
                 continue  # Skip logging this contact completely
 
-            # --- 3. FILTER: If NEITHER body is the 'object', skip this contact completely ---
             if model.geom_bodyid[contact.geom1] != self.object_body_id and model.geom_bodyid[contact.geom2] != self.object_body_id:
                 continue
         
             active_contacts_count += 1
-
-            # --- NEW: Get parent body IDs from geom IDs ---
-            body1_id = model.geom_bodyid[contact.geom1]
-            body2_id = model.geom_bodyid[contact.geom2]
-
-            # --- NEW: Get and print body names ---
-            body1_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body1_id) or f"body_{body1_id}"
-            body2_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body2_id) or f"body_{body2_id}"
-            
-            print(f"Contact detected between body: '{body1_name}' and body: '{body2_name}'")
 
             # efc_buf[0]   = normal force (positive = compressive in contact frame)
             # efc_buf[1:3] = tangential (shear) forces
