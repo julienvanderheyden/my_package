@@ -291,8 +291,9 @@ class GraspLogger:
         # Pre-allocate contact force buffer (mj_contactForce needs 6 floats)
         self._efc_buf = np.zeros(6)
 
-        # Floor geom ID for filtering contacts 
+        # Floor and object geom/body ID for filtering contacts 
         self.floor_geom_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
+        self.object_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, 'object')
 
         # t0: subtracted from data.time in every record() call.
         # None means "use raw simulation time" (default / non-auto mode).
@@ -343,6 +344,10 @@ class GraspLogger:
 
             if contact.geom1 == self.floor_geom_id or contact.geom2 == self.floor_geom_id:
                 continue  # Skip logging this contact completely
+
+            # --- 3. FILTER: If NEITHER body is the 'object', skip this contact completely ---
+            if model.geom_bodyid[contact.geom1] != self.object_body_id and model.geom_bodyid[contact.geom2] != self.object_body_id:
+                continue
         
             active_contacts_count += 1
 
