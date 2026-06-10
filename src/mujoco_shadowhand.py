@@ -346,6 +346,13 @@ class GraspLogger:
         
             active_contacts_count += 1
 
+            # --- NEW: Get and print geometry names ---
+            # mujoco.mj_id2name returns a string if found, or None if the geom has no name
+            geom1_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, contact.geom1) or f"geom_{contact.geom1}"
+            geom2_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, contact.geom2) or f"geom_{contact.geom2}"
+            
+            print(f"Contact detected between: '{geom1_name}' and '{geom2_name}'")
+
             # efc_buf[0]   = normal force (positive = compressive in contact frame)
             # efc_buf[1:3] = tangential (shear) forces
             fn = float(self._efc_buf[0])
