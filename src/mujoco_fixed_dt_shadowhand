@@ -747,6 +747,7 @@ class ShadowHandDigitalTwin:
 
             # ── Phase 2: ACTIVE ───────────────────────────────────────────────
             rospy.loginfo("ACTIVE — step-locked physics loop started.")
+            self._publish_state()   # publish initial state at the moment the first command is received
             while not self._stop_event.is_set() and not rospy.is_shutdown():
                 # Block until Julia sends the next command (no timeout)
                 self._cmd_event.wait()
