@@ -1,0 +1,809 @@
+#!/usr/bin/env python3
+"""
+shadow_hand_simulation.py
+─────────────────────────
+Headless, step-locked MuJoCo digital twin for the Shadow Hand.
+
+Operating principle
+───────────────────
+  This node does NOT run in real time.  Instead it advances the simulation
+  by exactly CTRL_DT seconds of physics time per received command, then
+  immediately publishes the resulting joint state.  The wall-clock pace is
+  therefore set entirely by how fast Julia can produce commands — the
+  simulation is as fast as possible.
+
+  Before the first command arrives the node publishes the initial joint state
+  at IDLE_HZ (10 Hz) so Julia can bootstrap its state estimate.
+
+Experiment timeline  (t = 0 at first received command)
+───────────────────────────────────────────────────────
+  t =  0 s   first command → logging starts, time origin set
+  t = LIFT_TIME s  arm lift triggered automatically
+  t = SIM_STOP_TIME s  simulation stops, plots and video shown
+
+ROS interface
+─────────────
+  PUBLISH   /shadowhand_state_topic   sensor_msgs/JointState   24 hand joints
+  SUBSCRIBE /shadowhand_command_topic std_msgs/Float64MultiArray  24 joint targets
+
+Joint ordering
+──────────────
+  Published joints   : JOINT_NAMES  (24 entries, read from qpos)
+  Subscribed commands: 24 values in JOINT_NAMES order (written to data.ctrl)
+
+Coupling mode (auto-detected at startup from the loaded MJCF)
+──────────────────────────────────────────────────────────────
+  COUPLED   rh_A_FFJ0/MFJ0/RFJ0/LFJ0 each drive J2+J1 via tendon.
+            J1+J2 command targets are summed before writing to the J0 actuator.
+  UNCOUPLED Every joint has its own actuator; commands map 1-to-1.
+
+Video recording
+───────────────
+  Frames are captured via MuJoCo's offscreen renderer at VIDEO_FPS.
+  At the end a preview is displayed; the user is prompted to save or discard.
+"""
+
+import os
+import threading
+import time
+
+import cv2
+import matplotlib.pyplot as plt
+import mujoco
+import mujoco.viewer          # kept for the offscreen context helper
+import numpy as np
+import rospy
+from sensor_msgs.msg import JointState
+from std_msgs.msg import Float64MultiArray
+import rospkg
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 0. EXPERIMENT CONSTANTS  ← easy to modify
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Duration of each simulation burst per received command (s).
+# Must match the fixed dt used on the Julia side (1 / 125 Hz).
+CTRL_DT: float = 1.0 / 125.0          # 8 ms
+
+# Relative time (s after first command) at which the arm lift is triggered.
+LIFT_TIME: float = 20.0
+
+# Relative time (s after first command) at which the simulation stops.
+SIM_STOP_TIME: float = 40.0
+
+# Publishing rate for the idle heartbeat (before first command arrives).
+IDLE_HZ: int = 10
+
+# Video recording
+VIDEO_FPS: int   = 30                 # frame rate of the output video
+VIDEO_WIDTH: int  = 1280              # offscreen render width  (px)
+VIDEO_HEIGHT: int = 720               # offscreen render height (px)
+
+
+
+# 24 joints published on /shadowhand_state_topic and received on
+# /shadowhand_command_topic — both topics share this exact ordering.
+JOINT_NAMES = [
+    "rh_WRJ1", "rh_WRJ2",
+    "rh_FFJ1", "rh_FFJ2", "rh_FFJ3", "rh_FFJ4",
+    "rh_MFJ1", "rh_MFJ2", "rh_MFJ3", "rh_MFJ4",
+    "rh_RFJ1", "rh_RFJ2", "rh_RFJ3", "rh_RFJ4",
+    "rh_LFJ1", "rh_LFJ2", "rh_LFJ3", "rh_LFJ4", "rh_LFJ5",
+    "rh_THJ1", "rh_THJ2", "rh_THJ3", "rh_THJ4", "rh_THJ5",
+]
+
+# ── Coupled model (standard): 16 direct + 4 J0 tendon actuators ───────────────
+# Direct actuators (1 joint → 1 actuator):
+DIRECT_ACTUATOR_NAMES = [
+    "rh_A_WRJ2", "rh_A_WRJ1",
+    "rh_A_FFJ4", "rh_A_FFJ3",
+    "rh_A_MFJ4", "rh_A_MFJ3",
+    "rh_A_RFJ4", "rh_A_RFJ3",
+    "rh_A_LFJ5", "rh_A_LFJ4", "rh_A_LFJ3",
+    "rh_A_THJ5", "rh_A_THJ4", "rh_A_THJ3", "rh_A_THJ2", "rh_A_THJ1",
+]
+
+# Coupled actuators: one actuator drives two joints via tendon (J2 + J1).
+# The subscriber receives individual J1/J2 targets and sums them before
+# writing to the single J0 ctrl channel.
+COUPLED_ACTUATOR_NAMES = [
+    "rh_A_FFJ0",   # drives rh_FFJ2 + rh_FFJ1
+    "rh_A_MFJ0",   # drives rh_MFJ2 + rh_MFJ1
+    "rh_A_RFJ0",   # drives rh_RFJ2 + rh_RFJ1
+    "rh_A_LFJ0",   # drives rh_LFJ2 + rh_LFJ1
+]
+
+ALL_ACTUATOR_NAMES_COUPLED = DIRECT_ACTUATOR_NAMES + COUPLED_ACTUATOR_NAMES + ["rh_A_arm_lift"]  # 21 total
+
+# Coupled joints map: J0 actuator → (J2 joint, J1 joint)
+# Used both in apply_initial_config and _command_callback (coupled mode).
+COUPLED_JOINTS = {
+    "rh_A_FFJ0": ("rh_FFJ2", "rh_FFJ1"),
+    "rh_A_MFJ0": ("rh_MFJ2", "rh_MFJ1"),
+    "rh_A_RFJ0": ("rh_RFJ2", "rh_RFJ1"),
+    "rh_A_LFJ0": ("rh_LFJ2", "rh_LFJ1"),
+}
+
+# ── Uncoupled model (perso): one actuator per joint, no J0 ────────────────────
+# Actuator names mirror JOINT_NAMES exactly ("rh_" → "rh_A_").
+ALL_ACTUATOR_NAMES_UNCOUPLED = (
+    [name.replace("rh_", "rh_A_") for name in JOINT_NAMES]
+    + ["rh_A_arm_lift"]
+)   # 25 total
+
+
+def detect_coupling_mode(model) -> bool:
+    """
+    Return True  → coupled model   (standard hand, J0 tendon actuators present).
+    Return False → uncoupled model (perso hand, one actuator per joint).
+
+    Detection probes for rh_A_FFJ0: it exists in the coupled model and is
+    absent in the uncoupled one.
+    """
+    return mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, "rh_A_FFJ0") != -1
+
+# Initial hand pose (joint_name → angle in rad)
+# MEDIUM WRAP PRESHAPE
+INITIAL_CONFIG = {
+    "rh_FFJ4": 0.0, "rh_FFJ3": 0.0, "rh_FFJ2": 0.0, "rh_FFJ1": 0.0,
+    "rh_MFJ4": 0.0, "rh_MFJ3": 0.0, "rh_MFJ2": 0.0, "rh_MFJ1": 0.0,
+    "rh_RFJ4": 0.0, "rh_RFJ3": 0.0, "rh_RFJ2": 0.0, "rh_RFJ1": 0.0,
+    "rh_LFJ5": 0.0, "rh_LFJ4": 0.0, "rh_LFJ3": 0.0, "rh_LFJ2": 0.0, "rh_LFJ1": 0.0,
+    "rh_THJ5": 0.0, "rh_THJ4": 1.21, "rh_THJ3": 0.0, "rh_THJ2": 0.0, "rh_THJ1": 0.0,
+    "rh_WRJ2": 0.0, "rh_WRJ1": 0.0,
+    "rh_arm_lift": 0.02,   # 2 cm above ground — avoids contact force at rest
+}
+
+# LATERAL PINCH PRESHAPE
+# INITIAL_CONFIG = {
+#     "rh_FFJ4": 0.0, "rh_FFJ3": 1.0, "rh_FFJ2": 1.57, "rh_FFJ1": 0.0,
+#     "rh_MFJ4": 0.0, "rh_MFJ3": 1.57, "rh_MFJ2": 1.57, "rh_MFJ1": 1.57,
+#     "rh_RFJ4": 0.0, "rh_RFJ3": 1.57, "rh_RFJ2": 1.57, "rh_RFJ1": 1.57,
+#     "rh_LFJ5": 0.0, "rh_LFJ4": 0.0, "rh_LFJ3": 1.57, "rh_LFJ2": 1.57, "rh_LFJ1": 1.57,
+#     "rh_THJ5": 0.0, "rh_THJ4": 0.0, "rh_THJ3": 0.0, "rh_THJ2": -0.7, "rh_THJ1": 0.0,
+#     "rh_WRJ2": 0.0, "rh_WRJ1": 0.0, "rh_arm_lift" : 0.1
+# }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 2. MODEL HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def build_index_maps(model, actuator_names: list):
+    """
+    Pre-compute integer indices so the hot loop never calls mj_name2id.
+
+    Parameters
+    ----------
+    model          : MjModel
+    actuator_names : list[str]
+        Pass ALL_ACTUATOR_NAMES_COUPLED or ALL_ACTUATOR_NAMES_UNCOUPLED
+        depending on the model loaded (see detect_coupling_mode).
+
+    Returns
+    -------
+    joint_qpos_ids : list[int]       qpos address for each entry in JOINT_NAMES
+    joint_qvel_ids : list[int]       dof address for each entry in JOINT_NAMES
+    actuator_ids   : dict[str, int]  actuator name → ctrl index
+    """
+    joint_qpos_ids = []
+    joint_qvel_ids = []
+    for name in JOINT_NAMES:
+        jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+        if jid == -1:
+            raise RuntimeError(f"Joint '{name}' not found in model.")
+        joint_qpos_ids.append(model.jnt_qposadr[jid])
+        joint_qvel_ids.append(model.jnt_dofadr[jid])
+
+    actuator_ids = {}
+    for name in actuator_names:
+        aid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
+        if aid == -1:
+            raise RuntimeError(f"Actuator '{name}' not found in model.")
+        actuator_ids[name] = aid
+
+    return joint_qpos_ids, joint_qvel_ids, actuator_ids
+
+
+def apply_initial_config(model, data, config: dict, actuator_ids: dict, coupled: bool):
+    """
+    Set qpos and ctrl so the hand starts in `config` without fighting itself.
+
+    Parameters
+    ----------
+    coupled : bool
+        True  → J0 tendon model: J0 ctrl = J2_angle + J1_angle.
+        False → uncoupled model: every joint maps 1-to-1 to its actuator.
+    """
+    # 1. All joint positions
+    for joint_name, angle in config.items():
+        jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
+        if jid != -1:
+            data.qpos[model.jnt_qposadr[jid]] = angle
+
+    if coupled:
+        # 2a. Direct actuators (joint_name → rh_A_<joint_name>)
+        for joint_name, angle in config.items():
+            actuator_name = joint_name.replace("rh_", "rh_A_")
+            if actuator_name in actuator_ids:
+                data.ctrl[actuator_ids[actuator_name]] = angle
+
+        # 2b. Coupled J0 actuators: ctrl = J2_angle + J1_angle
+        for actuator_name, (j2_name, j1_name) in COUPLED_JOINTS.items():
+            if actuator_name in actuator_ids:
+                data.ctrl[actuator_ids[actuator_name]] = (
+                    config.get(j2_name, 0.0) + config.get(j1_name, 0.0)
+                )
+    else:
+        # 2c. Uncoupled: every joint maps directly to rh_A_<joint>
+        for joint_name, angle in config.items():
+            actuator_name = joint_name.replace("rh_", "rh_A_")
+            if actuator_name in actuator_ids:
+                data.ctrl[actuator_ids[actuator_name]] = angle
+
+    mujoco.mj_forward(model, data)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 3. VIDEO RECORDER
+# ══════════════════════════════════════════════════════════════════════════════
+
+class VideoRecorder:
+    """
+    Captures MuJoCo offscreen frames at VIDEO_FPS and assembles them into an
+    MP4 at the end of the simulation.
+
+    Usage
+    ─────
+      recorder = VideoRecorder(model, data)
+      # call once per physics step (internally skips frames to hit VIDEO_FPS)
+      recorder.tick(sim_time_relative)
+      # at the end:
+      path = recorder.save("/tmp/grasp.mp4")
+      recorder.preview_and_prompt(path)
+    """
+
+    def __init__(self, model, data):
+        self._model    = model
+        self._data     = data
+        self._renderer = mujoco.Renderer(model, height=VIDEO_HEIGHT, width=VIDEO_WIDTH)
+
+        # Camera: match the old passive-viewer default
+        self._cam           = mujoco.MjvCamera()
+        self._cam.lookat[:] = [0.2, 0.0, 0.2]
+        self._cam.distance  = 0.8
+        self._cam.elevation = -20.0
+        self._cam.azimuth   = 90.0
+
+        self._opt = mujoco.MjvOption()
+        self._opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = True
+        self._opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTFORCE] = True
+        model.vis.map.force = 0.03
+
+        self._frame_interval = 1.0 / VIDEO_FPS   # seconds between captured frames
+        self._next_frame_t   = 0.0               # next relative time to capture
+        self._frames: list[np.ndarray] = []       # RGB uint8 frames
+
+    # ── Frame capture ──────────────────────────────────────────────────────────
+
+    def tick(self, t_rel: float) -> None:
+        """Call after every mj_step.  Captures a frame when due."""
+        if t_rel < self._next_frame_t:
+            return
+        self._next_frame_t = t_rel + self._frame_interval
+
+        self._renderer.update_scene(self._data, camera=self._cam, scene_option=self._opt)
+        frame = self._renderer.render()          # returns (H, W, 3) RGB uint8
+        self._frames.append(frame.copy())
+
+    # ── Save ──────────────────────────────────────────────────────────────────
+
+    def save(self, path: str) -> str:
+        """Write captured frames to an MP4 file.  Returns the path."""
+        if not self._frames:
+            rospy.logwarn("VideoRecorder: no frames captured — skipping save.")
+            return path
+
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(path, fourcc, VIDEO_FPS,
+                                 (VIDEO_WIDTH, VIDEO_HEIGHT))
+        for frame in self._frames:
+            writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+        writer.release()
+        rospy.loginfo("VideoRecorder: %d frames saved to %s", len(self._frames), path)
+        return path
+
+    # ── Preview + save prompt ─────────────────────────────────────────────────
+
+    def preview_and_prompt(self, path: str) -> None:
+        """
+        Play the full recording in an OpenCV window at VIDEO_FPS, then ask
+        whether to keep the saved file.  Press any key to skip ahead; close
+        the window or wait for the video to finish before the prompt appears.
+        The MP4 is always written to `path` first; if the user declines it is
+        deleted.
+        """
+        if not self._frames:
+            return
+
+        frame_ms = max(1, round(1000 / VIDEO_FPS))   # ms per frame for waitKey
+
+        cv2.namedWindow("Simulation recording", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Simulation recording", VIDEO_WIDTH, VIDEO_HEIGHT)
+
+        for frame in self._frames:
+            bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            cv2.imshow("Simulation recording", bgr)
+            key = cv2.waitKey(frame_ms)
+            if key == ord("q") or cv2.getWindowProperty(
+                "Simulation recording", cv2.WND_PROP_VISIBLE
+            ) < 1:
+                break   # user closed the window or pressed q
+
+        cv2.destroyAllWindows()
+
+        answer = input(f"\nSave video to '{path}'? [y/N] ").strip().lower()
+        if answer in ("y", "yes"):
+            rospy.loginfo("Video kept at: %s", path)
+        else:
+            try:
+                os.remove(path)
+                rospy.loginfo("Video discarded.")
+            except FileNotFoundError:
+                pass
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 4. GRASP LOGGER
+# ══════════════════════════════════════════════════════════════════════════════
+
+class GraspLogger:
+    """
+    Accumulates simulation data every physics step and produces a
+    post-simulation plot when plot() is called.
+
+    Logged quantities
+    ─────────────────
+      time         : relative time since first command (s)  — see set_time_origin()
+      joint_torques: qfrc_actuator for all 24 hand joints  (Nm)
+      n_contacts   : number of active contact pairs
+      normal_force : total normal force summed over all contacts (N)
+      shear_force  : total tangential force magnitude summed over all contacts (N)
+      pen_depth    : maximum penetration depth (m, negative = penetrating)
+
+    Time origin
+    ───────────
+      By default the raw MuJoCo simulation time is recorded.
+      Call set_time_origin(t0) once to shift all subsequent timestamps so that
+      t = 0 corresponds to the moment the first command was received.  This
+      makes the time axis reproducible across runs regardless of how long the
+      controller takes to send its first message.
+    """
+
+    # Joints to plot individually in the torque panel
+    TORQUE_JOINTS = [
+        "rh_FFJ3", "rh_FFJ2", "rh_MFJ3", "rh_MFJ2",
+        "rh_RFJ3", "rh_RFJ2", "rh_LFJ3", "rh_LFJ2",
+        "rh_THJ2", "rh_THJ1",
+    ]
+
+    def __init__(self, model, data, joint_names, joint_qpos_ids, actuator_ids):
+        self._model          = model
+        self._data           = data
+        self._joint_names    = joint_names
+        self._joint_qpos_ids = joint_qpos_ids
+        self._actuator_ids   = actuator_ids
+
+        # Pre-compute dof addresses for torque joints
+        self._torque_dof_ids = []
+        for name in self.TORQUE_JOINTS:
+            jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+            self._torque_dof_ids.append(model.jnt_dofadr[jid])
+
+        # Friction coefficient (read from first geom or use a default)
+        self._mu = float(model.geom_friction[0, 0]) if model.ngeom > 0 else 0.5
+
+        # Pre-allocate contact force buffer (mj_contactForce needs 6 floats)
+        self._efc_buf = np.zeros(6)
+
+        # Floor and object geom/body ID for filtering contacts 
+        self.floor_geom_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
+        self.object_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, 'object')
+
+        # t0: subtracted from data.time in every record() call.
+        # None means "use raw simulation time" (default / non-auto mode).
+        self._t0: float | None = None
+
+        # History lists — appended every step
+        self.time          = []
+        self.joint_torques = []   # shape (T, len(TORQUE_JOINTS))
+        self.n_contacts    = []
+        self.normal_force  = []
+        self.shear_force   = []
+        self.pen_depth     = []
+
+    # ── Time origin ────────────────────────────────────────────────────────────
+
+    def set_time_origin(self, t0: float) -> None:
+        """
+        Shift the logged time axis so that t = 0 corresponds to sim time t0.
+        Must be called before the first record() call for the offset to apply
+        to all samples.  Subsequent calls overwrite the previous origin.
+        """
+        self._t0 = t0
+        rospy.loginfo("GraspLogger: time origin set to %.4f s (sim time).", t0)
+
+    def record(self):
+        """Call once per physics step, after mj_step."""
+        data  = self._data
+        model = self._model
+
+        t = data.time if self._t0 is None else data.time - self._t0
+        self.time.append(t)
+
+        # ── Joint torques (actuator contribution to generalised forces) ────────
+        self.joint_torques.append(
+            [data.qfrc_actuator[i] for i in self._torque_dof_ids]
+        )
+        # ── Contact metrics ────────────────────────────────────────────────────
+        n   = data.ncon
+
+        total_normal  = 0.0
+        total_shear   = 0.0
+        max_pen       = 0.0           # most negative dist value
+        active_contacts_count = 0
+
+        for j in range(n):
+            contact = data.contact[j]
+            mujoco.mj_contactForce(model, data, j, self._efc_buf)
+
+            # filtering contact 
+            if contact.geom1 == self.floor_geom_id or contact.geom2 == self.floor_geom_id:
+                continue  # Skip logging this contact completely
+
+            if model.geom_bodyid[contact.geom1] != self.object_body_id and model.geom_bodyid[contact.geom2] != self.object_body_id:
+                continue
+        
+            active_contacts_count += 1
+
+            # efc_buf[0]   = normal force (positive = compressive in contact frame)
+            # efc_buf[1:3] = tangential (shear) forces
+            fn = float(self._efc_buf[0])
+            ft = float(np.linalg.norm(self._efc_buf[1:3]))
+
+            total_normal += fn
+            total_shear  += ft
+
+            # Penetration depth (contact.dist < 0 when penetrating)
+            max_pen = min(max_pen, float(contact.dist))
+
+        self.n_contacts.append(active_contacts_count)
+        self.normal_force.append(total_normal)
+        self.shear_force.append(total_shear)
+        self.pen_depth.append(max_pen)
+
+    def reset(self):
+        """Clear history on GUI reset; also clears the time origin so it is
+        re-established when the first command arrives in the new run."""
+        self._t0 = None
+        self.time.clear()
+        self.joint_torques.clear()
+        self.n_contacts.clear()
+        self.normal_force.clear()
+        self.shear_force.clear()
+        self.pen_depth.clear()
+
+    def plot(self):
+        """Generate and display all post-simulation plots."""
+        if not self.time:
+            rospy.loginfo("No data recorded — skipping plots.")
+            return
+
+        t  = np.array(self.time)
+        tq = np.array(self.joint_torques)   # (T, J)
+        nf = np.array(self.normal_force)
+        sf = np.array(self.shear_force)
+        nc = np.array(self.n_contacts)
+        pd = np.array(self.pen_depth) * 1e3 # convert to mm
+
+        fig = plt.figure(figsize=(16, 18))
+        fig.suptitle("Shadow Hand Grasp Analysis", fontsize=15, fontweight="bold")
+        gs  = fig.add_gridspec(3, 2, hspace=0.45, wspace=0.35)
+
+        # ── Panel 1: Joint torques ─────────────────────────────────────────────
+        ax1 = fig.add_subplot(gs[0, 0])
+        for i, name in enumerate(self.TORQUE_JOINTS):
+            ax1.plot(t, tq[:, i], label=name, linewidth=0.9)
+        ax1.set_title("Actuator Joint Torques")
+        ax1.set_ylabel("Torque (Nm)")
+        ax1.legend(ncol=5, fontsize=7, loc="upper left")
+        ax1.grid(True, alpha=0.3)
+        ax1.axhline(0, color="k", linewidth=0.5)
+
+        # ── Panel 2: Normal vs shear force ─────────────────────────────────────
+        ax2 = fig.add_subplot(gs[0, 1])
+        ax2.plot(t, nf, label="Normal (N)",  color="tab:blue")
+        ax2.plot(t, sf, label="Shear (N)",   color="tab:orange")
+        ax2.set_title("Contact Forces (summed over all contacts)")
+        ax2.set_ylabel("Force (N)")
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        # ── Panel 3: Number of contacts ────────────────────────────────────────
+        ax4 = fig.add_subplot(gs[1, 0])
+        ax4.plot(t, nc, color="tab:purple", linewidth=0.9)
+        ax4.set_title("Active Contact Points")
+        ax4.set_ylabel("Count")
+        ax4.grid(True, alpha=0.3)
+
+        # ── Panel 4: Penetration depth ─────────────────────────────────────────
+        ax5 = fig.add_subplot(gs[1, 1])
+        ax5.plot(t, pd, color="tab:red", linewidth=0.9)
+        ax5.axhline(0, color="k", linewidth=0.5)
+        ax5.set_title("Max Penetration Depth")
+        ax5.set_ylabel("Depth (mm)")
+        ax5.grid(True, alpha=0.3)
+
+        plt.show()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 5. ROS NODE
+# ══════════════════════════════════════════════════════════════════════════════
+
+class ShadowHandDigitalTwin:
+    """
+    Headless MuJoCo digital twin — step-locked, faster than real-time.
+
+    Threading model
+    ───────────────
+      Main thread : physics loop — blocks on _cmd_event, advances CTRL_DT of
+                    physics per command, then publishes joint state immediately.
+      ROS spin    : rospy.spin() in a daemon thread; _command_callback writes
+                    to _ctrl_buffer and sets _cmd_event under _ctrl_lock.
+    """
+
+    def __init__(self):
+        # ── ROS init ──────────────────────────────────────────────────────────
+        rospy.init_node("shadow_hand_digital_twin", anonymous=False)
+
+        self._state_pub = rospy.Publisher(
+            "/shadowhand_state_topic",
+            JointState,
+            queue_size=1,
+        )
+
+        # Command subscriber — callback writes buffer and signals the physics loop
+        self._ctrl_lock   = threading.Lock()
+        self._ctrl_buffer = None          # None until first command arrives
+        self._cmd_event   = threading.Event()   # set each time a new command arrives
+        self._cmd_sub = rospy.Subscriber(
+            "/shadowhand_command_topic",
+            Float64MultiArray,
+            self._command_callback,
+            queue_size=1,
+        )
+
+        # Lift state (no external trigger — driven by timeline)
+        self._lift_active  = False
+        self._lift_target  = 0.2          # m — tune to your scene
+        self._lift_current = INITIAL_CONFIG["rh_arm_lift"]
+        self._lift_speed   = 0.05         # m/s ramp rate
+
+        # Timeline: set once when the first command is received
+        self._first_cmd_sim_time: float | None = None
+
+        # ── MuJoCo model ──────────────────────────────────────────────────────
+        _ROS_PACK   = rospkg.RosPack()
+        _MODEL_PATH = os.path.join(
+            _ROS_PACK.get_path("my_package"),
+            "mjcf", "shadow_hand", "scene_right_perso.xml"
+        )
+        # _MODEL_PATH = os.path.join(
+        #     _ROS_PACK.get_path("my_package"),
+        #     "mjcf", "shadow_hand", "scene_lateral_pinch.xml"
+        # )
+
+        self._model = mujoco.MjModel.from_xml_path(_MODEL_PATH)
+        self._data  = mujoco.MjData(self._model)
+
+        self._coupled   = detect_coupling_mode(self._model)
+        _mode_label     = "coupled (J0 tendon)" if self._coupled else "uncoupled (per-joint)"
+        rospy.loginfo("Coupling mode detected: %s", _mode_label)
+
+        _actuator_names = (
+            ALL_ACTUATOR_NAMES_COUPLED if self._coupled else ALL_ACTUATOR_NAMES_UNCOUPLED
+        )
+        self._joint_qpos_ids, self._joint_qvel_ids, self._actuator_ids = (
+            build_index_maps(self._model, _actuator_names)
+        )
+
+        apply_initial_config(
+            self._model, self._data, INITIAL_CONFIG, self._actuator_ids, self._coupled
+        )
+
+        # ── Grasp logger (always on) ───────────────────────────────────────────
+        self._logger = GraspLogger(
+            self._model, self._data,
+            JOINT_NAMES, self._joint_qpos_ids, self._actuator_ids,
+        )
+
+        # ── Video recorder (always on) ─────────────────────────────────────────
+        self._video = VideoRecorder(self._model, self._data)
+
+        # ── ROS spin thread ───────────────────────────────────────────────────
+        self._stop_event  = threading.Event()
+        self._spin_thread = threading.Thread(target=rospy.spin, daemon=True)
+        self._spin_thread.start()
+
+        rospy.loginfo(
+            "Shadow Hand digital twin initialised — headless step-locked mode.\n"
+            "  CTRL_DT=%.4f s  LIFT_TIME=%.1f s  SIM_STOP_TIME=%.1f s",
+            CTRL_DT, LIFT_TIME, SIM_STOP_TIME,
+        )
+
+    # ── ROS subscriber callback ────────────────────────────────────────────────
+
+    def _command_callback(self, msg: Float64MultiArray):
+        """
+        Receives 24 joint targets, maps them to MuJoCo ctrl indices, then
+        signals the physics loop that a new command is ready.
+        """
+        if len(msg.data) != len(JOINT_NAMES):
+            rospy.logwarn_throttle(
+                5.0,
+                f"Command message: expected {len(JOINT_NAMES)} values, "
+                f"got {len(msg.data)}.",
+            )
+            return
+
+        cmd  = {name: float(msg.data[i]) for i, name in enumerate(JOINT_NAMES)}
+        ctrl = np.zeros(self._model.nu)
+
+        if self._coupled:
+            for joint_name in JOINT_NAMES:
+                actuator_name = joint_name.replace("rh_", "rh_A_")
+                if actuator_name in self._actuator_ids:
+                    ctrl[self._actuator_ids[actuator_name]] = cmd[joint_name]
+            for actuator_name, (j2_name, j1_name) in COUPLED_JOINTS.items():
+                ctrl[self._actuator_ids[actuator_name]] = cmd[j2_name] + cmd[j1_name]
+        else:
+            for joint_name in JOINT_NAMES:
+                actuator_name = joint_name.replace("rh_", "rh_A_")
+                if actuator_name in self._actuator_ids:
+                    ctrl[self._actuator_ids[actuator_name]] = cmd[joint_name]
+
+        with self._ctrl_lock:
+            # Record sim time of the very first command (safe: physics loop does
+            # not write data.time; the read is at most one step stale).
+            if self._first_cmd_sim_time is None:
+                self._first_cmd_sim_time = float(self._data.time)
+                rospy.loginfo(
+                    "First command received at sim time %.4f s — starting timeline.",
+                    self._first_cmd_sim_time,
+                )
+                self._logger.set_time_origin(self._first_cmd_sim_time)
+            self._ctrl_buffer = ctrl
+
+        self._cmd_event.set()
+
+    # ── Publisher helper ───────────────────────────────────────────────────────
+
+    def _publish_state(self):
+        msg              = JointState()
+        msg.header.stamp = rospy.Time.now()
+        msg.name         = JOINT_NAMES
+        msg.position     = [float(self._data.qpos[i]) for i in self._joint_qpos_ids]
+        msg.velocity     = [float(self._data.qvel[i]) for i in self._joint_qvel_ids]
+        self._state_pub.publish(msg)
+
+    # ── Main physics loop ──────────────────────────────────────────────────────
+
+    def run(self):
+        """
+        Step-locked headless loop.
+
+        Phase 1 — IDLE (before first command)
+        ──────────────────────────────────────
+          Publishes the initial joint state at IDLE_HZ so Julia can prime its
+          state estimate.  Blocks on _cmd_event with a 1/IDLE_HZ timeout and
+          re-publishes on each timeout.  Exits this phase permanently as soon
+          as the first command is received — the loop never returns here.
+
+        Phase 2 — ACTIVE (first command received onwards)
+        ──────────────────────────────────────────────────
+          Blocks on _cmd_event with no timeout — as fast as Julia can send.
+          Per command:
+            1. Snapshot ctrl buffer.
+            2. Advance physics by exactly CTRL_DT seconds (multiple mj_step calls).
+            3. Apply timeline: lift at LIFT_TIME, stop at SIM_STOP_TIME.
+            4. Log data and capture video frame.
+            5. Publish resulting joint state.
+        """
+        dt            = self._model.opt.timestep        # e.g. 0.002 s
+        steps_per_cmd = max(1, round(CTRL_DT / dt))     # physics steps per command
+        idle_timeout  = 1.0 / IDLE_HZ
+
+        rospy.loginfo(
+            "Physics dt=%.4f s | CTRL_DT=%.4f s | %d steps per command.",
+            dt, CTRL_DT, steps_per_cmd,
+        )
+
+        try:
+            # ── Phase 1: IDLE ─────────────────────────────────────────────────
+            rospy.loginfo("IDLE — publishing initial state at %d Hz, waiting for first command.", IDLE_HZ)
+            while not self._stop_event.is_set() and not rospy.is_shutdown():
+                self._cmd_event.wait(timeout=idle_timeout)
+                self._cmd_event.clear()
+
+                with self._ctrl_lock:
+                    first_cmd_sim_time = self._first_cmd_sim_time
+
+                if first_cmd_sim_time is not None:
+                    break   # first command received — exit idle permanently
+
+                self._publish_state()   # heartbeat: no command yet
+
+            # ── Phase 2: ACTIVE ───────────────────────────────────────────────
+            rospy.loginfo("ACTIVE — step-locked physics loop started.")
+            while not self._stop_event.is_set() and not rospy.is_shutdown():
+                # Block until Julia sends the next command (no timeout)
+                self._cmd_event.wait()
+                self._cmd_event.clear()
+
+                with self._ctrl_lock:
+                    ctrl_snapshot      = self._ctrl_buffer
+                    first_cmd_sim_time = self._first_cmd_sim_time
+
+                # Advance physics by CTRL_DT ───────────────────────────────────
+                np.copyto(self._data.ctrl, ctrl_snapshot)
+
+                lift_aid = self._actuator_ids["rh_A_arm_lift"]
+                for _ in range(steps_per_cmd):
+                    if self._lift_active and self._lift_current < self._lift_target:
+                        self._lift_current = min(
+                            self._lift_current + self._lift_speed * dt,
+                            self._lift_target,
+                        )
+                    self._data.ctrl[lift_aid] = self._lift_current
+                    mujoco.mj_step(self._model, self._data)
+                    self._logger.record()
+
+                # Timeline orchestration ───────────────────────────────────────
+                t_rel = self._data.time - first_cmd_sim_time
+
+                if not self._lift_active and t_rel >= LIFT_TIME:
+                    rospy.loginfo("Timeline: lifting at t_rel=%.2f s.", t_rel)
+                    self._lift_active = True
+
+                self._video.tick(t_rel)
+
+                if t_rel >= SIM_STOP_TIME:
+                    rospy.loginfo("Timeline: SIM_STOP_TIME reached (%.1f s) — stopping.", t_rel)
+                    self._stop_event.set()
+
+                # Publish resulting state ──────────────────────────────────────
+                self._publish_state()
+
+        except KeyboardInterrupt:
+            rospy.loginfo("Physics loop interrupted by user.")
+        finally:
+            self._stop_event.set()
+            rospy.loginfo("Digital twin stopped.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6. ENTRY POINT
+# ══════════════════════════════════════════════════════════════════════════════
+
+if __name__ == "__main__":
+    node = ShadowHandDigitalTwin()
+    node.run()
+
+    # ── Post-simulation output ─────────────────────────────────────────────────
+    video_path = "/tmp/shadow_hand_grasp.mp4"
+    node._video.save(video_path)
+    node._video.preview_and_prompt(video_path)
+
+    node._logger.plot()
