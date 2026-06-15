@@ -6,7 +6,7 @@
   <visual>
     <rgba haze="0.15 0.25 0.35 1"/>
     <quality shadowsize="8192"/>
-    <global azimuth="220" elevation="-30"  offwidth="1280" offheight="720"/>
+    <global azimuth="220" elevation="-30"  offwidth="2560" offheight="1440"/>
   </visual>
 
   <asset>
