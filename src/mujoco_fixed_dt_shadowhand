@@ -280,7 +280,7 @@ class VideoRecorder:
         self._cam.lookat[:] = [0.2, 0.0, 0.2]
         self._cam.distance  = 0.8
         self._cam.elevation = -20.0
-        self._cam.azimuth   = 90.0
+        self._cam.azimuth   = -90.0
 
         self._opt = mujoco.MjvOption()
         self._opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = True
