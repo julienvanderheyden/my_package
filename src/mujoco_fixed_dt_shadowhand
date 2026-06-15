@@ -769,6 +769,9 @@ class ShadowHandDigitalTwin:
 
                 self._publish_state()   # heartbeat: no command yet
 
+
+            self._publish_state()
+
             # ── Phase 2: ACTIVE ───────────────────────────────────────────────
             rospy.loginfo("ACTIVE — step-locked physics loop started.")
             while not self._stop_event.is_set() and not rospy.is_shutdown():
