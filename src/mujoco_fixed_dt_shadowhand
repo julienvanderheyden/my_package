@@ -73,6 +73,8 @@ LIFT_TIME: float = 20.0
 # Relative time (s after first command) at which the simulation stops.
 SIM_STOP_TIME: float = 40.0
 
+IDLE_HZ: int = 10.0
+
 # Timeout (s) for _cmd_event.wait() in the active loop.  Short enough that
 # SIGINT is serviced promptly; long enough not to spin wastefully.
 CMD_WAIT_TIMEOUT: float = 0.05   # 50 ms
