@@ -44,6 +44,7 @@ Video recording
 """
 
 import os
+import signal
 import threading
 import time
 
@@ -72,13 +73,16 @@ LIFT_TIME: float = 20.0
 # Relative time (s after first command) at which the simulation stops.
 SIM_STOP_TIME: float = 40.0
 
-# Publishing rate for the idle heartbeat (before first command arrives).
-IDLE_HZ: int = 10
+# Timeout (s) for _cmd_event.wait() in the active loop.  Short enough that
+# SIGINT is serviced promptly; long enough not to spin wastefully.
+CMD_WAIT_TIMEOUT: float = 0.05   # 50 ms
+
+
 
 # Video recording
 VIDEO_FPS: int   = 30                 # frame rate of the output video
-VIDEO_WIDTH: int  = 640           # offscreen render width  (px)
-VIDEO_HEIGHT: int = 480           # offscreen render height (px)
+VIDEO_WIDTH: int  = 1280              # offscreen render width  (px)
+VIDEO_HEIGHT: int = 720               # offscreen render height (px)
 
 
 
@@ -318,35 +322,39 @@ class VideoRecorder:
 
     def preview_and_prompt(self, path: str) -> None:
         """
-        Play the full recording in an OpenCV window at VIDEO_FPS, then ask
-        whether to keep the saved file.  Press any key to skip ahead; close
-        the window or wait for the video to finish before the prompt appears.
-        The MP4 is always written to `path` first; if the user declines it is
-        deleted.
+        Open the saved video in the system default player so the user can
+        watch it as many times as they like, then prompt whether to keep it.
+
+        The video is opened with xdg-open (Linux) / open (macOS) /
+        start (Windows) and the function returns immediately — the player
+        runs independently.  The save/discard prompt appears right after.
         """
         if not self._frames:
             return
 
-        frame_ms = max(1, round(1000 / VIDEO_FPS))   # ms per frame for waitKey
+        import platform
+        import subprocess
 
-        cv2.namedWindow("Simulation recording", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("Simulation recording", VIDEO_WIDTH, VIDEO_HEIGHT)
+        system = platform.system()
+        if system == "Linux":
+            subprocess.Popen(["xdg-open", path])
+        elif system == "Darwin":
+            subprocess.Popen(["open", path])
+        else:
+            subprocess.Popen(["start", path], shell=True)
 
-        for frame in self._frames:
-            bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            cv2.imshow("Simulation recording", bgr)
-            key = cv2.waitKey(frame_ms)
-            if key == ord("q") or cv2.getWindowProperty(
-                "Simulation recording", cv2.WND_PROP_VISIBLE
-            ) < 1:
-                break   # user closed the window or pressed q
-
-        cv2.destroyAllWindows()
+        rospy.loginfo(
+            "Video opened in default player (%d frames @ %d fps). "
+            "Close the player when done.",
+            len(self._frames), VIDEO_FPS,
+        )
 
         answer = input(f"\nSave video to '{path}'? [y/N] ").strip().lower()
         if answer in ("y", "yes"):
             rospy.loginfo("Video kept at: %s", path)
         else:
+            # Give the player a moment to finish reading before deleting
+            time.sleep(1.0)
             try:
                 os.remove(path)
                 rospy.loginfo("Video discarded.")
@@ -637,6 +645,20 @@ class ShadowHandDigitalTwin:
         self._spin_thread = threading.Thread(target=rospy.spin, daemon=True)
         self._spin_thread.start()
 
+        # Install a SIGINT handler that sets _stop_event and also unblocks any
+        # _cmd_event.wait() call so the physics loop exits cleanly on Ctrl+C.
+        # rospy installs its own SIGINT handler; we chain it so both fire.
+        _rospy_sigint = signal.getsignal(signal.SIGINT)
+
+        def _sigint_handler(sig, frame):
+            rospy.loginfo("SIGINT received — stopping digital twin.")
+            self._stop_event.set()
+            self._cmd_event.set()   # unblock any pending wait()
+            if callable(_rospy_sigint):
+                _rospy_sigint(sig, frame)
+
+        signal.signal(signal.SIGINT, _sigint_handler)
+
         rospy.loginfo(
             "Shadow Hand digital twin initialised — headless step-locked mode.\n"
             "  CTRL_DT=%.4f s  LIFT_TIME=%.1f s  SIM_STOP_TIME=%.1f s",
@@ -747,10 +769,11 @@ class ShadowHandDigitalTwin:
 
             # ── Phase 2: ACTIVE ───────────────────────────────────────────────
             rospy.loginfo("ACTIVE — step-locked physics loop started.")
-            self._publish_state()   # publish initial state at the moment the first command is received
             while not self._stop_event.is_set() and not rospy.is_shutdown():
-                # Block until Julia sends the next command (no timeout)
-                self._cmd_event.wait()
+                # Block until Julia sends the next command.  A short timeout
+                # lets SIGINT (Ctrl+C) be serviced without spinning the CPU.
+                if not self._cmd_event.wait(timeout=CMD_WAIT_TIMEOUT):
+                    continue   # timeout — no new command, re-check stop_event
                 self._cmd_event.clear()
 
                 with self._ctrl_lock:
