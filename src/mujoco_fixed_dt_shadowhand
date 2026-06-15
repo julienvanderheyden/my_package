@@ -83,8 +83,8 @@ CMD_WAIT_TIMEOUT: float = 0.05   # 50 ms
 
 # Video recording
 VIDEO_FPS: int   = 30                 # frame rate of the output video
-VIDEO_WIDTH: int  = 640              # offscreen render width  (px)
-VIDEO_HEIGHT: int = 480               # offscreen render height (px)
+VIDEO_WIDTH: int  = 2560              # offscreen render width  (px)
+VIDEO_HEIGHT: int = 1440               # offscreen render height (px)
 
 
 
