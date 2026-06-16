@@ -21,12 +21,12 @@
         <default class="wrist_y">
           <joint axis="0 1 0" range="-0.523599 0.174533"/>
           <position kp="12" ctrlrange="-0.523599 0.174533" forcerange="-10 10"/>
-          <velocity kp="0.1"/>
+          <velocity kv="0.1"/>
         </default>
         <default class="wrist_x">
           <joint range="-0.698132 0.488692"/>
           <position kp="10" ctrlrange="-0.698132 0.488692" forcerange="-10 10"/>
-          <velocity kp="0.1"/>
+          <velocity kv="0.1"/>
         </default>
       </default>
 
@@ -34,44 +34,44 @@
         <default class="thbase">
           <joint axis="0 0 -1" range="-1.0472 1.0472"/>
           <position kp="1.85" ctrlrange="-1.0472 1.0472"/>
-          <velocity kp="0.11"/>
+          <velocity kv="0.11"/>
         </default>
         <default class="thproximal">
           <joint range="0 1.22173"/>
           <position kp="1.8" ctrlrange="0 1.22173"/>
-          <velocity kp="0.1"/>
+          <velocity kv="0.1"/>
         </default>
         <default class="thhub">
           <joint range="-0.20944 0.20944"/>
           <position kp="2.5" ctrlrange="-0.20944 0.20944"/>
-          <velocity kp="0.11"/>
+          <velocity kv="0.11"/>
         </default>
         <default class="thmiddle">
           <joint axis="0 -1 0" range="-0.698132 0.698132"/>
           <position kp="2.05" ctrlrange="-0.698132 0.698132"/>
-          <velocity kp="0.09"/>
+          <velocity kv="0.09"/>
         </default>
         <default class="thdistal">
           <joint range="-0.261799 1.5708"/>
           <position kp="1.85" ctrlrange="-0.261799 1.5708"/>
-          <velocity kp="0.09"/>
+          <velocity kv="0.09"/>
         </default>
       </default>
 
       <default class="metacarpal">
         <joint axis="0.573576 0 0.819152" range="0 0.785398"/>
         <position kp="2.3" ctrlrange="0 0.785398" />
-        <velocity kp="0.09"/>
+        <velocity kv="0.09"/>
       </default>
       <default class="knuckle">
         <joint axis="0 -1 0" range="-0.349066 0.349066"/>
         <position kp="2.4" ctrlrange="-0.349066 0.349066"/>
-        <velocity kp="0.1"/>
+        <velocity kv="0.1"/>
       </default>
       <default class="proximal">
         <joint range="-0.261799 1.5708"/>
         <position kp="2" ctrlrange="-0.261799 1.5708"/>
-        <velocity kp="0.09"/>
+        <velocity kv="0.09"/>
       </default>
       <!-- <default class="middle_distal">
         <joint range="0 1.5708"/>
@@ -80,7 +80,7 @@
       <default class="middle_distal">
         <joint range="0 1.5708"/>
         <position kp="1.2" ctrlrange="0 1.5708" />
-        <velocity kp="0.01"/>
+        <velocity kv="0.01"/>
       </default>
       
 
