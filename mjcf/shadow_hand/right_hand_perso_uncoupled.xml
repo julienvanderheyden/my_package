@@ -365,7 +365,7 @@
     <position name="rh_A_LFJ1" joint="rh_LFJ1" class="middle_distal"/>
     <position name="rh_A_LFJ2" joint="rh_LFJ2" class="middle_distal"/>
 
-    <velocity name="rh_A_WRJ2_vel" joint="rh_WRJ2" class="wrist_y"/>
+    <!-- <velocity name="rh_A_WRJ2_vel" joint="rh_WRJ2" class="wrist_y"/>
     <velocity name="rh_A_WRJ1_vel" joint="rh_WRJ1" class="wrist_x"/>
     <velocity name="rh_A_THJ5_vel" joint="rh_THJ5" class="thbase"/>
     <velocity name="rh_A_THJ4_vel" joint="rh_THJ4" class="thproximal"/>
@@ -389,7 +389,7 @@
     <velocity name="rh_A_RFJ1_vel" joint="rh_RFJ1" class="middle_distal"/>
     <velocity name="rh_A_RFJ2_vel" joint="rh_RFJ2" class="middle_distal"/>
     <velocity name="rh_A_LFJ1_vel" joint="rh_LFJ1" class="middle_distal"/>
-    <velocity name="rh_A_LFJ2_vel" joint="rh_LFJ2" class="middle_distal"/>
+    <velocity name="rh_A_LFJ2_vel" joint="rh_LFJ2" class="middle_distal"/> -->
 
   </actuator>
 </mujoco>
