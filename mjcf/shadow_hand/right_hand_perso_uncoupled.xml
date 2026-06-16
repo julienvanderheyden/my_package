@@ -14,16 +14,19 @@
       <mesh scale="0.001 0.001 0.001"/>
       <joint axis="1 0 0" damping="0.05" armature="0.0002" frictionloss="0.01"/>
       <position forcerange="-0.35 0.35"/>
+      <velocity forcerange="-0.35 0.35"/>
 
       <default class="wrist">
         <joint damping="0.5"/>
         <default class="wrist_y">
           <joint axis="0 1 0" range="-0.523599 0.174533"/>
           <position kp="12" ctrlrange="-0.523599 0.174533" forcerange="-10 10"/>
+          <velocity kp="0.1"/>
         </default>
         <default class="wrist_x">
           <joint range="-0.698132 0.488692"/>
           <position kp="10" ctrlrange="-0.698132 0.488692" forcerange="-10 10"/>
+          <velocity kp="0.1"/>
         </default>
       </default>
 
@@ -31,36 +34,44 @@
         <default class="thbase">
           <joint axis="0 0 -1" range="-1.0472 1.0472"/>
           <position kp="1.85" ctrlrange="-1.0472 1.0472"/>
+          <velocity kp="0.11"/>
         </default>
         <default class="thproximal">
           <joint range="0 1.22173"/>
           <position kp="1.8" ctrlrange="0 1.22173"/>
+          <velocity kp="0.1"/>
         </default>
         <default class="thhub">
           <joint range="-0.20944 0.20944"/>
           <position kp="2.5" ctrlrange="-0.20944 0.20944"/>
+          <velocity kp="0.11"/>
         </default>
         <default class="thmiddle">
           <joint axis="0 -1 0" range="-0.698132 0.698132"/>
           <position kp="2.05" ctrlrange="-0.698132 0.698132"/>
+          <velocity kp="0.09"/>
         </default>
         <default class="thdistal">
           <joint range="-0.261799 1.5708"/>
           <position kp="1.85" ctrlrange="-0.261799 1.5708"/>
+          <velocity kp="0.09"/>
         </default>
       </default>
 
       <default class="metacarpal">
         <joint axis="0.573576 0 0.819152" range="0 0.785398"/>
         <position kp="2.3" ctrlrange="0 0.785398" />
+        <velocity kp="0.09"/>
       </default>
       <default class="knuckle">
         <joint axis="0 -1 0" range="-0.349066 0.349066"/>
         <position kp="2.4" ctrlrange="-0.349066 0.349066"/>
+        <velocity kp="0.1"/>
       </default>
       <default class="proximal">
         <joint range="-0.261799 1.5708"/>
         <position kp="2" ctrlrange="-0.261799 1.5708"/>
+        <velocity kp="0.09"/>
       </default>
       <!-- <default class="middle_distal">
         <joint range="0 1.5708"/>
@@ -69,6 +80,7 @@
       <default class="middle_distal">
         <joint range="0 1.5708"/>
         <position kp="1.2" ctrlrange="0 1.5708" />
+        <velocity kp="0.01"/>
       </default>
       
 
@@ -352,6 +364,32 @@
     <position name="rh_A_RFJ2" joint="rh_RFJ2" class="middle_distal"/>
     <position name="rh_A_LFJ1" joint="rh_LFJ1" class="middle_distal"/>
     <position name="rh_A_LFJ2" joint="rh_LFJ2" class="middle_distal"/>
+
+    <velocity name="rh_A_WRJ2_vel" joint="rh_WRJ2" class="wrist_y"/>
+    <velocity name="rh_A_WRJ1_vel" joint="rh_WRJ1" class="wrist_x"/>
+    <velocity name="rh_A_THJ5_vel" joint="rh_THJ5" class="thbase"/>
+    <velocity name="rh_A_THJ4_vel" joint="rh_THJ4" class="thproximal"/>
+    <velocity name="rh_A_THJ3_vel" joint="rh_THJ3" class="thhub"/>
+    <velocity name="rh_A_THJ2_vel" joint="rh_THJ2" class="thmiddle"/>
+    <velocity name="rh_A_THJ1_vel" joint="rh_THJ1" class="thdistal"/>
+    <velocity name="rh_A_FFJ4_vel" joint="rh_FFJ4" class="knuckle"/>
+    <velocity name="rh_A_FFJ3_vel" joint="rh_FFJ3" class="proximal"/>
+    <velocity name="rh_A_MFJ4_vel" joint="rh_MFJ4" class="knuckle"/>
+    <velocity name="rh_A_MFJ3_vel" joint="rh_MFJ3" class="proximal"/>
+    <velocity name="rh_A_RFJ4_vel" joint="rh_RFJ4" class="knuckle"/>
+    <velocity name="rh_A_RFJ3_vel" joint="rh_RFJ3" class="proximal"/>
+    <velocity name="rh_A_LFJ5_vel" joint="rh_LFJ5" class="metacarpal"/>
+    <velocity name="rh_A_LFJ4_vel" joint="rh_LFJ4" class="knuckle"/>
+    <velocity name="rh_A_LFJ3_vel" joint="rh_LFJ3" class="proximal"/>
+
+    <velocity name="rh_A_FFJ1_vel" joint="rh_FFJ1" class="middle_distal"/>
+    <velocity name="rh_A_FFJ2_vel" joint="rh_FFJ2" class="middle_distal"/>
+    <velocity name="rh_A_MFJ1_vel" joint="rh_MFJ1" class="middle_distal"/>
+    <velocity name="rh_A_MFJ2_vel" joint="rh_MFJ2" class="middle_distal"/>
+    <velocity name="rh_A_RFJ1_vel" joint="rh_RFJ1" class="middle_distal"/>
+    <velocity name="rh_A_RFJ2_vel" joint="rh_RFJ2" class="middle_distal"/>
+    <velocity name="rh_A_LFJ1_vel" joint="rh_LFJ1" class="middle_distal"/>
+    <velocity name="rh_A_LFJ2_vel" joint="rh_LFJ2" class="middle_distal"/>
 
   </actuator>
 </mujoco>

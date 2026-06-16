@@ -120,10 +120,14 @@ COUPLED_JOINTS = {
 
 # ── Uncoupled model (perso): one actuator per joint, no J0 ────────────────────
 # Actuator names mirror JOINT_NAMES exactly ("rh_" → "rh_A_").
+
+# Velocity actuators are currently only on the uncoupled hand model. 
+# TODO : handle with velocity actuators and coupled hand
 ALL_ACTUATOR_NAMES_UNCOUPLED = (
-    [name.replace("rh_", "rh_A_") for name in JOINT_NAMES]
-    + ["rh_A_arm_lift"]
-)   # 25 total
+    [name.replace("rh_", "rh_A_") for name in JOINT_NAMES]             # 24
+    + [name.replace("rh_", "rh_A_") + "_vel" for name in JOINT_NAMES]  # 24
+    + ["rh_A_arm_lift"]                                                #  1 
+)   
 
 
 def detect_coupling_mode(model) -> bool:
@@ -234,6 +238,10 @@ def apply_initial_config(model, data, config: dict, actuator_ids: dict, coupled:
             actuator_name = joint_name.replace("rh_", "rh_A_")
             if actuator_name in actuator_ids:
                 data.ctrl[actuator_ids[actuator_name]] = angle
+
+            vel_actuator_name = actuator_name + "_vel"
+            if vel_actuator_name in actuator_ids:
+                data.ctrl[actuator_ids[vel_actuator_name]] = 0.0
 
     mujoco.mj_forward(model, data)
 
@@ -463,6 +471,10 @@ class ShadowHandDigitalTwin:
             queue_size=1,       # drop old messages; latency matters more than completeness
         )
 
+        # Derivative calculation tracking states
+        self._prev_cmd_positions = None
+        self._prev_cmd_time = None
+
         # Subscriber: actuator commands
         # The callback only updates a shared buffer; the physics loop reads it.
         self._ctrl_lock   = threading.Lock()
@@ -606,28 +618,51 @@ class ShadowHandDigitalTwin:
                 f"got {len(msg.data)}.",
             )
             return
+        
+        current_time = rospy.get_time()
+        current_positions = np.array(msg.data)
+        target_velocities = np.zeros(len(JOINT_NAMES))
 
-        # Map flat array to joint names using the known JOINT_NAMES order
-        cmd = {name: float(msg.data[i]) for i, name in enumerate(JOINT_NAMES)}
+        # Calculate numerical derivative if we have a previous sample
+        if self._prev_cmd_time is not None and self._prev_cmd_positions is not None:
+            dt = current_time - self._prev_cmd_time
+            if dt > 1e-5:  # Avoid division by zero
+                target_velocities = (current_positions - self._prev_cmd_positions) / dt
+
+        self._prev_cmd_positions = current_positions
+        self._prev_cmd_time = current_time
+
+        # Map flat target arrays into dictionary formats for easier joint lookup
+        cmd_pos = {name: float(current_positions[i]) for i, name in enumerate(JOINT_NAMES)}
+        cmd_vel = {name: float(target_velocities[i]) for i, name in enumerate(JOINT_NAMES)}
 
         ctrl = np.zeros(self._model.nu)
 
         if self._coupled:
-            # 1. Direct actuators: joint name → rh_A_<joint> (1-to-1)
+            # 1. Position Direct actuators
             for joint_name in JOINT_NAMES:
                 actuator_name = joint_name.replace("rh_", "rh_A_")
                 if actuator_name in self._actuator_ids:
-                    ctrl[self._actuator_ids[actuator_name]] = cmd[joint_name]
+                    ctrl[self._actuator_ids[actuator_name]] = cmd_pos[joint_name]
 
-            # 2. Coupled J0 actuators: sum J2 + J1 targets into the single J0 ctrl
+            # 2. Coupled J0 actuators
             for actuator_name, (j2_name, j1_name) in COUPLED_JOINTS.items():
-                ctrl[self._actuator_ids[actuator_name]] = cmd[j2_name] + cmd[j1_name]
+                ctrl[self._actuator_ids[actuator_name]] = cmd_pos[j2_name] + cmd_pos[j1_name]
+            
+            # Note: Velocity actuators are generally absent/unhandled in the standard tendon model.
         else:
-            # Uncoupled: every joint maps 1-to-1 to its own actuator
+            # Uncoupled Mode: Handle paired position and velocity actuators
             for joint_name in JOINT_NAMES:
                 actuator_name = joint_name.replace("rh_", "rh_A_")
+                
+                # Position target to the position actuator
                 if actuator_name in self._actuator_ids:
-                    ctrl[self._actuator_ids[actuator_name]] = cmd[joint_name]
+                    ctrl[self._actuator_ids[actuator_name]] = cmd_pos[joint_name]
+                
+                # Velocity target to the paired velocity actuator
+                vel_actuator_name = actuator_name + "_vel"
+                if vel_actuator_name in self._actuator_ids:
+                    ctrl[self._actuator_ids[vel_actuator_name]] = cmd_vel[joint_name]
 
         with self._ctrl_lock:
             # Record the sim time of the very first command (auto mode uses it
