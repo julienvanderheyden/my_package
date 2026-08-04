@@ -1,0 +1,6 @@
+Tue May 12 08:38:30 2026
+ERROR: makeDmap: unassigned index in mapM2C
+
+Tue May 12 08:38:30 2026
+WARNING: Inertia matrix is too close to singular at DOF 30. Check model. Time = 0.0000.
+
