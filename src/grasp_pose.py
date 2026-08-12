@@ -162,7 +162,7 @@ class CylinderGraspPlanner(object):
 
         moveit_commander.roscpp_initialize(sys.argv)
         self.mgc = moveit_commander.MoveGroupCommander("right_arm")
-        #self.mgc.set_end_effector_link("ra_flange")
+        self.mgc.set_end_effector_link("rh_palm")
 
     # -- Perception -----------------------------------------------------
     def get_cylinder_estimate(self):
@@ -198,7 +198,7 @@ class CylinderGraspPlanner(object):
         return {
             "pose": pose_inertial,
             "radius": resp.estimate.diameter / 2.0 + 2.0, #inflate radius to avoid collision with the object
-            "height": resp.estimate.height,
+            "height": resp.estimate.height + 30.0, # increase height to avoid collision with the object
         }
 
     # -- VMC-derived hand-relative cylinder offset -----------------------
@@ -373,8 +373,8 @@ class CylinderGraspPlanner(object):
         valid_candidates = []
         for i, pose in enumerate(candidates):
             # Set target pose in inertial frame
-            #self.mgc.set_pose_target(pose, end_effector_link=EE_FRAME)
-            self.mgc.set_pose_target(pose)  # uses default end-effector link
+            self.mgc.set_pose_target(pose, end_effector_link=EE_FRAME)
+            #self.mgc.set_pose_target(pose)  # uses default end-effector link
 
             # Check if IK exists and plan path without executing
             plan_success, plan, planning_time, error_code = self.mgc.plan()
