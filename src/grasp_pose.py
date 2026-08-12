@@ -451,7 +451,7 @@ class CylinderGraspPlanner(object):
 
         return flange_candidates
 
-    def compute_approach_poses(valid_candidates):
+    def compute_approach_poses(self, valid_candidates):
         approach_poses = []
         approach_distance = 0.05 #m
         local_offset = np.array([-approach_distance, 0.0, 0.0])
