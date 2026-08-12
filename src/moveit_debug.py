@@ -28,8 +28,8 @@ rospy.loginfo(f"End effector link: {eef_link}")
 start_pose = mgc.get_current_pose()
 target_pose = deepcopy(start_pose)
 target_pose.pose.position.x += 0.3
-target_pose.pose.position.y += 0.0
-target_pose.pose.position.z += 0.0
+target_pose.pose.position.y -= 0.1
+target_pose.pose.position.z -= 0.1
 
 
 # target_pose.pose.position.x = 1.34
