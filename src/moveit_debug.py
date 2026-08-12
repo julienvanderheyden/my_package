@@ -28,7 +28,7 @@ rospy.loginfo(f"End effector link: {eef_link}")
 start_pose = mgc.get_current_pose()
 target_pose = deepcopy(start_pose)
 target_pose.pose.position.x += 0.25
-target_pose.pose.position.y -= 0.1
+target_pose.pose.position.y += 0.1
 target_pose.pose.position.z -= 0.4
 
 target_pose.pose.orientation = Quaternion(*quaternion_multiply(
