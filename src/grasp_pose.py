@@ -51,6 +51,7 @@ trusting this for actual motion planning.
 """
 
 from copy import deepcopy
+import math
 
 import rospy
 import numpy as np
@@ -482,11 +483,26 @@ class CylinderGraspPlanner(object):
             self.mgc.set_pose_target(pose)
             success, plan, planning_time, error_code = self.mgc.plan()
             if success and len(plan.joint_trajectory.points) > 0:
-                valid_candidates.append(pose)
-                rospy.loginfo(f"Candidate {i}: VALID (plan found with {len(plan.joint_trajectory.points)} points)")
+                if self.is_crazy_plan(plan):
+                    rospy.logwarn(f"Candidate {i}: REJECTED (crazy plan detected)")
+                else :
+                    valid_candidates.append(pose)
+                    rospy.loginfo(f"Candidate {i}: VALID (plan found with {len(plan.joint_trajectory.points)} points)")
             else:
                 rospy.logwarn(f"Candidate {i}: REJECTED (no valid plan found)")
         return valid_candidates
+
+    def is_crazy_plan(self, plan): 
+        n_points = len(plan.joint_trajectory.points)
+        if n_points <= 0:
+            return True  # No points, consider it crazy
+        elif n_points > 0:
+            traj = np.array([p.positions for p in plan.joint_trajectory.points])
+            joint_sweep = [round(math.degrees(v), 1) for v in (traj.max(axis=0) - traj.min(axis=0))]
+            if any(sweep > 180.0 for sweep in joint_sweep):
+                return True
+            else:
+                return False
 
 
     # -- Top-level entry point ---------------------------------------------
