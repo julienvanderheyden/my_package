@@ -27,14 +27,19 @@ rospy.loginfo(f"End effector link: {eef_link}")
 
 start_pose = mgc.get_current_pose()
 target_pose = deepcopy(start_pose)
-target_pose.pose.position.x = 1.34
-target_pose.pose.position.y = 0.25
-target_pose.pose.position.z = 0.85
+target_pose.pose.position.x += 0.3
+target_pose.pose.position.y += 0.0
+target_pose.pose.position.z += 0.0
 
-target_pose.pose.orientation.x = -0.0767
-target_pose.pose.orientation.y = 0.7101
-target_pose.pose.orientation.z = -0.0872
-target_pose.pose.orientation.w = -0.6944
+
+# target_pose.pose.position.x = 1.34
+# target_pose.pose.position.y = 0.25
+# target_pose.pose.position.z = 0.85
+
+# target_pose.pose.orientation.x = -0.0767
+# target_pose.pose.orientation.y = 0.7101
+# target_pose.pose.orientation.z = -0.0872
+# target_pose.pose.orientation.w = -0.6944
 
 # --- PUBLISH TARGET TO RVIZ ---
 pose_pub.publish(target_pose)
