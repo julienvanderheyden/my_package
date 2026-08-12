@@ -50,6 +50,8 @@ trusting this for actual motion planning.
 ------------------------------------------------------------------------------
 """
 
+from copy import deepcopy
+
 import rospy
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
@@ -375,49 +377,29 @@ class CylinderGraspPlanner(object):
                        len(candidates), len(marker_array.markers))
         
 
-    # def filter_grasps_with_ik(self, flange_candidates):
-    #     valid_candidates = []
-        
-    #     for i, pose in enumerate(flange_candidates):
-    #         req = GetPositionIKRequest()
-    #         req.ik_request.group_name = "right_arm"
-    #         req.ik_request.ik_link_name = "ra_flange"
-    #         req.ik_request.pose_stamped.header.frame_id = self.inertial_frame
-    #         req.ik_request.pose_stamped.header.stamp = rospy.Time.now()
-    #         req.ik_request.pose_stamped.pose = pose
-    #         req.ik_request.avoid_collisions = True
-            
-    #         req.ik_request.timeout = rospy.Duration(0.01)
-
-    #         try:
-    #             res = self.ik_service(req)
-    #             if res.error_code.val == MoveItErrorCodes.SUCCESS:
-    #                 valid_candidates.append(pose)
-    #                 rospy.loginfo(f"Candidate {i}: VALID")
-    #             else:
-    #                 rospy.logwarn(f"Candidate {i}: REJECTED (Error {res.error_code.val})")
-    #         except rospy.ServiceException as e:
-    #             rospy.logerr(f"IK Service call failed: {e}")
-
-    #     return valid_candidates
-
-    def filter_grasps_with_ik(self, candidates):
+    def filter_grasps_with_ik(self, flange_candidates):
         valid_candidates = []
+        
+        for i, pose in enumerate(flange_candidates):
+            req = GetPositionIKRequest()
+            req.ik_request.group_name = "right_arm"
+            req.ik_request.ik_link_name = "ra_flange"
+            req.ik_request.pose_stamped.header.frame_id = self.inertial_frame
+            req.ik_request.pose_stamped.header.stamp = rospy.Time.now()
+            req.ik_request.pose_stamped.pose = pose
+            req.ik_request.avoid_collisions = True
+            
+            req.ik_request.timeout = rospy.Duration(0.5)
 
-        for i, pose in enumerate(candidates):
-            # 4. Set target pose for ra_flange
-            self.mgc.set_pose_target(pose)
-
-            # 5. Check IK and collision
-            plan_success, plan, planning_time, error_code = self.mgc.plan()
-
-            if plan_success and len(plan.joint_trajectory.points) > 0:
-                valid_candidates.append(pose)
-                rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free, planning time: {planning_time}s")
-            else:
-                rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision), error code: {error_code.val}")
-
-            self.mgc.clear_pose_targets()
+            try:
+                res = self.ik_service(req)
+                if res.error_code.val == MoveItErrorCodes.SUCCESS:
+                    valid_candidates.append(pose)
+                    rospy.loginfo(f"Candidate {i}: VALID")
+                else:
+                    rospy.logwarn(f"Candidate {i}: REJECTED (Error {res.error_code.val})")
+            except rospy.ServiceException as e:
+                rospy.logerr(f"IK Service call failed: {e}")
 
         return valid_candidates
 
@@ -469,6 +451,30 @@ class CylinderGraspPlanner(object):
 
         return flange_candidates
 
+    def compute_approach_poses(valid_candidates, approach_distance=0.05):
+        approach_poses = []
+
+        local_offset = np.array([-approach_distance, 0.0, 0.0])
+
+        for pose in valid_candidates:
+            approach_pose = deepcopy(pose)
+            
+            # 1. Convert orientation to rotation matrix
+            q = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
+            R = Rot.from_quat(q)
+            
+            # 2. Transform local offset into the world/inertial frame
+            world_offset = R.apply(local_offset)
+            
+            # 3. Apply position shift
+            approach_pose.position.x += world_offset[0]
+            approach_pose.position.y += world_offset[1]
+            approach_pose.position.z += world_offset[2]
+            
+            approach_poses.append(approach_pose)
+            
+        return approach_poses
+
 
     # -- Top-level entry point ---------------------------------------------
     def run_once(self):
@@ -486,7 +492,9 @@ class CylinderGraspPlanner(object):
         flange_candidates = self.transform_candidates_palm_to_flange(candidates)
         #all_candidates = candidates + flange_candidates  
         valid_candidates = self.filter_grasps_with_ik(flange_candidates)
-        self.publish_candidates(valid_candidates, self.inertial_frame)
+        approach_candidates = self.compute_approach_poses(valid_candidates)
+        valid_approach_candidates = self.filter_grasps_with_ik(approach_candidates)
+        self.publish_candidates(valid_approach_candidates, self.inertial_frame)
         return True
 
 
