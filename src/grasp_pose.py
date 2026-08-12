@@ -400,7 +400,7 @@ class CylinderGraspPlanner(object):
             req = GetPositionIKRequest()
             
             # 2. Populate the IK request field
-            req.ik_request.group_name = "arm"  # Change to your MoveIt group name
+            req.ik_request.group_name = "right_arm"  
             req.ik_request.ik_link_name = EE_FRAME
             req.ik_request.pose_stamped.header.frame_id = self.inertial_frame
             req.ik_request.pose_stamped.header.stamp = rospy.Time.now()
