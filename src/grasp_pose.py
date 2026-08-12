@@ -164,7 +164,7 @@ class CylinderGraspPlanner(object):
 
         moveit_commander.roscpp_initialize(sys.argv)
         self.mgc = moveit_commander.MoveGroupCommander("right_arm")
-        self.mgc.set_end_effector_link("rh_palm")
+        self.mgc.set_end_effector_link("ra_flange")
         rospy.wait_for_service('/compute_ik')
         self.ik_service = rospy.ServiceProxy('/compute_ik', GetPositionIK)
 
@@ -401,7 +401,7 @@ class CylinderGraspPlanner(object):
             
             # 2. Populate the IK request field
             req.ik_request.group_name = "right_arm"  
-            req.ik_request.ik_link_name = EE_FRAME
+            req.ik_request.ik_link_name = "ra_flange"
             req.ik_request.pose_stamped.header.frame_id = self.inertial_frame
             req.ik_request.pose_stamped.header.stamp = rospy.Time.now()
             req.ik_request.pose_stamped.pose = pose
