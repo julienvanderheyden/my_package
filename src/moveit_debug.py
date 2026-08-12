@@ -7,11 +7,17 @@ from copy import deepcopy
 from tf.transformations import quaternion_multiply, quaternion_from_euler
 from geometry_msgs.msg import Quaternion
 import numpy as np
+from geometry_msgs.msg import Quaternion, PoseStamped  # Added PoseStamped
+from visualization_msgs.msg import Marker              # Added Marker
 
 moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node('handeye_pose_diagnostic', anonymous=True)
 mgc = moveit_commander.MoveGroupCommander("right_arm")
 mgc.set_planner_id("RRTConnectkConfigDefault")  # same as easy_handeye - test if this is even valid
+
+# --- VISUALIZATION PUBLISHERS ---
+pose_pub = rospy.Publisher('/target_pose', PoseStamped, queue_size=1, latch=True)
+marker_pub = rospy.Publisher('/target_marker', Marker, queue_size=1, latch=True)
 
 planning_frame = mgc.get_planning_frame()
 eef_link = mgc.get_end_effector_link()
@@ -23,7 +29,24 @@ start_pose = mgc.get_current_pose()
 target_pose = deepcopy(start_pose)
 target_pose.pose.position.x += 0.1
 
+# --- PUBLISH TARGET TO RVIZ ---
+pose_pub.publish(target_pose)
 
+marker = Marker()
+marker.header = target_pose.header
+marker.type = Marker.SPHERE
+marker.action = Marker.ADD
+marker.pose = target_pose.pose
+marker.scale.x = 0.05
+marker.scale.y = 0.05
+marker.scale.z = 0.05
+marker.color.a = 1.0
+marker.color.r = 1.0  # Red sphere at target position
+marker_pub.publish(marker)
+
+
+
+# --- PLAN TO TARGET ---
 mgc.set_pose_target(target_pose)
 t0 = time.time()
 success, plan, planning_time, error_code = mgc.plan()
