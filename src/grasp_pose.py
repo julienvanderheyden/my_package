@@ -197,8 +197,8 @@ class CylinderGraspPlanner(object):
 
         return {
             "pose": pose_inertial,
-            "radius": resp.estimate.diameter / 2.0 + 2.0, #inflate radius to avoid collision with the object
-            "height": resp.estimate.height + 30.0, # increase height to avoid collision with the object
+            "radius": resp.estimate.diameter / 2.0, 
+            "height": resp.estimate.height, 
         }
 
     # -- VMC-derived hand-relative cylinder offset -----------------------
@@ -373,6 +373,7 @@ class CylinderGraspPlanner(object):
         
         valid_candidates = []
         for i, pose in enumerate(candidates):
+            print(pose)
             # Set target pose in inertial frame
             #self.mgc.set_pose_target(pose, end_effector_link=EE_FRAME)
             self.mgc.set_pose_target(pose)  # uses default end-effector link
