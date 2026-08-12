@@ -44,6 +44,7 @@ def compute_poses_around_state(start_pose, angle_delta, translation_delta):
 
 start_pose = mgc.get_current_pose()
 targets = compute_poses_around_state(start_pose, angle_delta, translation_delta)
+print(targets)
 
 for i, t in enumerate(targets):
     mgc.set_pose_target(t)
