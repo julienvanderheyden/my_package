@@ -231,6 +231,7 @@ class CylinderGraspPlanner(object):
             y_off = -0.03
             return y_off, z_off
         else:
+            # TODO : don't rely on the actual finger position, use pyBullet or other FK solver
             fftip = self.lookup_forearm_relative("rh_fftip")
             ffmiddle = self.lookup_forearm_relative("rh_ffmiddle")
             thtip = self.lookup_forearm_relative("rh_thtip")
@@ -453,7 +454,7 @@ class CylinderGraspPlanner(object):
 
     def compute_approach_poses(self, valid_candidates):
         approach_poses = []
-        approach_distance = 0.15 #m
+        approach_distance = 0.1 #m
         local_offset = np.array([-approach_distance, 0.0, 0.0])
 
         for pose in valid_candidates:
@@ -475,6 +476,18 @@ class CylinderGraspPlanner(object):
             
         return approach_poses
 
+    def filter_grasps_with_plans(self, approach_candidates):
+        valid_candidates = []
+        for i, pose in enumerate(approach_candidates):
+            self.mgc.set_pose_target(pose)
+            plan = self.mgc.plan()
+            if plan and len(plan.joint_trajectory.points) > 0:
+                valid_candidates.append(pose)
+                rospy.loginfo(f"Candidate {i}: VALID (plan found with {len(plan.joint_trajectory.points)} points)")
+            else:
+                rospy.logwarn(f"Candidate {i}: REJECTED (no valid plan found)")
+        return valid_candidates
+
 
     # -- Top-level entry point ---------------------------------------------
     def run_once(self):
@@ -494,7 +507,8 @@ class CylinderGraspPlanner(object):
         valid_candidates = self.filter_grasps_with_ik(flange_candidates)
         approach_candidates = self.compute_approach_poses(valid_candidates)
         valid_approach_candidates = self.filter_grasps_with_ik(approach_candidates)
-        self.publish_candidates(valid_approach_candidates, self.inertial_frame)
+        valid_approach_candidates = self.filter_grasps_with_plans(valid_approach_candidates)
+        #self.publish_candidates(valid_approach_candidates, self.inertial_frame)
         return True
 
 
