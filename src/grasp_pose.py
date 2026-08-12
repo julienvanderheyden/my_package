@@ -162,7 +162,7 @@ class CylinderGraspPlanner(object):
 
         moveit_commander.roscpp_initialize(sys.argv)
         self.mgc = moveit_commander.MoveGroupCommander("right_arm")
-        #self.mgc.set_end_effector_link("rh_palm")
+        self.mgc.set_planning_time(0.5)  # default is usually 5.0s
 
     # -- Perception -----------------------------------------------------
     def get_cylinder_estimate(self):
@@ -381,7 +381,7 @@ class CylinderGraspPlanner(object):
 
             if plan_success and len(plan.joint_trajectory.points) > 0:
                 valid_candidates.append(pose)
-                rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free")
+                rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free, planning time: {planning_time}s")
             else:
                 rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision), error code: {error_code.val}")
 
@@ -452,9 +452,9 @@ class CylinderGraspPlanner(object):
 
         
         flange_candidates = self.transform_candidates_palm_to_flange(candidates)
-        all_candidates = candidates + flange_candidates  
-        self.publish_candidates(all_candidates, self.inertial_frame)
+        #all_candidates = candidates + flange_candidates  
         valid_candidates = self.filter_grasps_with_ik(flange_candidates)
+        self.publish_candidates(valid_candidates, self.inertial_frame)
         return True
 
 
