@@ -13,6 +13,12 @@ rospy.init_node('handeye_pose_diagnostic', anonymous=True)
 mgc = moveit_commander.MoveGroupCommander("right_arm")
 mgc.set_planner_id("RRTConnectkConfigDefault")  # same as easy_handeye - test if this is even valid
 
+planning_frame = mgc.get_planning_frame()
+eef_link = mgc.get_end_effector_link()
+rospy.loginfo(f"Arm Controller initialized")
+rospy.loginfo(f"Planning frame: {planning_frame}")
+rospy.loginfo(f"End effector link: {eef_link}")
+
 start_pose = mgc.get_current_pose()
 target_pose = deepcopy(start_pose)
 target_pose.pose.position.x += 0.1
