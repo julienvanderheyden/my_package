@@ -65,6 +65,8 @@ from pcl_package.srv import GetStableEstimate
 
 import moveit_commander
 import sys
+from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest
+from moveit_msgs.msg import MoveItErrorCodes
 
 
 # ---------------------------------------------------------------------------
@@ -163,11 +165,9 @@ class CylinderGraspPlanner(object):
         moveit_commander.roscpp_initialize(sys.argv)
         self.mgc = moveit_commander.MoveGroupCommander("right_arm")
         self.mgc.set_planning_time(0.5)  # default is usually 5.0s
-        # Reduce IK solver timeout to 10–20 milliseconds (default is often 0.1s to 1.0s per attempt)
-        rospy.set_param('/robot_description_kinematics/right_arm/kinematics_solver_timeout', 0.1)
 
-        # Also reduce the number of internal IK search attempts
-        rospy.set_param('/robot_description_kinematics/right_arm/kinematics_solver_attempts', 3)
+        rospy.wait_for_service('/compute_ik')
+        self.ik_service = rospy.ServiceProxy('/compute_ik', GetPositionIK)  
 
     # -- Perception -----------------------------------------------------
     def get_cylinder_estimate(self):
@@ -374,23 +374,50 @@ class CylinderGraspPlanner(object):
                        "/grasp_planning/cylinder_candidate_grasps",
                        len(candidates), len(marker_array.markers))
 
-    def filter_grasps_with_ik(self, candidates):
+    # def filter_grasps_with_ik(self, candidates):
+    #     valid_candidates = []
+
+    #     for i, pose in enumerate(candidates):
+    #         # 4. Set target pose for ra_flange
+    #         self.mgc.set_pose_target(pose)
+
+    #         # 5. Check IK and collision
+    #         plan_success, plan, planning_time, error_code = self.mgc.plan()
+
+    #         if plan_success and len(plan.joint_trajectory.points) > 0:
+    #             valid_candidates.append(pose)
+    #             rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free, planning time: {planning_time}s")
+    #         else:
+    #             rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision), error code: {error_code.val}")
+
+    #         self.mgc.clear_pose_targets()
+
+    #     return valid_candidates
+
+    def filter_grasps_with_ik(self, flange_candidates):
         valid_candidates = []
+        
+        for i, pose in enumerate(flange_candidates):
+            req = GetPositionIKRequest()
+            req.ik_request.group_name = "right_arm"
+            req.ik_request.ik_link_name = "ra_flange"
+            req.ik_request.pose_stamped.header.frame_id = self.inertial_frame
+            req.ik_request.pose_stamped.header.stamp = rospy.Time.now()
+            req.ik_request.pose_stamped.pose = pose
+            req.ik_request.avoid_collisions = True
+            
+            # STRICT TIMEOUT: MoveIt MUST honor this per request (10 ms)
+            req.ik_request.timeout = rospy.Duration(0.1)
 
-        for i, pose in enumerate(candidates):
-            # 4. Set target pose for ra_flange
-            self.mgc.set_pose_target(pose)
-
-            # 5. Check IK and collision
-            plan_success, plan, planning_time, error_code = self.mgc.plan()
-
-            if plan_success and len(plan.joint_trajectory.points) > 0:
-                valid_candidates.append(pose)
-                rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free, planning time: {planning_time}s")
-            else:
-                rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision), error code: {error_code.val}")
-
-            self.mgc.clear_pose_targets()
+            try:
+                res = self.ik_service(req)
+                if res.error_code.val == MoveItErrorCodes.SUCCESS:
+                    valid_candidates.append(pose)
+                    rospy.loginfo(f"Candidate {i}: VALID")
+                else:
+                    rospy.logwarn(f"Candidate {i}: REJECTED (Error {res.error_code.val})")
+            except rospy.ServiceException as e:
+                rospy.logerr(f"IK Service call failed: {e}")
 
         return valid_candidates
 
