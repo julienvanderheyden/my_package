@@ -375,29 +375,49 @@ class CylinderGraspPlanner(object):
                        len(candidates), len(marker_array.markers))
         
 
-    def filter_grasps_with_ik(self, flange_candidates):
-        valid_candidates = []
+    # def filter_grasps_with_ik(self, flange_candidates):
+    #     valid_candidates = []
         
-        for i, pose in enumerate(flange_candidates):
-            req = GetPositionIKRequest()
-            req.ik_request.group_name = "right_arm"
-            req.ik_request.ik_link_name = "ra_flange"
-            req.ik_request.pose_stamped.header.frame_id = self.inertial_frame
-            req.ik_request.pose_stamped.header.stamp = rospy.Time.now()
-            req.ik_request.pose_stamped.pose = pose
-            req.ik_request.avoid_collisions = True
+    #     for i, pose in enumerate(flange_candidates):
+    #         req = GetPositionIKRequest()
+    #         req.ik_request.group_name = "right_arm"
+    #         req.ik_request.ik_link_name = "ra_flange"
+    #         req.ik_request.pose_stamped.header.frame_id = self.inertial_frame
+    #         req.ik_request.pose_stamped.header.stamp = rospy.Time.now()
+    #         req.ik_request.pose_stamped.pose = pose
+    #         req.ik_request.avoid_collisions = True
             
-            req.ik_request.timeout = rospy.Duration(0.01)
+    #         req.ik_request.timeout = rospy.Duration(0.01)
 
-            try:
-                res = self.ik_service(req)
-                if res.error_code.val == MoveItErrorCodes.SUCCESS:
-                    valid_candidates.append(pose)
-                    rospy.loginfo(f"Candidate {i}: VALID")
-                else:
-                    rospy.logwarn(f"Candidate {i}: REJECTED (Error {res.error_code.val})")
-            except rospy.ServiceException as e:
-                rospy.logerr(f"IK Service call failed: {e}")
+    #         try:
+    #             res = self.ik_service(req)
+    #             if res.error_code.val == MoveItErrorCodes.SUCCESS:
+    #                 valid_candidates.append(pose)
+    #                 rospy.loginfo(f"Candidate {i}: VALID")
+    #             else:
+    #                 rospy.logwarn(f"Candidate {i}: REJECTED (Error {res.error_code.val})")
+    #         except rospy.ServiceException as e:
+    #             rospy.logerr(f"IK Service call failed: {e}")
+
+    #     return valid_candidates
+
+    def filter_grasps_with_ik(self, candidates):
+        valid_candidates = []
+
+        for i, pose in enumerate(candidates):
+            # 4. Set target pose for ra_flange
+            self.mgc.set_pose_target(pose)
+
+            # 5. Check IK and collision
+            plan_success, plan, planning_time, error_code = self.mgc.plan()
+
+            if plan_success and len(plan.joint_trajectory.points) > 0:
+                valid_candidates.append(pose)
+                rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free, planning time: {planning_time}s")
+            else:
+                rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision), error code: {error_code.val}")
+
+            self.mgc.clear_pose_targets()
 
         return valid_candidates
 
