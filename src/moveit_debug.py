@@ -29,7 +29,7 @@ start_pose = mgc.get_current_pose()
 target_pose = deepcopy(start_pose)
 target_pose.pose.position.x += 0.3
 target_pose.pose.position.y -= 0.0
-target_pose.pose.position.z -= 0.5
+target_pose.pose.position.z -= 0.4
 
 
 # target_pose.pose.position.x = 1.34
