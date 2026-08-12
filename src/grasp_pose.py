@@ -369,47 +369,47 @@ class CylinderGraspPlanner(object):
                        "/grasp_planning/cylinder_candidate_grasps",
                        len(candidates), len(marker_array.markers))
 
-    # def filter_grasps_with_ik(self, candidates):
-    #     valid_candidates = []
+    def filter_grasps_with_ik(self, candidates):
+        valid_candidates = []
         
-    #     # 1. Lookup the transform from rh_palm to ra_flange
-    #     try:
-    #         # We want the transform that maps a pose in 'rh_palm' into 'ra_flange'
-    #         tf_palm_to_flange = self.tf_buffer.lookup_transform(
-    #             "ra_flange", "rh_palm", rospy.Time(0), self.tf_timeout
-    #         )
-    #     except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
-    #             tf2_ros.ExtrapolationException) as e:
-    #         rospy.logerr(f"Failed to lookup transform rh_palm -> ra_flange: {e}")
-    #         return []
+        # 1. Lookup the transform from rh_palm to ra_flange
+        try:
+            # We want the transform that maps a pose in 'rh_palm' into 'ra_flange'
+            tf_palm_to_flange = self.tf_buffer.lookup_transform(
+                "ra_flange", "rh_palm", rospy.Time(0), self.tf_timeout
+            )
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
+                tf2_ros.ExtrapolationException) as e:
+            rospy.logerr(f"Failed to lookup transform rh_palm -> ra_flange: {e}")
+            return []
 
-    #     for i, pose in enumerate(candidates):
-    #         # 2. Wrap the candidate pose in a PoseStamped
-    #         palm_pose_stamped = PoseStamped()
-    #         palm_pose_stamped.header.frame_id = self.inertial_frame
-    #         palm_pose_stamped.header.stamp = rospy.Time.now()
-    #         palm_pose_stamped.pose = pose
+        for i, pose in enumerate(candidates):
+            # 2. Wrap the candidate pose in a PoseStamped
+            palm_pose_stamped = PoseStamped()
+            palm_pose_stamped.header.frame_id = self.inertial_frame
+            palm_pose_stamped.header.stamp = rospy.Time.now()
+            palm_pose_stamped.pose = pose
 
-    #         # 3. Transform the candidate pose so ra_flange target aligns rh_palm where desired
-    #         flange_pose_stamped = tf2_geometry_msgs.do_transform_pose(
-    #             palm_pose_stamped, tf_palm_to_flange
-    #         )
+            # 3. Transform the candidate pose so ra_flange target aligns rh_palm where desired
+            flange_pose_stamped = tf2_geometry_msgs.do_transform_pose(
+                palm_pose_stamped, tf_palm_to_flange
+            )
 
-    #         # 4. Set target pose for ra_flange
-    #         self.mgc.set_pose_target(flange_pose_stamped.pose, end_effector_link="ra_flange")
+            # 4. Set target pose for ra_flange
+            self.mgc.set_pose_target(flange_pose_stamped.pose, end_effector_link="ra_flange")
 
-    #         # 5. Check IK and collision
-    #         plan_success, plan, planning_time, error_code = self.mgc.plan()
+            # 5. Check IK and collision
+            plan_success, plan, planning_time, error_code = self.mgc.plan()
 
-    #         if plan_success and len(plan.joint_trajectory.points) > 0:
-    #             valid_candidates.append(pose)
-    #             rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free")
-    #         else:
-    #             rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision), error code: {error_code.val}")
+            if plan_success and len(plan.joint_trajectory.points) > 0:
+                valid_candidates.append(pose)
+                rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free")
+            else:
+                rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision), error code: {error_code.val}")
 
-    #         self.mgc.clear_pose_targets()
+            self.mgc.clear_pose_targets()
 
-    #     return valid_candidates
+        return valid_candidates
 
     def transform_candidates_palm_to_flange(self, palm_candidates):
         """
