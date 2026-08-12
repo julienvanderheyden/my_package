@@ -55,7 +55,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as Rot
 
 import tf2_ros
-import tf2_geometry_msgs  # noqa: F401  (registers PoseStamped support with tf2_ros.Buffer)
+import tf2_geometry_msgs  
 
 from geometry_msgs.msg import Pose, Point, Quaternion, Vector3
 from visualization_msgs.msg import Marker, MarkerArray
@@ -63,9 +63,12 @@ from std_msgs.msg import ColorRGBA
 
 from pcl_package.srv import GetStableEstimate
 
+import moveit_commander
+import sys
+
 
 # ---------------------------------------------------------------------------
-# Fixed frame names (per spec)
+# Fixed frame names
 # ---------------------------------------------------------------------------
 EE_FRAME = "rh_palm"
 HAND_BASE_FRAME = "rh_forearm"
@@ -132,8 +135,7 @@ def circle_center_tangent_to_lines(p11, p12, p21, p22, radius):
 
 
 # Fixed rotation mapping HAND-frame axes to CYLINDER-local-frame axes, at the
-# theta=0 reference orientation: maps hand's +X onto cylinder's +Z (see
-# assumption 1 in the module docstring). Verified standalone: R0 @ [1,0,0] == [0,0,1].
+# theta=0 reference orientation: maps hand's +X onto cylinder's +Z 
 R0 = Rot.from_euler('y', -90, degrees=True).as_matrix()
 
 
@@ -157,6 +159,10 @@ class CylinderGraspPlanner(object):
         rospy.wait_for_service("/perception/get_stable_estimate")
         self.perception_srv = rospy.ServiceProxy(
             "/perception/get_stable_estimate", GetStableEstimate)
+
+        moveit_commander.roscpp_initialize(sys.argv)
+        self.mgc = moveit_commander.MoveGroupCommander("right_arm")
+        self.mgc.set_end_effector_link("rh_palm")
 
     # -- Perception -----------------------------------------------------
     def get_cylinder_estimate(self):
@@ -363,6 +369,25 @@ class CylinderGraspPlanner(object):
                        "/grasp_planning/cylinder_candidate_grasps",
                        len(candidates), len(marker_array.markers))
 
+    def filter_grasps_with_ik(self, candidates):
+        valid_candidates = []
+        for i, pose in enumerate(candidates):
+            # Set target pose in inertial frame
+            self.move_group.set_pose_target(pose, end_effector_link=EE_FRAME)
+
+            # Check if IK exists and plan path without executing
+            plan_success, plan, _, _ = self.move_group.plan()
+
+            if plan_success and len(plan.joint_trajectory.points) > 0:
+                valid_candidates.append(pose)
+                rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free")
+            else:
+                rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision)")
+
+            self.move_group.clear_pose_targets()
+
+        return valid_candidates
+
     # -- Top-level entry point ---------------------------------------------
     def run_once(self):
         estimate = self.get_cylinder_estimate()
@@ -375,7 +400,8 @@ class CylinderGraspPlanner(object):
             rospy.logerr("No candidate grasp poses were generated.")
             return False
 
-        self.publish_candidates(candidates, self.inertial_frame)
+        valid_candidates = self.filter_grasps_with_ik(candidates)
+        self.publish_candidates(valid_candidates, self.inertial_frame)
         return True
 
 
