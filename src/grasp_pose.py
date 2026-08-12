@@ -454,7 +454,7 @@ class CylinderGraspPlanner(object):
 
     def compute_approach_poses(self, valid_candidates):
         approach_poses = []
-        approach_distance = 0.1 #m
+        approach_distance = 0.12 #m
         local_offset = np.array([-approach_distance, 0.0, 0.0])
 
         for pose in valid_candidates:
@@ -508,7 +508,7 @@ class CylinderGraspPlanner(object):
         approach_candidates = self.compute_approach_poses(valid_candidates)
         valid_approach_candidates = self.filter_grasps_with_ik(approach_candidates)
         valid_approach_candidates = self.filter_grasps_with_plans(valid_approach_candidates)
-        #self.publish_candidates(valid_approach_candidates, self.inertial_frame)
+        self.publish_candidates(valid_approach_candidates, self.inertial_frame)
         return True
 
 
