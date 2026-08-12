@@ -31,6 +31,11 @@ target_pose.pose.position.x += 0.3
 target_pose.pose.position.y -= 0.0
 target_pose.pose.position.z -= 0.4
 
+target_pose.pose.orientation = Quaternion(*quaternion_multiply(
+    [target_pose.pose.orientation.x, target_pose.pose.orientation.y, target_pose.pose.orientation.z, target_pose.pose.orientation.w],
+    quaternion_from_euler(-math.pi/2, 0.0, 0.0)
+))
+
 
 # target_pose.pose.position.x = 1.34
 # target_pose.pose.position.y = 0.25
