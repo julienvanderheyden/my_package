@@ -65,7 +65,7 @@ from pcl_package.srv import GetStableEstimate
 
 import moveit_commander
 import sys
-from moveit_msgs.srv import GetPositionIK
+from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest
 from moveit_msgs.msg import PositionIKRequest, MoveItErrorCodes
 
 
@@ -394,36 +394,28 @@ class CylinderGraspPlanner(object):
 
     def filter_grasps_with_ik(self, candidates):
         valid_candidates = []
-        
-        # Error code human-readable lookup
-        error_names = {
-            MoveItErrorCodes.SUCCESS: "SUCCESS",
-            MoveItErrorCodes.NO_IK_SOLUTION: "NO_IK_SOLUTION (Kinematics unreachable / Joint limits)",
-            MoveItErrorCodes.GOAL_IN_COLLISION: "GOAL_IN_COLLISION (End-state collides with scene or self)",
-            MoveItErrorCodes.START_STATE_IN_COLLISION: "START_STATE_IN_COLLISION (Current robot position collides)",
-            MoveItErrorCodes.INVALID_GROUP_NAME: "INVALID_GROUP_NAME",
-        }
 
         for i, pose in enumerate(candidates):
-            # Create IK Request
-            req = GetPositionIK.Request()
-            req.ik_request.group_name = "arm"  # Change to your group name
+            # 1. Instantiate the Request object correctly
+            req = GetPositionIKRequest()
+            
+            # 2. Populate the IK request field
+            req.ik_request.group_name = "arm"  # Change to your MoveIt group name
             req.ik_request.ik_link_name = EE_FRAME
             req.ik_request.pose_stamped.header.frame_id = self.inertial_frame
             req.ik_request.pose_stamped.header.stamp = rospy.Time.now()
             req.ik_request.pose_stamped.pose = pose
-            req.ik_request.avoid_collisions = True # Set to False temporarily to isolate IK vs Collision!
+            req.ik_request.avoid_collisions = True
 
             try:
                 response = self.ik_service(req)
                 error_code = response.error_code.val
-                error_msg = error_names.get(error_code, f"Error Code: {error_code}")
 
                 if error_code == MoveItErrorCodes.SUCCESS:
                     valid_candidates.append(pose)
                     rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free")
                 else:
-                    rospy.logwarn(f"Candidate {i}: REJECTED -> {error_msg}")
+                    rospy.logwarn(f"Candidate {i}: REJECTED (Code: {error_code})")
 
             except rospy.ServiceException as e:
                 rospy.logerr(f"IK Service call failed: {e}")
