@@ -163,6 +163,11 @@ class CylinderGraspPlanner(object):
         moveit_commander.roscpp_initialize(sys.argv)
         self.mgc = moveit_commander.MoveGroupCommander("right_arm")
         self.mgc.set_planning_time(0.5)  # default is usually 5.0s
+        # Reduce IK solver timeout to 10–20 milliseconds (default is often 0.1s to 1.0s per attempt)
+        rospy.set_param('/robot_description_kinematics/right_arm/kinematics_solver_timeout', 0.1)
+
+        # Also reduce the number of internal IK search attempts
+        rospy.set_param('/robot_description_kinematics/right_arm/kinematics_solver_attempts', 3)
 
     # -- Perception -----------------------------------------------------
     def get_cylinder_estimate(self):
