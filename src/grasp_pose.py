@@ -480,8 +480,8 @@ class CylinderGraspPlanner(object):
         valid_candidates = []
         for i, pose in enumerate(approach_candidates):
             self.mgc.set_pose_target(pose)
-            plan = self.mgc.plan()
-            if plan and len(plan.joint_trajectory.points) > 0:
+            success, plan, planning_time, error_code = self.mgc.plan()
+            if success and len(plan.joint_trajectory.points) > 0:
                 valid_candidates.append(pose)
                 rospy.loginfo(f"Candidate {i}: VALID (plan found with {len(plan.joint_trajectory.points)} points)")
             else:
