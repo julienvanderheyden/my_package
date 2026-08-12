@@ -413,39 +413,49 @@ class CylinderGraspPlanner(object):
 
     def transform_candidates_palm_to_flange(self, palm_candidates):
         """
-        Transforms a list of rh_palm candidate poses (geometry_msgs/Pose)
-        into ra_flange candidate poses so that when MoveIt plans for ra_flange,
-        rh_palm will end up at the desired target poses.
-        
-        :param palm_candidates: List of geometry_msgs/Pose objects in the inertial frame.
-        :return: List of geometry_msgs/Pose objects for ra_flange in the inertial frame.
+        Transforms a list of rh_palm candidate poses (geometry_msgs/Pose in world frame)
+        into ra_flange target poses in the world frame.
         """
-        flange_candidates = []
-        
-        # 1. Lookup the live static transform mapping rh_palm pose offsets to ra_flange
         try:
-            tf_palm_to_flange = self.tf_buffer.lookup_transform(
+            # Lookup transform from ra_flange to rh_palm
+            t = self.tf_buffer.lookup_transform(
                 "ra_flange", "rh_palm", rospy.Time(0), self.tf_timeout
             )
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
                 tf2_ros.ExtrapolationException) as e:
-            rospy.logerr(f"Failed to lookup transform rh_palm -> ra_flange: {e}")
+            rospy.logerr(f"Failed to lookup transform ra_flange -> rh_palm: {e}")
             return []
 
-        # 2. Transform each candidate pose
-        for pose in palm_candidates:
-            # Wrap the palm pose into a PoseStamped
-            palm_stamped = PoseStamped()
-            palm_stamped.header.frame_id = self.inertial_frame
-            palm_stamped.header.stamp = rospy.Time.now()
-            palm_stamped.pose = pose
+        # Extract translation vector (palm -> flange in palm local frame)
+        # Note: lookup_transform("ra_flange", "rh_palm") gives the pose of rh_palm in ra_flange.
+        # We invert this to get ra_flange in rh_palm frame.
+        tr = t.transform.translation
+        q = t.transform.rotation
+        
+        R_flange_in_palm = Rot.from_quat([q.x, q.y, q.z, q.w]).inv()
+        t_flange_in_palm = -R_flange_in_palm.apply([tr.x, tr.y, tr.z])
 
-            # Apply the transformation
-            flange_stamped = tf2_geometry_msgs.do_transform_pose(
-                palm_stamped, tf_palm_to_flange
-            )
+        flange_candidates = []
 
-            flange_candidates.append(flange_stamped.pose)
+        for pose_palm in palm_candidates:
+            # Extract palm candidate pose in world frame
+            p_palm_world = np.array([pose_palm.position.x, pose_palm.position.y, pose_palm.position.z])
+            q_palm_world = [pose_palm.orientation.x, pose_palm.orientation.y, pose_palm.orientation.z, pose_palm.orientation.w]
+            R_palm_world = Rot.from_quat(q_palm_world)
+
+            # Compose: R_flange_world = R_palm_world * R_flange_in_palm
+            R_flange_world = R_palm_world * R_flange_in_palm
+            
+            # Compose: t_flange_world = t_palm_world + R_palm_world * t_flange_in_palm
+            t_flange_world = p_palm_world + R_palm_world.apply(t_flange_in_palm)
+
+            # Build output Pose
+            pose_flange = Pose()
+            pose_flange.position = Point(*t_flange_world)
+            q_flange = R_flange_world.as_quat()
+            pose_flange.orientation = Quaternion(*q_flange)
+
+            flange_candidates.append(pose_flange)
 
         return flange_candidates
 
