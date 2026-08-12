@@ -58,3 +58,5 @@ if n_points > 0:
 else:
     joint_sweep = None
 print(f"Target pose: success={success} error={error_code} time={elapsed:.2f}s points={n_points} sweep_deg={joint_sweep}")
+
+rospy.sleep(5.0)  # Short sleep so latched topics remain available in RViz
