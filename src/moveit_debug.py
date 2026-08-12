@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys, math, time
 import rospy
 import moveit_commander
