@@ -373,10 +373,10 @@ class CylinderGraspPlanner(object):
         valid_candidates = []
         for i, pose in enumerate(candidates):
             # Set target pose in inertial frame
-            self.move_group.set_pose_target(pose, end_effector_link=EE_FRAME)
+            self.mgc.set_pose_target(pose, end_effector_link=EE_FRAME)
 
             # Check if IK exists and plan path without executing
-            plan_success, plan, _, _ = self.move_group.plan()
+            plan_success, plan, _, _ = self.mgc.plan()
 
             if plan_success and len(plan.joint_trajectory.points) > 0:
                 valid_candidates.append(pose)
@@ -384,7 +384,7 @@ class CylinderGraspPlanner(object):
             else:
                 rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision)")
 
-            self.move_group.clear_pose_targets()
+            self.mgc.clear_pose_targets()
 
         return valid_candidates
 
