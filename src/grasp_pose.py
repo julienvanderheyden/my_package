@@ -472,10 +472,11 @@ class CylinderGraspPlanner(object):
             rospy.logerr("No candidate grasp poses were generated.")
             return False
 
-        #valid_candidates = self.filter_grasps_with_ik(candidates)
+        
         flange_candidates = self.transform_candidates_palm_to_flange(candidates)
         all_candidates = candidates + flange_candidates  
         self.publish_candidates(all_candidates, self.inertial_frame)
+        valid_candidates = self.filter_grasps_with_ik(flange_candidates)
         return True
 
 
