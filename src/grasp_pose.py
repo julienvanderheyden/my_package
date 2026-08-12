@@ -373,26 +373,7 @@ class CylinderGraspPlanner(object):
         rospy.loginfo("Published %d candidate grasp poses (%d markers) on "
                        "/grasp_planning/cylinder_candidate_grasps",
                        len(candidates), len(marker_array.markers))
-
-    # def filter_grasps_with_ik(self, candidates):
-    #     valid_candidates = []
-
-    #     for i, pose in enumerate(candidates):
-    #         # 4. Set target pose for ra_flange
-    #         self.mgc.set_pose_target(pose)
-
-    #         # 5. Check IK and collision
-    #         plan_success, plan, planning_time, error_code = self.mgc.plan()
-
-    #         if plan_success and len(plan.joint_trajectory.points) > 0:
-    #             valid_candidates.append(pose)
-    #             rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free, planning time: {planning_time}s")
-    #         else:
-    #             rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision), error code: {error_code.val}")
-
-    #         self.mgc.clear_pose_targets()
-
-    #     return valid_candidates
+        
 
     def filter_grasps_with_ik(self, flange_candidates):
         valid_candidates = []
@@ -406,8 +387,7 @@ class CylinderGraspPlanner(object):
             req.ik_request.pose_stamped.pose = pose
             req.ik_request.avoid_collisions = True
             
-            # STRICT TIMEOUT: MoveIt MUST honor this per request (10 ms)
-            req.ik_request.timeout = rospy.Duration(0.1)
+            req.ik_request.timeout = rospy.Duration(0.01)
 
             try:
                 res = self.ik_service(req)
