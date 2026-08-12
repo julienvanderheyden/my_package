@@ -370,6 +370,7 @@ class CylinderGraspPlanner(object):
                        len(candidates), len(marker_array.markers))
 
     def filter_grasps_with_ik(self, candidates):
+        
         valid_candidates = []
         for i, pose in enumerate(candidates):
             # Set target pose in inertial frame
