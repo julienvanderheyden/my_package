@@ -389,7 +389,7 @@ class CylinderGraspPlanner(object):
             req.ik_request.pose_stamped.pose = pose
             req.ik_request.avoid_collisions = True
             
-            req.ik_request.timeout = rospy.Duration(0.5)
+            req.ik_request.timeout = rospy.Duration(0.1)
 
             try:
                 res = self.ik_service(req)
@@ -453,7 +453,7 @@ class CylinderGraspPlanner(object):
 
     def compute_approach_poses(self, valid_candidates):
         approach_poses = []
-        approach_distance = 0.05 #m
+        approach_distance = 0.15 #m
         local_offset = np.array([-approach_distance, 0.0, 0.0])
 
         for pose in valid_candidates:
