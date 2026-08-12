@@ -65,8 +65,6 @@ from pcl_package.srv import GetStableEstimate
 
 import moveit_commander
 import sys
-from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest
-from moveit_msgs.msg import PositionIKRequest, MoveItErrorCodes
 
 
 # ---------------------------------------------------------------------------
@@ -165,8 +163,6 @@ class CylinderGraspPlanner(object):
         moveit_commander.roscpp_initialize(sys.argv)
         self.mgc = moveit_commander.MoveGroupCommander("right_arm")
         #self.mgc.set_end_effector_link("ra_flange")
-        rospy.wait_for_service('/compute_ik')
-        self.ik_service = rospy.ServiceProxy('/compute_ik', GetPositionIK)
 
     # -- Perception -----------------------------------------------------
     def get_cylinder_estimate(self):
@@ -373,54 +369,26 @@ class CylinderGraspPlanner(object):
                        "/grasp_planning/cylinder_candidate_grasps",
                        len(candidates), len(marker_array.markers))
 
-    # def filter_grasps_with_ik(self, candidates):
-    #     valid_candidates = []
-    #     for i, pose in enumerate(candidates):
-    #         # Set target pose in inertial frame
-    #         self.mgc.set_pose_target(pose, end_effector_link=EE_FRAME)
-
-    #         # Check if IK exists and plan path without executing
-    #         plan_success, plan, _, _ = self.mgc.plan()
-
-    #         if plan_success and len(plan.joint_trajectory.points) > 0:
-    #             valid_candidates.append(pose)
-    #             rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free")
-    #         else:
-    #             rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision)")
-
-    #         self.mgc.clear_pose_targets()
-
-    #     return valid_candidates
-
     def filter_grasps_with_ik(self, candidates):
         valid_candidates = []
-
         for i, pose in enumerate(candidates):
-            # 1. Instantiate the Request object correctly
-            req = GetPositionIKRequest()
-            
-            # 2. Populate the IK request field
-            req.ik_request.group_name = "right_arm"  
-            req.ik_request.ik_link_name = self.mgc.get_end_effector_link()
-            req.ik_request.pose_stamped.header.frame_id = self.inertial_frame
-            req.ik_request.pose_stamped.header.stamp = rospy.Time.now()
-            req.ik_request.pose_stamped.pose = pose
-            req.ik_request.avoid_collisions = True
+            # Set target pose in inertial frame
+            #self.mgc.set_pose_target(pose, end_effector_link=EE_FRAME)
+            self.mgc.set_pose_target(pose)  # uses default end-effector link
 
-            try:
-                response = self.ik_service(req)
-                error_code = response.error_code.val
+            # Check if IK exists and plan path without executing
+            plan_success, plan, planning_time, error_code = self.mgc.plan()
 
-                if error_code == MoveItErrorCodes.SUCCESS:
-                    valid_candidates.append(pose)
-                    rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free")
-                else:
-                    rospy.logwarn(f"Candidate {i}: REJECTED (Code: {error_code})")
+            if plan_success and len(plan.joint_trajectory.points) > 0:
+                valid_candidates.append(pose)
+                rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free")
+            else:
+                rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision), error code: {error_code.val}")
 
-            except rospy.ServiceException as e:
-                rospy.logerr(f"IK Service call failed: {e}")
+            self.mgc.clear_pose_targets()
 
         return valid_candidates
+
 
     # -- Top-level entry point ---------------------------------------------
     def run_once(self):
