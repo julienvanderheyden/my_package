@@ -197,7 +197,7 @@ class CylinderGraspPlanner(object):
 
         return {
             "pose": pose_inertial,
-            "radius": resp.estimate.diameter / 2.0 +1.0, #inflate radius to avoid collision with the object
+            "radius": resp.estimate.diameter / 2.0 + 2.0, #inflate radius to avoid collision with the object
             "height": resp.estimate.height,
         }
 
