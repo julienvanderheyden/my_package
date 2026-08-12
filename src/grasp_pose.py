@@ -65,6 +65,8 @@ from pcl_package.srv import GetStableEstimate
 
 import moveit_commander
 import sys
+from moveit_msgs.srv import GetPositionIK
+from moveit_msgs.msg import PositionIKRequest, MoveItErrorCodes
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +165,8 @@ class CylinderGraspPlanner(object):
         moveit_commander.roscpp_initialize(sys.argv)
         self.mgc = moveit_commander.MoveGroupCommander("right_arm")
         self.mgc.set_end_effector_link("rh_palm")
+        rospy.wait_for_service('/compute_ik')
+        self.ik_service = rospy.ServiceProxy('/compute_ik', GetPositionIK)
 
     # -- Perception -----------------------------------------------------
     def get_cylinder_estimate(self):
@@ -369,22 +373,60 @@ class CylinderGraspPlanner(object):
                        "/grasp_planning/cylinder_candidate_grasps",
                        len(candidates), len(marker_array.markers))
 
+    # def filter_grasps_with_ik(self, candidates):
+    #     valid_candidates = []
+    #     for i, pose in enumerate(candidates):
+    #         # Set target pose in inertial frame
+    #         self.mgc.set_pose_target(pose, end_effector_link=EE_FRAME)
+
+    #         # Check if IK exists and plan path without executing
+    #         plan_success, plan, _, _ = self.mgc.plan()
+
+    #         if plan_success and len(plan.joint_trajectory.points) > 0:
+    #             valid_candidates.append(pose)
+    #             rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free")
+    #         else:
+    #             rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision)")
+
+    #         self.mgc.clear_pose_targets()
+
+    #     return valid_candidates
+
     def filter_grasps_with_ik(self, candidates):
         valid_candidates = []
+        
+        # Error code human-readable lookup
+        error_names = {
+            MoveItErrorCodes.SUCCESS: "SUCCESS",
+            MoveItErrorCodes.NO_IK_SOLUTION: "NO_IK_SOLUTION (Kinematics unreachable / Joint limits)",
+            MoveItErrorCodes.GOAL_IN_COLLISION: "GOAL_IN_COLLISION (End-state collides with scene or self)",
+            MoveItErrorCodes.START_STATE_IN_COLLISION: "START_STATE_IN_COLLISION (Current robot position collides)",
+            MoveItErrorCodes.INVALID_GROUP_NAME: "INVALID_GROUP_NAME",
+        }
+
         for i, pose in enumerate(candidates):
-            # Set target pose in inertial frame
-            self.mgc.set_pose_target(pose, end_effector_link=EE_FRAME)
+            # Create IK Request
+            req = GetPositionIK.Request()
+            req.ik_request.group_name = "arm"  # Change to your group name
+            req.ik_request.ik_link_name = EE_FRAME
+            req.ik_request.pose_stamped.header.frame_id = self.inertial_frame
+            req.ik_request.pose_stamped.header.stamp = rospy.Time.now()
+            req.ik_request.pose_stamped.pose = pose
+            req.ik_request.avoid_collisions = True # Set to False temporarily to isolate IK vs Collision!
 
-            # Check if IK exists and plan path without executing
-            plan_success, plan, _, _ = self.mgc.plan()
+            try:
+                response = self.ik_service(req)
+                error_code = response.error_code.val
+                error_msg = error_names.get(error_code, f"Error Code: {error_code}")
 
-            if plan_success and len(plan.joint_trajectory.points) > 0:
-                valid_candidates.append(pose)
-                rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free")
-            else:
-                rospy.logwarn(f"Candidate {i}: REJECTED (Unreachable or Collision)")
+                if error_code == MoveItErrorCodes.SUCCESS:
+                    valid_candidates.append(pose)
+                    rospy.loginfo(f"Candidate {i}: VALID IK & Collision-free")
+                else:
+                    rospy.logwarn(f"Candidate {i}: REJECTED -> {error_msg}")
 
-            self.mgc.clear_pose_targets()
+            except rospy.ServiceException as e:
+                rospy.logerr(f"IK Service call failed: {e}")
 
         return valid_candidates
 
