@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rospy
-from my_package.srv import GetStableEstimate, GetCylinderGrasp
+from my_package.srv import GetCylinderGrasp, GetCylinderGraspRequest
+from pcl_package.srv import GetStableEstimate, GetStableEstimateRequest
 
 def plan_cylinder_grasp():
     rospy.init_node('cylinder_grasp_planner_node')
