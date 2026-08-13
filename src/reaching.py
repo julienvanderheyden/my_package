@@ -17,6 +17,35 @@ def is_crazy_plan(plan):
     joint_sweep = [round(math.degrees(v), 1) for v in (traj.max(axis=0) - traj.min(axis=0))]
     return any(sweep > 180.0 for sweep in joint_sweep)
 
+def plan_and_confirm(mgc, target_pose, stage_name):
+    """Helper to set start state, set target, plan, check sanity, and prompt user."""
+    rospy.loginfo(f"--- Planning for {stage_name} ---")
+    mgc.set_start_state_to_current_state()
+    
+    # Determine target type (Joint values or Pose)
+    if isinstance(target_pose, (list, tuple)):
+        mgc.set_joint_value_target(target_pose)
+    else:
+        mgc.set_pose_target(target_pose)
+
+    success, plan, planning_time, error_code = mgc.plan()
+
+    if not (success and not is_crazy_plan(plan)):
+        rospy.logwarn(f"Planning failed or produced an invalid trajectory for {stage_name}.")
+        return False
+
+    rospy.loginfo(f"Plan for {stage_name} successfully computed!")
+    
+    user_input = input(f"Do you want to execute the {stage_name} plan? [y/N]: ").strip().lower()
+    if user_input in ['y', 'yes']:
+        rospy.loginfo(f"Executing {stage_name}...")
+        mgc.execute(plan, wait=True)
+        rospy.loginfo(f"{stage_name} execution complete.")
+        return True
+    else:
+        rospy.loginfo(f"Execution of {stage_name} aborted by user.")
+        return False
+
 def plan_grasp():
     rospy.init_node('reaching_node')
 
@@ -57,29 +86,19 @@ def plan_grasp():
     mgc = moveit_commander.MoveGroupCommander("right_arm")
     mgc.set_planner_id("RRTConnectkConfigDefault")
 
-    planning_frame = mgc.get_planning_frame()
-    eef_link = mgc.get_end_effector_link()
-    rospy.loginfo(f"Arm Controller initialized")
-    rospy.loginfo(f"Planning frame: {planning_frame}")
-    rospy.loginfo(f"End effector link: {eef_link}")
+    rospy.loginfo("Arm Controller initialized")
+    rospy.loginfo(f"Planning frame: {mgc.get_planning_frame()}")
+    rospy.loginfo(f"End effector link: {mgc.get_end_effector_link()}")
 
-    mgc.set_start_state_to_current_state()
-    mgc.set_joint_value_target(grasp_response.approach_pose_flange)
-    success, plan, planning_time, error_code = mgc.plan()
+    # Step 1: Approach Phase
+    approach_executed = plan_and_confirm(mgc, grasp_response.approach_pose_flange, "APPROACH")
+    if not approach_executed:
+        return
 
-    if success and not is_crazy_plan(plan):
-        rospy.loginfo("Grasp plan successfully computed!")
-        
-        # Ask user for confirmation in the terminal
-        user_input = input("Do you want to execute this grasp plan? [y/N]: ").strip().lower()
-        if user_input in ['y', 'yes']:
-            rospy.loginfo("Executing plan...")
-            mgc.execute(plan, wait=True)
-            rospy.loginfo("Execution complete.")
-        else:
-            rospy.loginfo("Execution aborted by user.")
-    else:
-        rospy.logwarn("Planning failed or produced an invalid trajectory.")
+    # Step 2: Final Grasp Phase (Planned only after approach executes successfully)
+    grasp_executed = plan_and_confirm(mgc, grasp_response.grasp_pose_flange, "FINAL GRASP")
+    if grasp_executed:
+        rospy.loginfo("Full grasp sequence completed successfully!")
 
 
 if __name__ == '__main__':
