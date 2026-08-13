@@ -27,14 +27,16 @@ rospy.loginfo(f"End effector link: {eef_link}")
 
 start_pose = mgc.get_current_pose()
 target_pose = deepcopy(start_pose)
-target_pose.pose.position.x += 0.25
+target_pose.pose.position.x += 0.5
 target_pose.pose.position.y += 0.1
-target_pose.pose.position.z -= 0.4
+target_pose.pose.position.z -= 0.43
 
 target_pose.pose.orientation = Quaternion(*quaternion_multiply(
     [target_pose.pose.orientation.x, target_pose.pose.orientation.y, target_pose.pose.orientation.z, target_pose.pose.orientation.w],
     quaternion_from_euler(+math.pi/2, 0.0, 0.0)
 ))
+
+print(target_pose)
 
 
 # target_pose.pose.position.x = 1.34
