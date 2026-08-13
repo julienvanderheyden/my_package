@@ -1,0 +1,22 @@
+# Request: simplified counterpart of /perception/get_stable_estimate's response.
+# The calling (higher-level) node owns that service's own success/reason check;
+# by the time this request is built, a stable estimate is assumed to exist.
+# primitive_type is redundant with estimate.primitive_type but kept explicit so
+# a dispatcher can sanity-check routing without unpacking the full estimate.
+string primitive_type            # must be "CYLINDER"
+pcl_package/PrimitiveEstimate estimate
+sensor_msgs/PointCloud2 cloud
+---
+bool success
+string reason                    # populated only if success == false
+
+geometry_msgs/Pose grasp_pose_palm
+geometry_msgs/Pose grasp_pose_flange
+geometry_msgs/Pose approach_pose_palm
+geometry_msgs/Pose approach_pose_flange
+
+int32 sector_point_count
+float32 sector_residual          # only meaningful if met_confidence_threshold is true
+bool met_confidence_threshold    # false => sector_point_count fell below the service's
+                                  #          minimum and this is the most-evidence fallback,
+                                  #          not a residual-ranked pick
