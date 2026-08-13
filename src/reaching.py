@@ -3,8 +3,8 @@ import rospy
 from my_package.srv import GetCylinderGraspPose, GetCylinderGraspPoseRequest
 from pcl_package.srv import GetStableEstimate, GetStableEstimateRequest
 
-def plan_cylinder_grasp():
-    rospy.init_node('cylinder_grasp_planner_node')
+def plan_grasp():
+    rospy.init_node('reaching_node')
 
     # Wait for services and setup proxies outside the try block
     rospy.wait_for_service('/perception/get_stable_estimate')
@@ -33,4 +33,4 @@ def plan_cylinder_grasp():
         rospy.logerr(f"Service call failed: {e}")
 
 if __name__ == '__main__':
-    plan_cylinder_grasp()
+    plan_grasp()
