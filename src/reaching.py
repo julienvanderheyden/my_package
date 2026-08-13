@@ -19,7 +19,7 @@ def plan_grasp():
             rospy.logerr(f"Perception failed. Reason: {est.reason}")
             return
         
-        elif est.primitive_type != "CYLINDER":
+        elif est.estimate.primitive_type != "CYLINDER":
             rospy.logwarn(f"Expected CYLINDER, but got '{est.primitive_type}'")
             return
         else:
