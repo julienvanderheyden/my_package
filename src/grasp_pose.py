@@ -268,7 +268,7 @@ class CylinderGraspPlanner(object):
         return {
             "pose": pose_inertial,
             "pose_cloud_frame": pose_cloud_frame,
-            "cloud": resp.estimate.cloud,
+            "cloud": resp.cloud,
             "radius": resp.estimate.diameter / 2.0 + 0.01,  # inflated, for candidate generation / collision margin
             "radius_measured": resp.estimate.diameter / 2.0,  
             "height": resp.estimate.height,
