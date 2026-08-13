@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
 import rospy
 import sys
+import math
+import numpy as np
 from my_package.srv import GetCylinderGraspPose, GetCylinderGraspPoseRequest
 from pcl_package.srv import GetStableEstimate, GetStableEstimateRequest
 
 import moveit_commander
+
+
+def is_crazy_plan(plan):
+        n_points = len(plan.joint_trajectory.points)
+        if n_points <= 0:
+            return True
+        traj = np.array([p.positions for p in plan.joint_trajectory.points])
+        joint_sweep = [round(math.degrees(v), 1) for v in (traj.max(axis=0) - traj.min(axis=0))]
+        return any(sweep > 180.0 for sweep in joint_sweep)
 
 def plan_grasp():
     rospy.init_node('reaching_node')
@@ -50,7 +61,7 @@ def plan_grasp():
     rospy.loginfo(f"Planning frame: {planning_frame}")
     rospy.loginfo(f"End effector link: {eef_link}")
 
-    mgc.set_pose_target(grasp_response.grasp_pose_flange)
+    mgc.set_pose_target(grasp_response.approach_pose_flange)
     success, plan, planning_time, error_code = mgc.plan()
     n_points = len(plan.joint_trajectory.points)
 
@@ -62,10 +73,4 @@ def plan_grasp():
 if __name__ == '__main__':
     plan_grasp()
 
-def is_crazy_plan(plan):
-        n_points = len(plan.joint_trajectory.points)
-        if n_points <= 0:
-            return True
-        traj = np.array([p.positions for p in plan.joint_trajectory.points])
-        joint_sweep = [round(math.degrees(v), 1) for v in (traj.max(axis=0) - traj.min(axis=0))]
-        return any(sweep > 180.0 for sweep in joint_sweep)
+
