@@ -517,7 +517,7 @@ class CylinderGraspPlanner(object):
             origin = np.array([palm.position.x, palm.position.y, palm.position.z])
             q = palm.orientation
             R_palm = Rot.from_quat([q.x, q.y, q.z, q.w]).as_matrix()
-            direction = R_palm[:, 2] f# palm local approach direction
+            direction = R_palm[:, 2] # palm local approach direction
 
             n_points, residual = self.score_candidate_sector(cyl_estimate, origin, direction)
             scored.append({"candidate": cand, "n_points": n_points, "residual": residual})
