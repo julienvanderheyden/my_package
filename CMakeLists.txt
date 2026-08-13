@@ -59,6 +59,7 @@ add_service_files(
   FILES
   MoveCartesian.srv
   GetPose.srv
+  GetCylinderGraspPose.srv
 )
 
 ## Generate actions in the 'action' folder
