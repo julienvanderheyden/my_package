@@ -24,7 +24,7 @@ def plan_grasp():
             return
         else:
             grasp_req = GetCylinderGraspPoseRequest()
-            grasp_req.primitive_type = est.primitive_type
+            grasp_req.primitive_type = est.estimate.primitive_type
             grasp_req.estimate = est.estimate
             grasp_req.cloud = est.cloud
             print(get_grasp(grasp_req))
