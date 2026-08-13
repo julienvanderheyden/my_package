@@ -204,7 +204,7 @@ class CylinderGraspPlanner(object):
             "pose": pose_inertial,
             "pose_cloud_frame": pose_cloud_frame,
             "cloud": req.cloud,
-            "radius": req.estimate.diameter / 2.0 + 0.01,       # inflated, for candidate generation
+            "radius": req.estimate.diameter / 2.0 + 0.015,       # inflated, for candidate generation
             "radius_measured": req.estimate.diameter / 2.0,     # raw, for residual scoring
             "height": req.estimate.height,
         }
@@ -401,7 +401,7 @@ class CylinderGraspPlanner(object):
         a MoveIt/IK convenience standoff) and 'approach_palm' (the palm pose
         implied by that same approach_flange target - see module docstring
         point 5, NOT an independent palm-frame offset)."""
-        approach_distance = 0.12  # m
+        approach_distance = 0.15  # m
         local_offset = np.array([-approach_distance, 0.0, 0.0])
 
         offset = self._lookup_rigid_offset(EE_FRAME, FLANGE_FRAME)
