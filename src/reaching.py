@@ -61,7 +61,9 @@ def plan_grasp():
     rospy.loginfo(f"Planning frame: {planning_frame}")
     rospy.loginfo(f"End effector link: {eef_link}")
 
-    mgc.set_pose_target(grasp_response.approach_pose_flange)
+    #mgc.set_pose_target(grasp_response.approach_pose_flange)
+    mgc.set_start_state_to_current_state()
+    mgc.set_joint_value_target(grasp_response.approach_pose_flange)
     success, plan, planning_time, error_code = mgc.plan()
     n_points = len(plan.joint_trajectory.points)
 
