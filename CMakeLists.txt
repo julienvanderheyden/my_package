@@ -74,6 +74,8 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   geometry_msgs
+  pcl_package
+  sensor_msgs
 )
 
 ################################################
