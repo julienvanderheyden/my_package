@@ -1,4 +1,3 @@
-# #!/usr/bin/env python3
 # """
 # cylinder_grasp_planner_node.py
 
