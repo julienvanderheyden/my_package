@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import rospy
-from my_package.srv import GetCylinderGrasp, GetCylinderGraspRequest
+from my_package.srv import GetCylinderGraspPose, GetCylinderGraspPoseRequest
 from pcl_package.srv import GetStableEstimate, GetStableEstimateRequest
 
 def plan_cylinder_grasp():
@@ -11,7 +11,7 @@ def plan_cylinder_grasp():
     rospy.wait_for_service('/grasp_planning/get_cylinder_grasp')
 
     get_estimate = rospy.ServiceProxy('/perception/get_stable_estimate', GetStableEstimate)
-    get_grasp = rospy.ServiceProxy('/grasp_planning/get_cylinder_grasp', GetCylinderGrasp)
+    get_grasp = rospy.ServiceProxy('/grasp_planning/get_cylinder_grasp', GetCylinderGraspPose)
 
     try:
         est = get_estimate()
@@ -23,7 +23,7 @@ def plan_cylinder_grasp():
             rospy.logwarn(f"Expected CYLINDER, but got '{est.primitive_type}'")
             return
         else:
-            grasp_req = GetCylinderGraspRequest()
+            grasp_req = GetCylinderGraspPoseRequest()
             grasp_req.primitive_type = est.primitive_type
             grasp_req.estimate = est.estimate
             grasp_req.cloud = est.cloud
