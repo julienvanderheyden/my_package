@@ -554,8 +554,8 @@ class CylinderGraspPlanner(object):
             res.reason = "Failed to transform cylinder pose into the inertial frame."
             return res
 
-        t_cylinder = rospy.Time.now() - t0
-        rospy.loginfo("Cylinder grasp planner: cylinder estimate transformed in %.3f sec", t_cylinder.to_sec())
+        t_cylinder = rospy.Time.now()
+        rospy.loginfo("Cylinder grasp planner: cylinder estimate transformed in %.3f sec", (t_cylinder-t0).to_sec())
 
         candidates = self.generate_candidates(
             cyl_estimate["pose"], cyl_estimate["radius"], cyl_estimate["height"])
@@ -564,9 +564,9 @@ class CylinderGraspPlanner(object):
             res.reason = "No candidate grasp poses were generated."
             return res
 
-        t_candidates = rospy.Time.now() - t_cylinder
+        t_candidates = rospy.Time.now() 
         rospy.loginfo("Cylinder grasp planner: %d candidate grasps generated in %.3f sec",
-                      len(candidates), t_candidates.to_sec())
+                      len(candidates), (t_candidates-t_cylinder).to_sec())
 
         paired_candidates = self.transform_candidates_palm_to_flange(candidates)
         if not paired_candidates:
@@ -574,14 +574,14 @@ class CylinderGraspPlanner(object):
             res.reason = "Failed to compute the rh_palm -> ra_flange transform."
             return res
 
-        t_transform = rospy.Time.now() - t_candidates
-        rospy.loginfo("Cylinder grasp planner: rh_palm -> ra_flange transform computed in %.3f sec", t_transform.to_sec())
+        t_transform = rospy.Time.now() 
+        rospy.loginfo("Cylinder grasp planner: rh_palm -> ra_flange transform computed in %.3f sec", (t_transform-t_candidates).to_sec())
 
         valid_candidates = self.filter_grasps_with_ik(paired_candidates, pose_key="flange")
 
-        t_ik = rospy.Time.now() - t_transform
+        t_ik = rospy.Time.now() 
         rospy.loginfo("Cylinder grasp planner: %d/%d candidates survived IK filtering in %.3f sec",
-                      len(valid_candidates), len(paired_candidates), t_ik.to_sec())
+                      len(valid_candidates), len(paired_candidates), (t_ik-t_transform).to_sec())
 
         valid_candidates = self.compute_approach_poses(valid_candidates)
         if not valid_candidates:
@@ -589,20 +589,20 @@ class CylinderGraspPlanner(object):
             res.reason = "Failed to compute approach poses (rh_palm -> ra_flange transform lookup failed)."
             return res
 
-        t_approach = rospy.Time.now() - t_ik
-        rospy.loginfo("Cylinder grasp planner: approach poses computed in %.3f sec", t_approach.to_sec())
+        t_approach = rospy.Time.now() 
+        rospy.loginfo("Cylinder grasp planner: approach poses computed in %.3f sec", (t_approach-t_ik).to_sec())
 
         valid_candidates = self.filter_grasps_with_ik(valid_candidates, pose_key="approach_flange")
 
-        t_ik2 = rospy.Time.now() - t_approach
+        t_ik2 = rospy.Time.now() 
         rospy.loginfo("Cylinder grasp planner: %d/%d candidates survived approach IK filtering in %.3f sec",
-                      len(valid_candidates), len(paired_candidates), t_ik2.to_sec())
+                      len(valid_candidates), len(paired_candidates), (t_ik2-t_approach).to_sec())
 
         valid_candidates = self.filter_grasps_with_plans(valid_candidates)
 
-        t_plan = rospy.Time.now() - t_ik2
+        t_plan = rospy.Time.now() 
         rospy.loginfo("Cylinder grasp planner: %d/%d candidates survived motion planning filtering in %.3f sec",
-                      len(valid_candidates), len(paired_candidates), t_plan.to_sec())
+                      len(valid_candidates), len(paired_candidates), (t_plan-t_ik2).to_sec())
 
         if not valid_candidates:
             res.success = False
@@ -614,8 +614,8 @@ class CylinderGraspPlanner(object):
         best_candidate, score_info = self.select_best_grasp(valid_candidates, cyl_estimate)
         self.publish_best_candidate(best_candidate["palm"], self.inertial_frame)
 
-        t_best = rospy.Time.now() - t_plan
-        rospy.loginfo("Cylinder grasp planner: best candidate selected in %.3f sec", t_best.to_sec())
+        t_best = rospy.Time.now() 
+        rospy.loginfo("Cylinder grasp planner: best candidate selected in %.3f sec", (t_best-t_plan).to_sec())
 
         res.success = True
         res.grasp_pose_palm = best_candidate["palm"]
