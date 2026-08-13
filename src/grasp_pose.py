@@ -206,11 +206,11 @@ class CylinderGraspPlanner(object):
         self.tf_timeout = rospy.Duration(rospy.get_param("~tf_timeout", 1.0))
 
         # -- Sector scoring / ranking params --
-        self.min_sector_points = rospy.get_param("~min_sector_points", 15)
+        self.min_sector_points = rospy.get_param("~min_sector_points", 50)
         self.sector_height_half_width = rospy.get_param(
             "~sector_height_half_width", PALM_WIDTH / 2.0)  # m
         self.sector_angle_half_width = math.radians(
-            rospy.get_param("~sector_angle_half_width_deg", 30.0))
+            rospy.get_param("~sector_angle_half_width_deg", 45.0))
 
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
