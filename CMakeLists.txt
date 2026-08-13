@@ -78,6 +78,7 @@ generate_messages(
   geometry_msgs
   pcl_package
   sensor_msgs
+  visualization_msgs
 )
 
 ################################################
