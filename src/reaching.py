@@ -64,11 +64,10 @@ def plan_grasp():
             return
         
         elif est.estimate.primitive_type != "CYLINDER":
-            rospy.logwarn(f"Expected CYLINDER, but got '{est.primitive_type}'")
+            rospy.logwarn(f"Expected CYLINDER, but got '{est.estimate.primitive_type}'")
             return
         else:
             grasp_req = GetCylinderGraspPoseRequest()
-            grasp_req.primitive_type = est.estimate.primitive_type
             grasp_req.estimate = est.estimate
             grasp_req.cloud = est.cloud
 
