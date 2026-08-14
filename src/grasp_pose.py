@@ -12,13 +12,23 @@ cylindrical assumption right where the hand will actually make contact.
 
 from copy import deepcopy
 import math
+import os
 
 import rospy
+import rospkg
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
 
 import tf2_ros
 import tf2_geometry_msgs
+
+import PyKDL
+from kdl_parser_py import urdf as kdl_parser_urdf
+from urdf_parser_py.urdf import URDF as URDFModel
+try:
+    import xacro
+except ImportError:
+    xacro = None
 
 from geometry_msgs.msg import Pose, Point, Quaternion, Vector3
 from visualization_msgs.msg import Marker, MarkerArray
@@ -109,6 +119,110 @@ def closest_point_ray_to_line(ray_origin, ray_dir, line_point, line_dir):
 
 R0 = Rot.from_euler('y', -90, degrees=True).as_matrix()
 
+# ---------------------------------------------------------------------------
+# Preshape configuration: all hand joints at zero, except rh_THJ4 which is
+# rotated to 1.2 rad. compute_vmc_offset() needs the hand geometry in this
+# pose - not whatever pose the real hand currently happens to be in - so it
+# is obtained via FK against the URDF rather than a live /tf lookup.
+# ---------------------------------------------------------------------------
+MEDIUM_WRAP_PRESHAPE = {"rh_THJ4": 1.2}
+HAND_PACKAGE_NAME = "my_package"
+HAND_URDF_RELATIVE_PATH = "urdf/sr_hand_vm_compatible.urdf"
+
+
+class HandFKSolver(object):
+    """Loads the Shadow Hand URDF once and computes forward kinematics at a
+    fixed joint configuration (the grasp preshape), independent of the real
+    hand's live state. Any joint not present in MEDIUM_WRAP_PRESHAPE is
+    taken to be at 0 rad."""
+
+    def __init__(self, package_name=HAND_PACKAGE_NAME,
+                 urdf_relative_path=HAND_URDF_RELATIVE_PATH,
+                 preshape_overrides=None):
+        self.preshape_overrides = dict(preshape_overrides
+                                        if preshape_overrides is not None
+                                        else MEDIUM_WRAP_PRESHAPE)
+
+        urdf_path = self._resolve_urdf_path(package_name, urdf_relative_path)
+        urdf_xml = self._load_urdf_xml(urdf_path)
+
+        self.robot = URDFModel.from_xml_string(urdf_xml)
+        ok, self.tree = kdl_parser_urdf.treeFromUrdfModel(self.robot)
+        if not ok:
+            raise RuntimeError(f"Failed to build a KDL tree from URDF '{urdf_path}'.")
+
+        self._chain_cache = {}
+        rospy.loginfo("HandFKSolver: loaded '%s' (preshape overrides: %s)",
+                       urdf_path, self.preshape_overrides)
+
+    @staticmethod
+    def _resolve_urdf_path(package_name, relative_path):
+        pkg_path = rospkg.RosPack().get_path(package_name)
+        full_path = os.path.join(pkg_path, relative_path)
+        if os.path.isfile(full_path):
+            return full_path
+
+        # Be forgiving about the .urdf vs .urdf.xacro naming, since both are
+        # common for the Shadow hand description.
+        candidates = [full_path + ".xacro"] if not full_path.endswith(".xacro") \
+            else [full_path[:-len(".xacro")]]
+        for alt in candidates:
+            if os.path.isfile(alt):
+                return alt
+
+        raise IOError(f"Could not find hand URDF at '{full_path}' "
+                       f"(also tried: {candidates}).")
+
+    @staticmethod
+    def _load_urdf_xml(urdf_path):
+        if urdf_path.endswith(".xacro"):
+            if xacro is None:
+                raise RuntimeError(
+                    f"'{urdf_path}' is a xacro file but the xacro package is not "
+                    "importable in this environment.")
+            doc = xacro.process_file(urdf_path)
+            return doc.toprettyxml(indent="  ")
+        with open(urdf_path, "r") as f:
+            return f.read()
+
+    def _get_chain(self, base_frame, tip_frame):
+        key = (base_frame, tip_frame)
+        chain = self._chain_cache.get(key)
+        if chain is None:
+            chain = self.tree.getChain(base_frame, tip_frame)
+            self._chain_cache[key] = chain
+        return chain
+
+    def _joint_value(self, joint_name):
+        return self.preshape_overrides.get(joint_name, 0.0)
+
+    def get_frame(self, base_frame, tip_frame):
+        """Pose of tip_frame expressed in base_frame at the preshape
+        configuration, as (R, t) numpy arrays (3x3 rotation, 3-vector)."""
+        chain = self._get_chain(base_frame, tip_frame)
+        n_joints = chain.getNrOfJoints()
+        q = PyKDL.JntArray(n_joints)
+
+        j = 0
+        for i in range(chain.getNrOfSegments()):
+            joint = chain.getSegment(i).getJoint()
+            if joint.getType() != PyKDL.Joint.Fixed:
+                q[j] = self._joint_value(joint.getName())
+                j += 1
+
+        fk_solver = PyKDL.ChainFkSolverPos_recursive(chain)
+        frame = PyKDL.Frame()
+        if fk_solver.JntToCart(q, frame) < 0:
+            raise RuntimeError(f"KDL FK failed for chain '{base_frame}' -> '{tip_frame}'.")
+
+        R = np.array([[frame.M[r, c] for c in range(3)] for r in range(3)])
+        t = np.array([frame.p[0], frame.p[1], frame.p[2]])
+        return R, t
+
+    def get_translation(self, base_frame, tip_frame):
+        _, t = self.get_frame(base_frame, tip_frame)
+        return t
+
 
 # ---------------------------------------------------------------------------
 # Node
@@ -129,6 +243,10 @@ class CylinderGraspPlanner(object):
 
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
+
+        self.hand_fk = HandFKSolver(
+            package_name=rospy.get_param("~hand_urdf_package", HAND_PACKAGE_NAME),
+            urdf_relative_path=rospy.get_param("~hand_urdf_relative_path", HAND_URDF_RELATIVE_PATH))
 
         self.marker_pub = rospy.Publisher(
             "/grasp_planning/cylinder_candidate_grasps", MarkerArray, queue_size=1, latch=True)
@@ -211,10 +329,11 @@ class CylinderGraspPlanner(object):
 
     # -- VMC-derived hand-relative cylinder offset -----------------------
     def lookup_forearm_relative(self, child_frame):
-        t = self.tf_buffer.lookup_transform(
-            HAND_BASE_FRAME, child_frame, rospy.Time(0), self.tf_timeout)
-        tr = t.transform.translation
-        return np.array([tr.x, tr.y, tr.z])
+        """Translation of child_frame relative to HAND_BASE_FRAME, computed
+        via FK against the URDF at the fixed preshape configuration (all
+        joints at 0 rad, rh_THJ4 = 1.2 rad) - NOT the live /tf pose of the
+        real hand, which may not be in preshape when this is called."""
+        return self.hand_fk.get_translation(HAND_BASE_FRAME, child_frame)
 
     def compute_vmc_offset(self, radius):
         if radius < SMALL_RADIUS_THRESHOLD:
@@ -223,7 +342,6 @@ class CylinderGraspPlanner(object):
             y_off = -0.03
             return y_off, z_off
         else:
-            # TODO : don't rely on the actual finger position, use pyBullet or other FK solver
             fftip = self.lookup_forearm_relative("rh_fftip")
             ffmiddle = self.lookup_forearm_relative("rh_ffmiddle")
             thtip = self.lookup_forearm_relative("rh_thtip")
