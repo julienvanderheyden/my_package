@@ -152,6 +152,7 @@ class HandFKSolver(object):
             raise RuntimeError(f"Failed to build a KDL tree from URDF '{urdf_path}'.")
 
         self._chain_cache = {}
+        self._frame_cache = {}
         rospy.loginfo("HandFKSolver: loaded '%s' (preshape overrides: %s)",
                        urdf_path, self.preshape_overrides)
 
@@ -198,15 +199,23 @@ class HandFKSolver(object):
 
     def get_frame(self, base_frame, tip_frame):
         """Pose of tip_frame expressed in base_frame at the preshape
-        configuration, as (R, t) numpy arrays (3x3 rotation, 3-vector)."""
+        configuration, as (R, t) numpy arrays (3x3 rotation, 3-vector).
+        Cached per (base, tip): the preshape never changes between calls,
+        so there is no reason to re-solve the same chain every request."""
+        key = (base_frame, tip_frame)
+        cached = self._frame_cache.get(key)
+        if cached is not None:
+            return cached
+
         chain = self._get_chain(base_frame, tip_frame)
         n_joints = chain.getNrOfJoints()
         q = PyKDL.JntArray(n_joints)
 
+        fixed_joint_type = getattr(PyKDL.Joint, "None")  # KDL calls "no motion" joints "None"
         j = 0
         for i in range(chain.getNrOfSegments()):
             joint = chain.getSegment(i).getJoint()
-            if joint.getType() != PyKDL.Joint.Fixed:
+            if joint.getType() != fixed_joint_type:
                 q[j] = self._joint_value(joint.getName())
                 j += 1
 
@@ -217,6 +226,8 @@ class HandFKSolver(object):
 
         R = np.array([[frame.M[r, c] for c in range(3)] for r in range(3)])
         t = np.array([frame.p[0], frame.p[1], frame.p[2]])
+
+        self._frame_cache[key] = (R, t)
         return R, t
 
     def get_translation(self, base_frame, tip_frame):
