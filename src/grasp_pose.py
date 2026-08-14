@@ -671,7 +671,7 @@ class CylinderGraspPlanner(object):
     def handle_get_grasp(self, req):
         res = GetCylinderGraspPoseResponse()
 
-        if req.primitive_type != "CYLINDER" or req.estimate.primitive_type != "CYLINDER":
+        if req.estimate.primitive_type != "CYLINDER":
             res.success = False
             res.reason = "Request primitive_type is not CYLINDER."
             return res
