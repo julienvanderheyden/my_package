@@ -25,10 +25,8 @@ def plan_and_confirm(mgc, target_pose, stage_name):
     # Determine target type (Joint values or Pose)
     if isinstance(target_pose, (list, tuple)):
         mgc.set_joint_value_target(target_pose)
-        print(f"Planning to joint target")
     else:
         mgc.set_pose_target(target_pose)
-        print(f"Planning to pose target")
 
     success, plan, planning_time, error_code = mgc.plan()
 
