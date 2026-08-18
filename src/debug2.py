@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Diagnostic node: isolates whether a depth<->color alignment error exists
 INSIDE THE CAMERA ITSELF, with no robot, TF, or hand-eye calibration
