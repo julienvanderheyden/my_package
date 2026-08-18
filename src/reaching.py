@@ -25,8 +25,10 @@ def plan_and_confirm(mgc, target_pose, stage_name):
     # Determine target type (Joint values or Pose)
     if isinstance(target_pose, (list, tuple)):
         mgc.set_joint_value_target(target_pose)
+        print(f"Planning to joint target")
     else:
         mgc.set_pose_target(target_pose)
+        print(f"Planning to pose target")
 
     success, plan, planning_time, error_code = mgc.plan()
 
@@ -84,6 +86,7 @@ def plan_grasp():
     moveit_commander.roscpp_initialize(sys.argv)
     mgc = moveit_commander.MoveGroupCommander("right_arm")
     mgc.set_planner_id("RRTConnectkConfigDefault")
+    mgc.set_num_planning_attempts(5)
 
     rospy.loginfo("Arm Controller initialized")
     rospy.loginfo(f"Planning frame: {mgc.get_planning_frame()}")
