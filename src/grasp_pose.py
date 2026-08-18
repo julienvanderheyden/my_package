@@ -387,7 +387,7 @@ class CylinderGraspPlanner(object):
         elif self.n_axial <= 1:
             axial_positions = [0.0]
         else:
-            axial_positions = list(np.linspace(-0.75 * half_span, 0.75 * half_span, self.n_axial))
+            axial_positions = list(np.linspace(-0.5 * half_span, 0.5 * half_span, self.n_axial))
 
         theta_positions = list(np.linspace(0.0, 2 * np.pi, self.n_theta, endpoint=False))
 
