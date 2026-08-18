@@ -530,8 +530,9 @@ class CylinderGraspPlanner(object):
         a MoveIt/IK convenience standoff) and 'approach_palm' (the palm pose
         implied by that same approach_flange target - see module docstring
         point 5, NOT an independent palm-frame offset)."""
-        approach_distance = 0.15  # m
-        local_offset = np.array([-approach_distance, 0.0, 0.0])
+        parallel_approach_distance = 0.15  # m
+        orthogonal_approach_distance = 0.05  # m
+        local_offset = np.array([-parallel_approach_distance, 0.0, -orthogonal_approach_distance])
 
         offset = self._lookup_rigid_offset(EE_FRAME, FLANGE_FRAME)
         if offset is None:
