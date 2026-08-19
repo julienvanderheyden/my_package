@@ -107,7 +107,7 @@ class FlatBoxGraspPlanner(object):
         return {
             "pose": pose_inertial,
             "pose_cloud_frame": pose_cloud_frame,
-            "cloud": resp.estimate.cloud,
+            "cloud": resp.cloud,
             "thickness": resp.estimate.thickness,  
             "width": resp.estimate.width,  
             "depth": resp.estimate.depth,
