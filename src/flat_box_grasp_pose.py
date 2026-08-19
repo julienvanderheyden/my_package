@@ -68,12 +68,12 @@ class FlatBoxGraspPlanner(object):
         self.perception_srv = rospy.ServiceProxy(
             "/perception/get_stable_estimate", GetStableEstimate)
 
-        moveit_commander.roscpp_initialize(sys.argv)
-        self.mgc = moveit_commander.MoveGroupCommander("right_arm")
-        self.mgc.set_planning_time(0.5)  # default is usually 5.0s
+        # moveit_commander.roscpp_initialize(sys.argv)
+        # self.mgc = moveit_commander.MoveGroupCommander("right_arm")
+        # self.mgc.set_planning_time(0.5)  # default is usually 5.0s
 
-        rospy.wait_for_service('/compute_ik')
-        self.ik_service = rospy.ServiceProxy('/compute_ik', GetPositionIK)
+        # rospy.wait_for_service('/compute_ik')
+        # self.ik_service = rospy.ServiceProxy('/compute_ik', GetPositionIK)
 
     # -- Perception -----------------------------------------------------
     def get_flatbox_estimate(self):
