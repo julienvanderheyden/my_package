@@ -143,7 +143,7 @@ class FlatBoxGraspPlanner(object):
         to the wrap/pinch axis - here the box's normal/thickness axis - see
         module docstring point 1 and verify visually in RViz before trusting).
         """
-        offset = self.compute_box_vmc_offset(thickness)
+        offset = self.compute_box_vmc_offset(thickness, depth)
         p_hand_ref_point = offset  # already the full [x, y, z], unlike the cylinder's [0, y, z]
 
         half_span = width / 2.0 - LATERAL_PINCH_PRESHAPE_WIDTH / 2.0
