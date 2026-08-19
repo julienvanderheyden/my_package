@@ -52,7 +52,7 @@ class FlatBoxGraspPlanner(object):
         # -- Sector scoring / ranking params --
         self.min_sector_points = rospy.get_param("~min_sector_points", 15)
         self.sector_height_half_width = rospy.get_param(
-            "~sector_height_half_width", PALM_WIDTH / 2.0)  # m
+            "~sector_height_half_width", LATERAL_PINCH_PRESHAPE_WIDTH / 2.0)  # m
         self.sector_angle_half_width = math.radians(
             rospy.get_param("~sector_angle_half_width_deg", 30.0))
 
