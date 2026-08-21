@@ -386,7 +386,7 @@ class SphereGraspPlanner(object):
         implied by that same approach_flange target - not an independent
         palm-frame offset), mirroring the cylinder/box planners."""
         approach_distance = 0.12  # m
-        local_offset = np.array([-approach_distance, 0.0, 0.0])
+        local_offset = np.array([0.0, 0.0, -approach_distance])
 
         offset = self._lookup_rigid_offset(EE_FRAME, FLANGE_FRAME)
         if offset is None:
