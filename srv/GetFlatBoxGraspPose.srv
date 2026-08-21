@@ -1,0 +1,19 @@
+# Request: a stable FLAT_BOX primitive estimate + its supporting point cloud,
+# as produced by /perception/get_stable_estimate and forwarded by the grasp
+# planning dispatcher. Mirrors GetCylinderGraspPose.srv's request shape.
+my_package/PrimitiveEstimate estimate
+sensor_msgs/PointCloud2 cloud
+---
+bool success
+string reason
+
+geometry_msgs/Pose grasp_pose_palm
+geometry_msgs/Pose grasp_pose_flange
+geometry_msgs/Pose approach_pose_palm
+geometry_msgs/Pose approach_pose_flange
+
+# No point-cloud fit-quality score exists yet for FLAT_BOX (see
+# select_best_grasp in flatbox_grasp_planner_node.py) - these two fields
+# describe the placeholder centering-based selection instead of a residual.
+int32 candidate_count
+float64 selected_width_offset

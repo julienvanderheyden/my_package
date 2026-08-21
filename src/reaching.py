@@ -3,10 +3,22 @@ import rospy
 import sys
 import math
 import numpy as np
-from my_package.srv import GetCylinderGraspPose, GetCylinderGraspPoseRequest
+from my_package.srv import (
+    GetCylinderGraspPose, GetCylinderGraspPoseRequest,
+    GetFlatBoxGraspPose, GetFlatBoxGraspPoseRequest,
+)
 from pcl_package.srv import GetStableEstimate, GetStableEstimateRequest
 
 import moveit_commander
+
+
+# Maps a perceived primitive_type string to the grasp-planning service that
+# handles it: (service_topic, request_type). Add new primitives here as new
+# grasp planner services come online.
+GRASP_SERVICES = {
+    "CYLINDER": ("/grasp_planning/get_cylinder_grasp", GetCylinderGraspPose, GetCylinderGraspPoseRequest),
+    "FLAT_BOX": ("/grasp_planning/get_flatbox_grasp", GetFlatBoxGraspPose, GetFlatBoxGraspPoseRequest),
+}
 
 
 def is_crazy_plan(plan):
@@ -46,15 +58,31 @@ def plan_and_confirm(mgc, target_pose, stage_name):
         rospy.loginfo(f"Execution of {stage_name} aborted by user.")
         return False
 
+def get_grasp_for_estimate(est):
+    """Dispatches to the grasp-planning service registered for
+    est.primitive_type in GRASP_SERVICES, and returns its response (or None
+    on failure/unknown type)."""
+    primitive_type = est.primitive_type
+    entry = GRASP_SERVICES.get(primitive_type)
+    if entry is None:
+        rospy.logwarn(f"No grasp planner registered for primitive_type '{primitive_type}' "
+                       f"(known types: {list(GRASP_SERVICES.keys())})")
+        return None
+
+    service_topic, service_type, request_type = entry
+
+    rospy.wait_for_service(service_topic)
+    get_grasp = rospy.ServiceProxy(service_topic, service_type)
+
+    grasp_req = request_type()
+    grasp_req.estimate = est
+    return get_grasp, grasp_req
+
 def plan_grasp():
     rospy.init_node('reaching_node')
 
-    # Wait for services and setup proxies outside the try block
     rospy.wait_for_service('/perception/get_stable_estimate')
-    rospy.wait_for_service('/grasp_planning/get_cylinder_grasp')
-
     get_estimate = rospy.ServiceProxy('/perception/get_stable_estimate', GetStableEstimate)
-    get_grasp = rospy.ServiceProxy('/grasp_planning/get_cylinder_grasp', GetCylinderGraspPose)
 
     grasp_response = None
     try:
@@ -62,16 +90,14 @@ def plan_grasp():
         if not est.success:
             rospy.logerr(f"Perception failed. Reason: {est.reason}")
             return
-        
-        elif est.estimate.primitive_type != "CYLINDER":
-            rospy.logwarn(f"Expected CYLINDER, but got '{est.estimate.primitive_type}'")
-            return
-        else:
-            grasp_req = GetCylinderGraspPoseRequest()
-            grasp_req.estimate = est.estimate
-            grasp_req.cloud = est.cloud
 
-            grasp_response = get_grasp(grasp_req)
+        dispatch = get_grasp_for_estimate(est.estimate)
+        if dispatch is None:
+            return
+        get_grasp, grasp_req = dispatch
+        grasp_req.cloud = est.cloud
+
+        grasp_response = get_grasp(grasp_req)
 
     except rospy.ServiceException as e:
         rospy.logerr(f"Service call failed: {e}")

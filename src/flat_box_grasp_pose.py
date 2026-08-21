@@ -1,4 +1,21 @@
 #!/usr/bin/env python3
+"""
+flatbox_grasp_planner_node.py
+
+Service node: given a stable FLAT_BOX primitive estimate + its consensus
+point cloud (as produced by /perception/get_stable_estimate and forwarded by
+the grasp-planning dispatcher, exactly as for the cylinder planner), generates
+candidate rh_palm grasp poses for a lateral pinch grasp on the box's near
+face, filters them through IK/motion-planning feasibility, and returns a
+selected candidate.
+
+NOTE on selection: unlike the cylinder planner, there is no point-cloud-based
+fit-quality score here (see select_best_grasp docstring) - the box is not
+rotationally symmetric and a single-camera cloud only ever sees the one face
+being grasped, so the cylinder's sector-residual approach doesn't carry over
+without further work. Candidates are currently ranked by how close their
+width offset is to the box's centerline, as a reasonable placeholder.
+"""
 
 from copy import deepcopy
 import math
@@ -10,12 +27,11 @@ from scipy.spatial.transform import Rotation as Rot
 import tf2_ros
 import tf2_geometry_msgs
 
-from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion, Vector3
+from geometry_msgs.msg import Pose, Point, Quaternion, Vector3
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
-from sensor_msgs import point_cloud2 as pc2
 
-from pcl_package.srv import GetStableEstimate
+from my_package.srv import GetFlatBoxGraspPose, GetFlatBoxGraspPoseResponse
 
 import moveit_commander
 import sys
@@ -27,16 +43,15 @@ from moveit_msgs.msg import MoveItErrorCodes
 # Fixed frame names
 # ---------------------------------------------------------------------------
 EE_FRAME = "rh_palm"
+FLANGE_FRAME = "ra_flange"
 HAND_BASE_FRAME = "rh_forearm"
 INERTIAL_FRAME_DEFAULT = "world"
-CAMERA_FRAME = "camera_color_optical_frame"
 
 LATERAL_PINCH_PRESHAPE_WIDTH = 0.085  # m
 
-
 # Fixed rotation mapping HAND-frame axes to FLAT_BOX-local-frame axes, at the
 # theta=0 reference orientation: maps hand's +X onto flat_box's +Z
-R0 = [[0, 1, 0], [0, 0, 1], [1, 0, 0]]
+R0 = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
 
 
 # ---------------------------------------------------------------------------
@@ -49,13 +64,6 @@ class FlatBoxGraspPlanner(object):
         self.axis_marker_length = rospy.get_param("~axis_marker_length", 0.02)
         self.tf_timeout = rospy.Duration(rospy.get_param("~tf_timeout", 1.0))
 
-        # -- Sector scoring / ranking params --
-        self.min_sector_points = rospy.get_param("~min_sector_points", 15)
-        self.sector_height_half_width = rospy.get_param(
-            "~sector_height_half_width", LATERAL_PINCH_PRESHAPE_WIDTH / 2.0)  # m
-        self.sector_angle_half_width = math.radians(
-            rospy.get_param("~sector_angle_half_width_deg", 30.0))
-
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
@@ -64,10 +72,6 @@ class FlatBoxGraspPlanner(object):
         self.best_marker_pub = rospy.Publisher(
             "/grasp_planning/best_flatbox_grasp", MarkerArray, queue_size=1, latch=True)
 
-        rospy.wait_for_service("/perception/get_stable_estimate")
-        self.perception_srv = rospy.ServiceProxy(
-            "/perception/get_stable_estimate", GetStableEstimate)
-
         moveit_commander.roscpp_initialize(sys.argv)
         self.mgc = moveit_commander.MoveGroupCommander("right_arm")
         self.mgc.set_planning_time(0.5)  # default is usually 5.0s
@@ -75,42 +79,35 @@ class FlatBoxGraspPlanner(object):
         rospy.wait_for_service('/compute_ik')
         self.ik_service = rospy.ServiceProxy('/compute_ik', GetPositionIK)
 
-    # -- Perception -----------------------------------------------------
-    def get_flatbox_estimate(self):
-        """Returns the estimate of the flat box's pose and dimensions in the inertial frame."""
-        try:
-            resp = self.perception_srv()
-        except rospy.ServiceException as e:
-            rospy.logerr("Perception service call failed: %s", e)
-            return None
+        self.grasp_service = rospy.Service(
+            "/grasp_planning/get_flatbox_grasp", GetFlatBoxGraspPose, self.handle_get_grasp)
+        rospy.loginfo("Flat box grasp planner ready on /grasp_planning/get_flatbox_grasp")
 
-        if not resp.success:
-            rospy.logwarn("Perception service reports no stable estimate: %s", resp.reason)
-            return None
+    # -- Estimate handling (from request, not a service call) --------------
+    def build_flatbox_estimate(self, req):
+        """Packages the request's estimate+cloud into the working dict used
+        throughout planning: pose in the inertial frame (for candidate
+        generation) and pose/cloud in the cloud's native frame (kept around
+        for parity with the cylinder planner and any future scoring work -
+        the cloud itself is never transformed)."""
+        pose_cloud_frame = req.estimate.pose  # PoseStamped, native perception frame
 
-        if resp.estimate.primitive_type != "FLAT_BOX":
-            rospy.logwarn("Stable estimate is type '%s', not FLAT_BOX - nothing to plan for.",
-                            resp.estimate.primitive_type)
-            return None
-
-        pose_cloud_frame = resp.estimate.pose  # PoseStamped, native frame (e.g. camera_color_optical_frame)
-        
         try:
             pose_inertial = self.tf_buffer.transform(
                 pose_cloud_frame, self.inertial_frame, timeout=self.tf_timeout)
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
                 tf2_ros.ExtrapolationException) as e:
             rospy.logerr("Failed to transform flat box pose from %s to %s: %s",
-                            pose_cloud_frame.header.frame_id, self.inertial_frame, e)
+                          pose_cloud_frame.header.frame_id, self.inertial_frame, e)
             return None
 
         return {
             "pose": pose_inertial,
             "pose_cloud_frame": pose_cloud_frame,
-            "cloud": resp.cloud,
-            "thickness": resp.estimate.thickness,  
-            "width": resp.estimate.width,  
-            "depth": resp.estimate.depth,
+            "cloud": req.cloud,
+            "thickness": req.estimate.thickness,
+            "width": req.estimate.width,
+            "depth": req.estimate.depth,
         }
 
     def compute_box_vmc_offset(self, thickness, depth):
@@ -119,7 +116,7 @@ class FlatBoxGraspPlanner(object):
             box_dimensions = [box_thickness, box_width, 0.1]
             box_position = SVector(0.042 + box_dimensions[1], -0.03, 0.32 + box_dimensions[3])
         """
-        return np.array([0.042 + thickness/2, -0.03, 0.32 + depth/2])
+        return np.array([0.042 + thickness / 2, -0.03, 0.32 + depth / 2])
 
     def generate_box_candidates(self, box_pose_stamped, width, thickness, depth):
         """
@@ -128,20 +125,11 @@ class FlatBoxGraspPlanner(object):
         face closest to the camera - see box_pose_stamped's orientation
         convention: local X = width_dir, local Y = depth_dir, local Z = normal).
 
-        box_pose_stamped.pose.position is the box's assumed full-depth center
-        (fitBox places it at depth_low + depth/2 along depth_dir), not the
-        near face - so the near face's center is computed explicitly as
-        p_box - (depth/2)*depth_dir, and used as the target instead of the
-        box origin. Diversity is added by sampling target points spread along
-        the width axis rather than the single Julia candidate.
-
-        Structurally this mirrors generate_candidates(): a fixed hand-frame
-        reference point (compute_box_vmc_offset) is placed so it lands on a
-        chosen target point (here: points along the near face, instead of
-        points along the cylinder axis at height a). R0 is reused unchanged,
-        under the same assumption as the cylinder case (hand's local +X maps
-        to the wrap/pinch axis - here the box's normal/thickness axis - see
-        module docstring point 1 and verify visually in RViz before trusting).
+        Returns a list of {"palm": Pose, "width_offset": float} dicts. The
+        width_offset is carried through the whole pipeline (IK/planning
+        filtering preserve unknown dict keys) so select_best_grasp can rank
+        surviving candidates by how centered they are on the box, in place of
+        the point-cloud-based score the cylinder planner uses.
         """
         offset = self.compute_box_vmc_offset(thickness, depth)
         p_hand_ref_point = offset  # already the full [x, y, z], unlike the cylinder's [0, y, z]
@@ -164,7 +152,7 @@ class FlatBoxGraspPlanner(object):
         q_box = box_pose_stamped.pose.orientation
         R_box = Rot.from_quat([q_box.x, q_box.y, q_box.z, q_box.w]).as_matrix()
 
-        # Current rh_forearm -> rh_palm transform (see class docstring notes)
+        # Current rh_forearm -> rh_palm transform
         try:
             t_fp = self.tf_buffer.lookup_transform(
                 HAND_BASE_FRAME, EE_FRAME, rospy.Time(0), self.tf_timeout)
@@ -183,9 +171,9 @@ class FlatBoxGraspPlanner(object):
         candidates = []
         for w in width_positions:
             # Target: a point on the near (low-depth, camera-facing) face,
-            # offset by w along the box's own width axis (local X).
-            # target_box_local = np.array([w, -depth / 2.0, 0.0])
-            target_box_local = np.array([w, 0.0, 0.0])  # the "-depth/2" is already handled by compute_box_vmc_offset
+            # offset by w along the box's own width axis (local X). The
+            # "-depth/2" is already handled by compute_box_vmc_offset.
+            target_box_local = np.array([w, 0.0, 0.0])
 
             # Solve for rh_forearm origin (in box-local frame) such that the
             # known hand-frame reference point maps onto that target.
@@ -195,7 +183,7 @@ class FlatBoxGraspPlanner(object):
             R_forearm_world = R_box @ R_local
             t_forearm_world = R_box @ t_local + p_box
 
-            # Compose with the current forearm->palm transform to get the rh_palm candidate
+            # Compose with the current forearm->palm transform for rh_palm
             R_palm_world = R_forearm_world @ R_forearm_to_palm
             t_palm_world = R_forearm_world @ t_forearm_to_palm + t_forearm_world
 
@@ -203,7 +191,7 @@ class FlatBoxGraspPlanner(object):
             pose.position = Point(*t_palm_world)
             q_palm = Rot.from_matrix(R_palm_world).as_quat()
             pose.orientation = Quaternion(*q_palm)
-            candidates.append(pose)
+            candidates.append({"palm": pose, "width_offset": float(w)})
 
         return candidates
 
@@ -218,8 +206,6 @@ class FlatBoxGraspPlanner(object):
         colors = [ColorRGBA(1.0, 0.0, 0.0, 1.0),
                   ColorRGBA(0.0, 1.0, 0.0, 1.0),
                   ColorRGBA(0.0, 0.0, 1.0, 1.0)]
-        # Extra rotation so the marker's local +X aligns with the candidate's
-        # local Y or Z axis, respectively. Identity for X.
         extra_rot = [
             np.eye(3),
             Rot.from_euler('z', 90, degrees=True).as_matrix(),
@@ -270,113 +256,119 @@ class FlatBoxGraspPlanner(object):
                                        ns="best_flatbox_grasp"))
         self.best_marker_pub.publish(marker_array)
 
-    # -- IK / planning filtering (candidate = dict, see run_once) ----------
+    # -- IK / planning filtering (candidate = dict; unknown keys preserved) -
     def filter_grasps_with_ik(self, candidates, pose_key):
         """Filters a list of candidate dicts, testing IK on candidate[pose_key].
-        Candidates (with ALL their keys, e.g. 'palm') are preserved unmodified
-        for those that pass."""
+        Candidates (with ALL their keys, e.g. 'palm', 'width_offset') are
+        preserved unmodified for those that pass."""
         valid_candidates = []
-
         for i, cand in enumerate(candidates):
             pose = cand[pose_key]
             req = GetPositionIKRequest()
             req.ik_request.group_name = "right_arm"
-            req.ik_request.ik_link_name = "ra_flange"
+            req.ik_request.ik_link_name = FLANGE_FRAME
             req.ik_request.pose_stamped.header.frame_id = self.inertial_frame
             req.ik_request.pose_stamped.header.stamp = rospy.Time.now()
             req.ik_request.pose_stamped.pose = pose
             req.ik_request.avoid_collisions = True
-
             req.ik_request.timeout = rospy.Duration(0.1)
 
             try:
                 res = self.ik_service(req)
                 if res.error_code.val == MoveItErrorCodes.SUCCESS:
                     valid_candidates.append(cand)
-                    rospy.loginfo(f"Candidate {i} ({pose_key}): VALID")
                 else:
-                    rospy.logwarn(f"Candidate {i} ({pose_key}): REJECTED (Error {res.error_code.val})")
+                    rospy.logdebug(f"Candidate {i} ({pose_key}): REJECTED (Error {res.error_code.val})")
             except rospy.ServiceException as e:
                 rospy.logerr(f"IK Service call failed: {e}")
 
         return valid_candidates
 
-    def transform_candidates_palm_to_flange(self, palm_candidates):
-        """
-        Pairs each rh_palm candidate pose (geometry_msgs/Pose, world frame)
-        with its corresponding ra_flange target pose (world frame), returned
-        as a list of dicts: [{'palm': Pose, 'flange': Pose}, ...]. The palm
-        pose is carried forward through the whole pipeline so later stages
-        (ranking) can use it without having to invert the flange transform.
-        """
+    # -- Rigid frame-offset helpers (used for palm<->flange conversions) ---
+    def _lookup_rigid_offset(self, target_frame, source_frame):
+        """Returns (R, t) such that a pose whose local frame is source_frame
+        can be re-expressed with local frame = target_frame via:
+            R_target_world = R_source_world * R
+            t_target_world = t_source_world + R_source_world.apply(t)
+        i.e. (R, t) is the pose of target_frame as seen from source_frame.
+        Returns None on tf failure."""
         try:
-            # Lookup transform from ra_flange to rh_palm
-            t = self.tf_buffer.lookup_transform(
-                "ra_flange", "rh_palm", rospy.Time(0), self.tf_timeout
-            )
+            t_tf = self.tf_buffer.lookup_transform(
+                target_frame, source_frame, rospy.Time(0), self.tf_timeout)
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
                 tf2_ros.ExtrapolationException) as e:
-            rospy.logerr(f"Failed to lookup transform ra_flange -> rh_palm: {e}")
+            rospy.logerr(f"Failed to lookup transform {source_frame} -> {target_frame}: {e}")
+            return None
+
+        tr = t_tf.transform.translation
+        q = t_tf.transform.rotation
+        R_target_in_source = Rot.from_quat([q.x, q.y, q.z, q.w]).inv()
+        t_target_in_source = -R_target_in_source.apply([tr.x, tr.y, tr.z])
+        return R_target_in_source, t_target_in_source
+
+    @staticmethod
+    def _apply_rigid_offset(pose_source_world, R_target_in_source, t_target_in_source):
+        p = np.array([pose_source_world.position.x, pose_source_world.position.y, pose_source_world.position.z])
+        q = [pose_source_world.orientation.x, pose_source_world.orientation.y,
+             pose_source_world.orientation.z, pose_source_world.orientation.w]
+        R_source_world = Rot.from_quat(q)
+
+        R_target_world = R_source_world * R_target_in_source
+        t_target_world = p + R_source_world.apply(t_target_in_source)
+
+        out = Pose()
+        out.position = Point(*t_target_world)
+        out.orientation = Quaternion(*R_target_world.as_quat())
+        return out
+
+    def transform_candidates_palm_to_flange(self, palm_candidates):
+        """Pairs each rh_palm candidate dict with its ra_flange target,
+        preserving any extra keys already on the candidate (e.g.
+        'width_offset'). Returns [{'palm': Pose, 'flange': Pose, ...}, ...]."""
+        offset = self._lookup_rigid_offset(FLANGE_FRAME, EE_FRAME)
+        if offset is None:
             return []
+        R_flange_in_palm, t_flange_in_palm = offset
 
-        # Extract translation vector (palm -> flange in palm local frame)
-        # Note: lookup_transform("ra_flange", "rh_palm") gives the pose of rh_palm in ra_flange.
-        # We invert this to get ra_flange in rh_palm frame.
-        tr = t.transform.translation
-        q = t.transform.rotation
-
-        R_flange_in_palm = Rot.from_quat([q.x, q.y, q.z, q.w]).inv()
-        t_flange_in_palm = -R_flange_in_palm.apply([tr.x, tr.y, tr.z])
-
-        paired_candidates = []
-
-        for pose_palm in palm_candidates:
-            # Extract palm candidate pose in world frame
-            p_palm_world = np.array([pose_palm.position.x, pose_palm.position.y, pose_palm.position.z])
-            q_palm_world = [pose_palm.orientation.x, pose_palm.orientation.y, pose_palm.orientation.z, pose_palm.orientation.w]
-            R_palm_world = Rot.from_quat(q_palm_world)
-
-            # Compose: R_flange_world = R_palm_world * R_flange_in_palm
-            R_flange_world = R_palm_world * R_flange_in_palm
-
-            # Compose: t_flange_world = t_palm_world + R_palm_world * t_flange_in_palm
-            t_flange_world = p_palm_world + R_palm_world.apply(t_flange_in_palm)
-
-            # Build output Pose
-            pose_flange = Pose()
-            pose_flange.position = Point(*t_flange_world)
-            q_flange = R_flange_world.as_quat()
-            pose_flange.orientation = Quaternion(*q_flange)
-
-            paired_candidates.append({"palm": pose_palm, "flange": pose_flange})
-
-        return paired_candidates
+        out = []
+        for cand in palm_candidates:
+            new_cand = dict(cand)
+            new_cand["flange"] = self._apply_rigid_offset(
+                cand["palm"], R_flange_in_palm, t_flange_in_palm)
+            out.append(new_cand)
+        return out
 
     def compute_approach_poses(self, candidates):
-        """Adds an 'approach_flange' key to each candidate dict: the flange
-        pose offset backward along the FLANGE frame's local X. This offset is
-        purely for MoveIt/IK convenience (a sensible-looking pregrasp standoff
-        for the arm's planner) - it is NOT used for anything involving actual
-        contact prediction, see module docstring point 4."""
+        """Adds 'approach_flange' (offset backward along the flange's local X,
+        a MoveIt/IK convenience standoff) and 'approach_palm' (the palm pose
+        implied by that same approach_flange target - not an independent
+        palm-frame offset), mirroring the cylinder planner. All other
+        candidate keys (e.g. 'width_offset') are preserved."""
         approach_distance = 0.12  # m
         local_offset = np.array([-approach_distance, 0.0, 0.0])
+
+        offset = self._lookup_rigid_offset(EE_FRAME, FLANGE_FRAME)
+        if offset is None:
+            return []
+        R_palm_in_flange, t_palm_in_flange = offset
 
         out_candidates = []
         for cand in candidates:
             pose = cand["flange"]
-            approach_pose = deepcopy(pose)
+            approach_flange = deepcopy(pose)
 
             q = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
             R = Rot.from_quat(q)
-
             world_offset = R.apply(local_offset)
 
-            approach_pose.position.x += world_offset[0]
-            approach_pose.position.y += world_offset[1]
-            approach_pose.position.z += world_offset[2]
+            approach_flange.position.x += world_offset[0]
+            approach_flange.position.y += world_offset[1]
+            approach_flange.position.z += world_offset[2]
 
             new_cand = dict(cand)
-            new_cand["approach_flange"] = approach_pose
+            new_cand["approach_flange"] = approach_flange
+            new_cand["approach_palm"] = self._apply_rigid_offset(
+                approach_flange, R_palm_in_flange, t_palm_in_flange)
             out_candidates.append(new_cand)
 
         return out_candidates
@@ -388,74 +380,101 @@ class FlatBoxGraspPlanner(object):
             self.mgc.set_pose_target(pose)
             success, plan, planning_time, error_code = self.mgc.plan()
             if success and len(plan.joint_trajectory.points) > 0:
-                if self.is_crazy_plan(plan):
-                    rospy.logwarn(f"Candidate {i}: REJECTED (crazy plan detected)")
-                else:
+                if not self.is_crazy_plan(plan):
                     valid_candidates.append(cand)
-                    rospy.loginfo(f"Candidate {i}: VALID (plan found with {len(plan.joint_trajectory.points)} points)")
+                else:
+                    rospy.logdebug(f"Candidate {i}: REJECTED (crazy plan detected)")
             else:
-                rospy.logwarn(f"Candidate {i}: REJECTED (no valid plan found)")
+                rospy.logdebug(f"Candidate {i}: REJECTED (no valid plan found)")
         return valid_candidates
 
     def is_crazy_plan(self, plan):
         n_points = len(plan.joint_trajectory.points)
         if n_points <= 0:
-            return True  # No points, consider it crazy
-        elif n_points > 0:
-            traj = np.array([p.positions for p in plan.joint_trajectory.points])
-            joint_sweep = [round(math.degrees(v), 1) for v in (traj.max(axis=0) - traj.min(axis=0))]
-            if any(sweep > 180.0 for sweep in joint_sweep):
-                return True
-            else:
-                return False
+            return True
+        traj = np.array([p.positions for p in plan.joint_trajectory.points])
+        joint_sweep = [round(math.degrees(v), 1) for v in (traj.max(axis=0) - traj.min(axis=0))]
+        return any(sweep > 180.0 for sweep in joint_sweep)
 
-    # -- Top-level entry point ---------------------------------------------
-    def run_once(self):
-        estimate = self.get_flatbox_estimate()
+    # -- Selection ------------------------------------------------------------
+    def select_best_grasp(self, candidates):
+        """Picks the surviving candidate whose width_offset is closest to the
+        box's centerline (0.0).
+
+        This is a placeholder ranking, not a fit-quality score: the
+        cylinder planner's sector-residual metric works because a partial
+        cloud can still confirm a radius all the way around the predicted
+        contact band. A flat face has no equivalent rotational invariant,
+        and a single-camera cloud only ever observes the one face being
+        grasped, so there's no independent geometric check left to score
+        candidates against. Centering is used instead as the one property
+        that plausibly correlates with contact quality without additional
+        information (e.g. estimated edge locations).
+        """
+        return min(candidates, key=lambda c: abs(c["width_offset"]))
+
+    # -- Service handler -----------------------------------------------------
+    def handle_get_grasp(self, req):
+        res = GetFlatBoxGraspPoseResponse()
+
+        if req.estimate.primitive_type != "FLAT_BOX":
+            res.success = False
+            res.reason = "Request primitive_type is not FLAT_BOX."
+            return res
+
+        estimate = self.build_flatbox_estimate(req)
         if estimate is None:
-            return False
+            res.success = False
+            res.reason = "Failed to transform flat box pose into the inertial frame."
+            return res
 
         candidates = self.generate_box_candidates(
             estimate["pose"], estimate["width"], estimate["thickness"], estimate["depth"])
         if not candidates:
-            rospy.logerr("No candidate grasp poses were generated.")
-            return False
+            res.success = False
+            res.reason = "No candidate grasp poses were generated."
+            return res
 
         paired_candidates = self.transform_candidates_palm_to_flange(candidates)
         if not paired_candidates:
-            return False
+            res.success = False
+            res.reason = "Failed to compute the rh_palm -> ra_flange transform."
+            return res
 
         valid_candidates = self.filter_grasps_with_ik(paired_candidates, pose_key="flange")
         valid_candidates = self.compute_approach_poses(valid_candidates)
+        if not valid_candidates:
+            res.success = False
+            res.reason = "Failed to compute approach poses (rh_palm -> ra_flange transform lookup failed)."
+            return res
+
         valid_candidates = self.filter_grasps_with_ik(valid_candidates, pose_key="approach_flange")
         valid_candidates = self.filter_grasps_with_plans(valid_candidates)
 
         if not valid_candidates:
-            rospy.logerr("No candidate grasp pose survived IK/planning filtering.")
-            return False
+            res.success = False
+            res.reason = "No candidate grasp pose survived IK/planning filtering."
+            return res
 
         self.publish_candidates([c["approach_flange"] for c in valid_candidates], self.inertial_frame)
-        rospy.loginfo("Generated %d valid flat-box grasp candidates.", len(valid_candidates))
 
-        # Candidate generation only for now - no ranking/selection step yet
-        # (the cylinder's sector-based ranking doesn't carry over to a flat
-        # face without adaptation, and wasn't part of this pass). Downstream
-        # code should pick a candidate['approach_flange']/['flange'] pair
-        # from valid_candidates itself until that's added.
-        # self.valid_candidates = valid_candidates
-        return True
+        best_candidate = self.select_best_grasp(valid_candidates)
+        self.publish_best_candidate(best_candidate["palm"], self.inertial_frame)
+
+        res.success = True
+        res.grasp_pose_palm = best_candidate["palm"]
+        res.grasp_pose_flange = best_candidate["flange"]
+        res.approach_pose_palm = best_candidate["approach_palm"]
+        res.approach_pose_flange = best_candidate["approach_flange"]
+        res.candidate_count = len(valid_candidates)
+        res.selected_width_offset = best_candidate["width_offset"]
+
+        return res
 
 
 def main():
     rospy.init_node("flatbox_grasp_planner_node")
-    planner = FlatBoxGraspPlanner()
-
-    success = planner.run_once()
-    if not success:
-        rospy.logwarn("Initial candidate generation failed - node will keep running; "
-                       "call run_once() again (e.g. via a future service/topic trigger) "
-                       "once perception/tf data is available.")
-
+    FlatBoxGraspPlanner()
     rospy.spin()
 
 
