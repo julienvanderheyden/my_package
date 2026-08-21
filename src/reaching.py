@@ -78,6 +78,23 @@ def get_grasp_for_estimate(est):
     grasp_req.estimate = est
     return get_grasp, grasp_req
 
+def add_collision_object(scene, est, object_name="target_object"):
+    """Adds the perceived primitive estimate into the MoveIt planning scene."""
+    p_type = est.primitive_type
+    pose = est.pose
+    
+    if p_type == "CYLINDER":
+        # height, radius
+        scene.add_cylinder(object_name, pose, est.height, est.diameter / 2.0)
+    elif p_type == "SPHERE":
+        # radius
+        scene.add_sphere(object_name, pose, est.diameter / 2.0)
+    elif p_type in ["FLAT_BOX", "BOX"]:
+        # size tuple (x, y, z) -> (width, thickness, depth)
+        scene.add_box(object_name, pose, (est.width, est.thickness, est.depth))
+    else:
+        rospy.logwarn(f"Unknown primitive_type '{p_type}'. Skipping collision object creation.")
+
 def plan_grasp():
     rospy.init_node('reaching_node')
 
@@ -85,13 +102,15 @@ def plan_grasp():
     get_estimate = rospy.ServiceProxy('/perception/get_stable_estimate', GetStableEstimate)
 
     grasp_response = None
+    target_est = None
     try:
         est = get_estimate()
         if not est.success:
             rospy.logerr(f"Perception failed. Reason: {est.reason}")
             return
 
-        dispatch = get_grasp_for_estimate(est.estimate)
+        target_est = est.estimate
+        dispatch = get_grasp_for_estimate(target_est)
         if dispatch is None:
             return
         get_grasp, grasp_req = dispatch
@@ -109,6 +128,8 @@ def plan_grasp():
 
     moveit_commander.roscpp_initialize(sys.argv)
     mgc = moveit_commander.MoveGroupCommander("right_arm")
+    scene = moveit_commander.PlanningSceneInterface()
+    
     mgc.set_planner_id("RRTConnectkConfigDefault")
     mgc.set_num_planning_attempts(5)
 
@@ -116,15 +137,30 @@ def plan_grasp():
     rospy.loginfo(f"Planning frame: {mgc.get_planning_frame()}")
     rospy.loginfo(f"End effector link: {mgc.get_end_effector_link()}")
 
-    # Step 1: Approach Phase
-    approach_executed = plan_and_confirm(mgc, grasp_response.approach_pose_flange, "APPROACH")
-    if not approach_executed:
-        return
+    obj_name = "target_object"
 
-    # Step 2: Final Grasp Phase (Planned only after approach executes successfully)
-    grasp_executed = plan_and_confirm(mgc, grasp_response.grasp_pose_flange, "FINAL GRASP")
-    if grasp_executed:
-        rospy.loginfo("Full grasp sequence completed successfully!")
+    try:
+        # Step 1: Add collision object for the approach phase
+        rospy.loginfo(f"Adding collision object '{obj_name}' to the planning scene.")
+        add_collision_object(scene, target_est, object_name=obj_name)
+        rospy.sleep(0.5)  # Small delay to ensure the scene updates over ROS topics
+
+        approach_executed = plan_and_confirm(mgc, grasp_response.approach_pose_flange, "APPROACH")
+        if not approach_executed:
+            return
+
+        # Step 2: Remove collision object prior to the final grasp phase
+        rospy.loginfo(f"Removing collision object '{obj_name}' for final grasp execution.")
+        scene.remove_world_object(obj_name)
+        rospy.sleep(0.5)
+
+        grasp_executed = plan_and_confirm(mgc, grasp_response.grasp_pose_flange, "FINAL GRASP")
+        if grasp_executed:
+            rospy.loginfo("Full grasp sequence completed successfully!")
+
+    finally:
+        # Clean up scene object if execution is aborted or crashes midway
+        scene.remove_world_object(obj_name)
 
 
 if __name__ == '__main__':

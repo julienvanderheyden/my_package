@@ -344,8 +344,9 @@ class FlatBoxGraspPlanner(object):
         implied by that same approach_flange target - not an independent
         palm-frame offset), mirroring the cylinder planner. All other
         candidate keys (e.g. 'width_offset') are preserved."""
-        approach_distance = 0.12  # m
-        local_offset = np.array([-approach_distance, 0.0, 0.0])
+        approach_distance_axial = 0.12  # m
+        approach_distance_orthogonal = 0.05  # m
+        local_offset = np.array([-approach_distance_axial, approach_distance_orthogonal, 0.0])
 
         offset = self._lookup_rigid_offset(EE_FRAME, FLANGE_FRAME)
         if offset is None:
