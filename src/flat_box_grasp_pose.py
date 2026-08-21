@@ -120,7 +120,7 @@ class FlatBoxGraspPlanner(object):
             box_dimensions = [box_thickness, box_width, 0.1]
             box_position = SVector(0.042 + box_dimensions[1], -0.03, 0.32 + box_dimensions[3])
         """
-        return np.array([0.042 + thickness, -0.03, 0.32 + depth])
+        return np.array([0.042 + thickness/2, -0.03, 0.32 + depth/2])
 
     def generate_box_candidates(self, box_pose_stamped, width, thickness, depth):
         """
@@ -185,7 +185,8 @@ class FlatBoxGraspPlanner(object):
         for w in width_positions:
             # Target: a point on the near (low-depth, camera-facing) face,
             # offset by w along the box's own width axis (local X).
-            target_box_local = np.array([w, -depth / 2.0, 0.0])
+            # target_box_local = np.array([w, -depth / 2.0, 0.0])
+            target_box_local = np.array([w, 0.0, 0.0])  # the "-depth/2" is already handled by compute_box_vmc_offset
 
             # Solve for rh_forearm origin (in box-local frame) such that the
             # known hand-frame reference point maps onto that target.
@@ -421,23 +422,21 @@ class FlatBoxGraspPlanner(object):
             rospy.logerr("No candidate grasp poses were generated.")
             return False
 
-        self.publish_candidates(candidates, self.inertial_frame)
+        paired_candidates = self.transform_candidates_palm_to_flange(candidates)
+        if not paired_candidates:
+            return False
 
-        # paired_candidates = self.transform_candidates_palm_to_flange(candidates)
-        # if not paired_candidates:
-        #     return False
+        valid_candidates = self.filter_grasps_with_ik(paired_candidates, pose_key="flange")
+        valid_candidates = self.compute_approach_poses(valid_candidates)
+        valid_candidates = self.filter_grasps_with_ik(valid_candidates, pose_key="approach_flange")
+        valid_candidates = self.filter_grasps_with_plans(valid_candidates)
 
-        # valid_candidates = self.filter_grasps_with_ik(paired_candidates, pose_key="flange")
-        # valid_candidates = self.compute_approach_poses(valid_candidates)
-        # valid_candidates = self.filter_grasps_with_ik(valid_candidates, pose_key="approach_flange")
-        # valid_candidates = self.filter_grasps_with_plans(valid_candidates)
+        if not valid_candidates:
+            rospy.logerr("No candidate grasp pose survived IK/planning filtering.")
+            return False
 
-        # if not valid_candidates:
-        #     rospy.logerr("No candidate grasp pose survived IK/planning filtering.")
-        #     return False
-
-        # self.publish_candidates([c["approach_flange"] for c in valid_candidates], self.inertial_frame)
-        # rospy.loginfo("Generated %d valid flat-box grasp candidates.", len(valid_candidates))
+        self.publish_candidates([c["approach_flange"] for c in valid_candidates], self.inertial_frame)
+        rospy.loginfo("Generated %d valid flat-box grasp candidates.", len(valid_candidates))
 
         # Candidate generation only for now - no ranking/selection step yet
         # (the cylinder's sector-based ranking doesn't carry over to a flat
