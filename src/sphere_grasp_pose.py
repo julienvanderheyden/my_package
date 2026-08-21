@@ -220,8 +220,7 @@ class SphereGraspPlanner(object):
         as given, so no separate inflated-radius candidate-generation value
         is needed (see build_sphere_estimate).
         """
-        #return np.array([0.0, -radius - BALL_APPROACH_CLEARANCE, 0.33])
-        return np.array([0.0, -radius, 0.33])
+        return np.array([0.0, -radius - BALL_APPROACH_CLEARANCE, 0.33])
     
 
     # -- Candidate pose generation -------------------------------------------
@@ -247,8 +246,9 @@ class SphereGraspPlanner(object):
         p_ball = np.array([ball_pose_stamped.pose.position.x,
                             ball_pose_stamped.pose.position.y,
                             ball_pose_stamped.pose.position.z])
-        q_ball = ball_pose_stamped.pose.orientation
-        R_ball = Rot.from_quat([q_ball.x, q_ball.y, q_ball.z, q_ball.w]).as_matrix()
+        # q_ball = ball_pose_stamped.pose.orientation
+        # R_ball = Rot.from_quat([q_ball.x, q_ball.y, q_ball.z, q_ball.w]).as_matrix()
+        R_ball = np.eye(3)  # orientation is irrelevant for a sphere
 
         try:
             t_fp = self.tf_buffer.lookup_transform(
@@ -274,12 +274,13 @@ class SphereGraspPlanner(object):
             # (in ball-local coordinates). No separate translation DOF: the
             # target is always the ball's own origin (its center).
             R_local = rotation_aligning_vectors(ref_direction, d)
+            R_local = R_local @ R0  # rotate the forearm's local frame to align with the sampled direction
             t_local = -R_local @ p_hand_ref_point
 
             R_forearm_world = R_ball @ R_local
             t_forearm_world = R_ball @ t_local + p_ball
 
-            R_palm_world = R_forearm_world @ R_forearm_to_palm @ R0
+            R_palm_world = R_forearm_world @ R_forearm_to_palm
             t_palm_world = R_forearm_world @ t_forearm_to_palm + t_forearm_world
 
             pose = Pose()
