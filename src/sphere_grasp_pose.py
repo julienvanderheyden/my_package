@@ -260,6 +260,10 @@ class SphereGraspPlanner(object):
         t_forearm_to_palm = np.array([tr.x, tr.y, tr.z])
         R_forearm_to_palm = Rot.from_quat([q.x, q.y, q.z, q.w]).as_matrix()
 
+        R0 = np.array([[-1, 0, 0],
+                       [0, 0, -1],
+                       [0, -1, 0]])
+
         candidates = []
         for d in directions:
             # Rotate the reference forearm orientation so that its fixed
@@ -272,7 +276,7 @@ class SphereGraspPlanner(object):
             R_forearm_world = R_ball @ R_local
             t_forearm_world = R_ball @ t_local + p_ball
 
-            R_palm_world = R_forearm_world @ R_forearm_to_palm
+            R_palm_world = R_forearm_world @ R_forearm_to_palm @ R0
             t_palm_world = R_forearm_world @ t_forearm_to_palm + t_forearm_world
 
             pose = Pose()
