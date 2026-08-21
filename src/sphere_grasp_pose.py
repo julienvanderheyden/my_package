@@ -220,7 +220,9 @@ class SphereGraspPlanner(object):
         as given, so no separate inflated-radius candidate-generation value
         is needed (see build_sphere_estimate).
         """
-        return np.array([0.0, -radius - BALL_APPROACH_CLEARANCE, 0.33])
+        #return np.array([0.0, -radius - BALL_APPROACH_CLEARANCE, 0.33])
+        return np.array([0.0, -radius, 0.33])
+    
 
     # -- Candidate pose generation -------------------------------------------
     def generate_candidates(self, ball_pose_stamped, radius):
