@@ -147,9 +147,9 @@ def plan_grasp():
         add_collision_object(scene, target_est, object_name=obj_name)
         rospy.sleep(0.5)  # Small delay to ensure the scene updates over ROS topics
 
-        # Set higher speed limits for approach 
-        mgc.set_max_velocity_scaling_factor(0.8)
-        mgc.set_max_acceleration_scaling_factor(0.8)
+        # Set higher speed limits for approach. 0.8 is veryyy fast. 
+        mgc.set_max_velocity_scaling_factor(0.5)
+        mgc.set_max_acceleration_scaling_factor(0.5)
 
         approach_executed = plan_and_confirm(mgc, grasp_response.approach_pose_flange, "APPROACH")
         if not approach_executed:
@@ -161,8 +161,8 @@ def plan_grasp():
         rospy.sleep(0.5)
 
         # Set lower speed limits for the final grasp
-        mgc.set_max_velocity_scaling_factor(0.2)
-        mgc.set_max_acceleration_scaling_factor(0.2)
+        mgc.set_max_velocity_scaling_factor(0.1)
+        mgc.set_max_acceleration_scaling_factor(0.1)
 
         grasp_executed = plan_and_confirm(mgc, grasp_response.grasp_pose_flange, "FINAL GRASP")
         if grasp_executed:
