@@ -1,7 +1,7 @@
 # Request: a stable FLAT_BOX primitive estimate + its supporting point cloud,
 # as produced by /perception/get_stable_estimate and forwarded by the grasp
 # planning dispatcher. Mirrors GetCylinderGraspPose.srv's request shape.
-my_package/PrimitiveEstimate estimate
+pcl_package/PrimitiveEstimate estimate
 sensor_msgs/PointCloud2 cloud
 ---
 bool success
