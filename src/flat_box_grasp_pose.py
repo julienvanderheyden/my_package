@@ -37,7 +37,7 @@ LATERAL_PINCH_PRESHAPE_WIDTH = 0.085  # m
 # Fixed rotation mapping HAND-frame axes to FLAT_BOX-local-frame axes, at the
 # theta=0 reference orientation: maps hand's +X onto flat_box's +Z
 # R0 = Rot.from_euler('y', -90, degrees=True).as_matrix()
-R0 = [[0, 0, 1], [1, 0, 0], [0, 1, 0]]
+R0 = [[0, 1, 0], [0, 0, 1], [1, 0, 0]]
 
 
 # ---------------------------------------------------------------------------
