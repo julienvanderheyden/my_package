@@ -147,6 +147,10 @@ def plan_grasp():
         add_collision_object(scene, target_est, object_name=obj_name)
         rospy.sleep(0.5)  # Small delay to ensure the scene updates over ROS topics
 
+        # Set higher speed limits for approach 
+        mgc.set_max_velocity_scaling_factor(0.8)
+        mgc.set_max_acceleration_scaling_factor(0.8)
+
         approach_executed = plan_and_confirm(mgc, grasp_response.approach_pose_flange, "APPROACH")
         if not approach_executed:
             return
@@ -155,6 +159,10 @@ def plan_grasp():
         rospy.loginfo(f"Removing collision object '{obj_name}' for final grasp execution.")
         scene.remove_world_object(obj_name)
         rospy.sleep(0.5)
+
+        # Set lower speed limits for the final grasp
+        mgc.set_max_velocity_scaling_factor(0.2)
+        mgc.set_max_acceleration_scaling_factor(0.2)
 
         grasp_executed = plan_and_confirm(mgc, grasp_response.grasp_pose_flange, "FINAL GRASP")
         if grasp_executed:
