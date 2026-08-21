@@ -6,6 +6,7 @@ import numpy as np
 from my_package.srv import (
     GetCylinderGraspPose, GetCylinderGraspPoseRequest,
     GetFlatBoxGraspPose, GetFlatBoxGraspPoseRequest,
+    GetSphereGraspPose, GetSphereGraspPoseRequest,
 )
 from pcl_package.srv import GetStableEstimate, GetStableEstimateRequest
 
@@ -18,6 +19,7 @@ import moveit_commander
 GRASP_SERVICES = {
     "CYLINDER": ("/grasp_planning/get_cylinder_grasp", GetCylinderGraspPose, GetCylinderGraspPoseRequest),
     "FLAT_BOX": ("/grasp_planning/get_flatbox_grasp", GetFlatBoxGraspPose, GetFlatBoxGraspPoseRequest),
+    "SPHERE": ("/grasp_planning/get_sphere_grasp", GetSphereGraspPose, GetSphereGraspPoseRequest),
 }
 
 
