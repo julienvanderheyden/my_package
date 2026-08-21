@@ -198,12 +198,13 @@ class SphereGraspPlanner(object):
                           pose_cloud_frame.header.frame_id, self.inertial_frame, e)
             return None
 
+        inflation_margin = 0.0
         radius = req.estimate.diameter / 2.0
         return {
             "pose": pose_inertial,
             "pose_cloud_frame": pose_cloud_frame,
             "cloud": req.cloud,
-            "radius": radius + 0.01,       # candidate generation - slightly inflated to improve robustness
+            "radius": radius + inflation_margin,       # candidate generation - slightly inflated to improve robustness
             "radius_measured": radius,     # residual scoring; same value, no inflation needed here
         }
 
