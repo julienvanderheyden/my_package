@@ -82,16 +82,18 @@ def add_collision_object(scene, est, object_name="target_object"):
     """Adds the perceived primitive estimate into the MoveIt planning scene."""
     p_type = est.primitive_type
     pose = est.pose
+
+    inflation_factor = 1.5  # Inflate dimensions to provide a safety margin
     
     if p_type == "CYLINDER":
         # height, radius
-        scene.add_cylinder(object_name, pose, est.height, est.diameter / 2.0)
+        scene.add_cylinder(object_name, pose, est.height*inflation_factor, est.diameter*inflation_factor / 2.0)
     elif p_type == "SPHERE":
         # radius
-        scene.add_sphere(object_name, pose, est.diameter / 2.0)
+        scene.add_sphere(object_name, pose, est.diameter*inflation_factor / 2.0)
     elif p_type in ["FLAT_BOX", "BOX"]:
         # size tuple (x, y, z) -> (width, thickness, depth)
-        scene.add_box(object_name, pose, (est.width, est.depth, est.thickness))
+        scene.add_box(object_name, pose, (est.width*inflation_factor, est.depth*inflation_factor, est.thickness*inflation_factor))
     else:
         rospy.logwarn(f"Unknown primitive_type '{p_type}'. Skipping collision object creation.")
 
