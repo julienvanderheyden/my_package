@@ -147,7 +147,11 @@ def plan_grasp():
         add_collision_object(scene, target_est, object_name=obj_name)
         rospy.sleep(0.5)  # Small delay to ensure the scene updates over ROS topics
 
-        # Set higher speed limits for approach. 0.8 is veryyy fast. 
+        # Set higher speed limits for approach : 
+        # - 0.8 : veryyy fast
+        # - 0.5 : fast but reasonable
+        # - 0.3 : medium
+        # - 0.1 : slow
         mgc.set_max_velocity_scaling_factor(0.5)
         mgc.set_max_acceleration_scaling_factor(0.5)
 
