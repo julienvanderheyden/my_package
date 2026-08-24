@@ -1,0 +1,31 @@
+# Unified grasp-planning request: any stable PrimitiveEstimate (CYLINDER,
+# FLAT_BOX, or SPHERE - see GraspPlanner.PRIMITIVES) + its supporting point
+# cloud, exactly as produced by /perception/get_stable_estimate.
+my_package/PrimitiveEstimate estimate
+sensor_msgs/PointCloud2 cloud
+---
+bool success
+string reason
+
+string primitive_type   # echoed back from the request, for convenience
+
+geometry_msgs/Pose grasp_pose_palm
+geometry_msgs/Pose grasp_pose_flange
+geometry_msgs/Pose approach_pose_palm
+geometry_msgs/Pose approach_pose_flange
+
+# Confidence in the selected grasp, in [0.0, 1.0] (1.0 = best). Meaning
+# depends on confidence_method:
+#   "sector_residual" / "cap_residual" (CYLINDER / SPHERE): derived from how
+#       well the visible point cloud fits the estimated radius right at the
+#       predicted contact point. evidence_point_count is the number of cloud
+#       points that supported the fit.
+#   "width_centering" (FLAT_BOX): derived from how centered the grasp is on
+#       the box's width, since a single-sided cloud gives no independent fit
+#       metric to check against (see the node's module docstring).
+#       evidence_point_count is always 0 for this method.
+# Not directly comparable in an absolute sense across primitive types.
+float64 confidence
+string confidence_method
+int32 evidence_point_count
+bool met_confidence_threshold   # whether the primary point-count gate was met (always true for width_centering)

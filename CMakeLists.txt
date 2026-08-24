@@ -64,6 +64,7 @@ add_service_files(
   GetCylinderGraspPose.srv
   GetFlatBoxGraspPose.srv
   GetSphereGraspPose.srv
+  GetGraspPose.srv
 )
 
 ## Generate actions in the 'action' folder
