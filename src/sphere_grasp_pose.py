@@ -263,9 +263,9 @@ class SphereGraspPlanner(object):
         t_forearm_to_palm = np.array([tr.x, tr.y, tr.z])
         R_forearm_to_palm = Rot.from_quat([q.x, q.y, q.z, q.w]).as_matrix()
 
-        R0 = np.array([[1, 0, 0],
-                       [0, -1, 0],
-                       [0, 0, -1]])
+        R0 = np.array([[0, 0, 1],
+                       [1, 0, 0],
+                       [0, 1, 0]])
 
         candidates = []
         for d in directions:
@@ -274,7 +274,7 @@ class SphereGraspPlanner(object):
             # (in ball-local coordinates). No separate translation DOF: the
             # target is always the ball's own origin (its center).
             R_local = rotation_aligning_vectors(ref_direction, d)
-            #R_local = R_local   # rotate the forearm's local frame to align with the sampled direction
+            R_local = R_local @ R0  # rotate the forearm's local frame to align with the sampled direction
             t_local = -R_local @ p_hand_ref_point
 
             R_forearm_world =  R_ball @ R_local
