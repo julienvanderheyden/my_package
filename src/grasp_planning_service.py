@@ -1042,14 +1042,14 @@ class GraspPlanner(object):
             res.reason = "No candidate grasp poses were generated."
             return res
 
-        marker_ns = primitive_type.lower()
-        self.publish_candidates(candidates, self.inertial_frame, marker_ns)
-
         paired_candidates = self.transform_candidates_palm_to_flange(candidates)
         if not paired_candidates:
             res.success = False
             res.reason = "Failed to compute the rh_palm -> ra_flange transform."
             return res
+
+        marker_ns = primitive_type.lower()
+        self.publish_candidates([c["palm"] for c in paired_candidates], self.inertial_frame, marker_ns)
 
         valid_candidates = self.filter_grasps_with_ik(paired_candidates, pose_key="flange")
         valid_candidates = self.compute_approach_poses(valid_candidates, config.approach_offset)
