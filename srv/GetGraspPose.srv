@@ -1,7 +1,7 @@
 # Unified grasp-planning request: any stable PrimitiveEstimate (CYLINDER,
 # FLAT_BOX, or SPHERE - see GraspPlanner.PRIMITIVES) + its supporting point
 # cloud, exactly as produced by /perception/get_stable_estimate.
-my_package/PrimitiveEstimate estimate
+pcl_package/PrimitiveEstimate estimate
 sensor_msgs/PointCloud2 cloud
 ---
 bool success
