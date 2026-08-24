@@ -280,21 +280,21 @@ class SphereGraspPlanner(object):
             R_forearm_world =  R_ball @ R_local
             t_forearm_world = R_ball @ t_local + p_ball
 
-            pose = Pose()
-            pose.position = Point(*t_forearm_world)
-            q_palm = Rot.from_matrix(R_forearm_world).as_quat()
-            pose.orientation = Quaternion(*q_palm)
-            candidates.append(pose)
+            # pose = Pose()
+            # pose.position = Point(*t_forearm_world)
+            # q_palm = Rot.from_matrix(R_forearm_world).as_quat()
+            # pose.orientation = Quaternion(*q_palm)
+            # candidates.append(pose)
 
             # TODO : there is an orientation problem somewhere here with the R0. TBC
             R_palm_world = R_forearm_world @ R_forearm_to_palm
             t_palm_world = R_forearm_world @ t_forearm_to_palm + t_forearm_world
 
-            # pose = Pose()
-            # pose.position = Point(*t_palm_world)
-            # q_palm = Rot.from_matrix(R_palm_world).as_quat()
-            # pose.orientation = Quaternion(*q_palm)
-            # candidates.append(pose)
+            pose = Pose()
+            pose.position = Point(*t_palm_world)
+            q_palm = Rot.from_matrix(R_palm_world).as_quat()
+            pose.orientation = Quaternion(*q_palm)
+            candidates.append(pose)
 
         return candidates
 
