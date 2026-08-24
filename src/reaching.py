@@ -23,12 +23,13 @@ def plan_and_confirm(mgc, target_pose, stage_name):
     rospy.loginfo(f"--- Planning for {stage_name} ---")
     mgc.set_start_state_to_current_state()
     
-    # Determine target type (Joint values or Pose)
-    if isinstance(target_pose, (list, tuple)):
-        mgc.set_joint_value_target(target_pose)
-    else:
-        mgc.set_pose_target(target_pose)
-
+    # # Determine target type (Joint values or Pose)
+    # if isinstance(target_pose, (list, tuple)):
+    #     mgc.set_joint_value_target(target_pose)
+    # else:
+    #     mgc.set_pose_target(target_pose)
+    mgc.set_joint_value_target(target_pose)  
+    
     success, plan, planning_time, error_code = mgc.plan()
 
     if not (success and not is_crazy_plan(plan)):
