@@ -273,6 +273,7 @@ class SphereGraspPlanner(object):
             # forearm->ball offset now points along the sampled direction d
             # (in ball-local coordinates). No separate translation DOF: the
             # target is always the ball's own origin (its center).
+            ref_direction = R0 @ ref_direction
             R_local = rotation_aligning_vectors(ref_direction, d)
             R_local = R_local @ R0  # rotate the forearm's local frame to align with the sampled direction
             t_local = -R_local @ p_hand_ref_point
