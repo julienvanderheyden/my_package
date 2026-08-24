@@ -277,7 +277,7 @@ class SphereGraspPlanner(object):
             #R_local = R_local   # rotate the forearm's local frame to align with the sampled direction
             t_local = -R_local @ p_hand_ref_point
 
-            R_forearm_world =  R_ball @ R_local @ R0
+            R_forearm_world =  R_ball @ R_local
             t_forearm_world = R_ball @ t_local + p_ball
 
             # TODO : there is an orientation problem somewhere here with the R0. TBC
