@@ -1042,6 +1042,7 @@ class GraspPlanner(object):
             res.reason = "No candidate grasp poses were generated."
             return res
 
+        marker_ns = primitive_type.lower()
         self.publish_candidates(candidates, self.inertial_frame, marker_ns)
 
         paired_candidates = self.transform_candidates_palm_to_flange(candidates)
@@ -1064,7 +1065,7 @@ class GraspPlanner(object):
             res.reason = "No candidate grasp pose survived IK/planning filtering."
             return res
 
-        marker_ns = primitive_type.lower()
+        # marker_ns = primitive_type.lower()
         # self.publish_candidates([c["approach_flange"] for c in valid_candidates], self.inertial_frame, marker_ns)
 
         best_candidate, score_info = config.score_candidates(valid_candidates, estimate)
