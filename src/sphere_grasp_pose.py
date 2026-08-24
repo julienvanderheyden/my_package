@@ -281,8 +281,8 @@ class SphereGraspPlanner(object):
             t_forearm_world = R_ball @ t_local + p_ball
 
             pose = Pose()
-            pose.position = Point(*t_palm_world)
-            q_palm = Rot.from_matrix(R_palm_world).as_quat()
+            pose.position = Point(*t_forearm_world)
+            q_palm = Rot.from_matrix(R_forearm_world).as_quat()
             pose.orientation = Quaternion(*q_palm)
             candidates.append(pose)
 
