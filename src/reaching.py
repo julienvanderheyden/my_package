@@ -4,24 +4,11 @@ import sys
 import math
 import numpy as np
 from my_package.srv import (
-    GetCylinderGraspPose, GetCylinderGraspPoseRequest,
-    GetFlatBoxGraspPose, GetFlatBoxGraspPoseRequest,
-    GetSphereGraspPose, GetSphereGraspPoseRequest,
+    GetGraspPose, GetGraspPoseRequest,
 )
 from pcl_package.srv import GetStableEstimate, GetStableEstimateRequest
 
 import moveit_commander
-
-
-# Maps a perceived primitive_type string to the grasp-planning service that
-# handles it: (service_topic, request_type). Add new primitives here as new
-# grasp planner services come online.
-GRASP_SERVICES = {
-    "CYLINDER": ("/grasp_planning/get_cylinder_grasp", GetCylinderGraspPose, GetCylinderGraspPoseRequest),
-    "FLAT_BOX": ("/grasp_planning/get_flatbox_grasp", GetFlatBoxGraspPose, GetFlatBoxGraspPoseRequest),
-    "SPHERE": ("/grasp_planning/get_sphere_grasp", GetSphereGraspPose, GetSphereGraspPoseRequest),
-}
-
 
 def is_crazy_plan(plan):
     n_points = len(plan.joint_trajectory.points)
@@ -60,26 +47,6 @@ def plan_and_confirm(mgc, target_pose, stage_name):
         rospy.loginfo(f"Execution of {stage_name} aborted by user.")
         return False
 
-def get_grasp_for_estimate(est):
-    """Dispatches to the grasp-planning service registered for
-    est.primitive_type in GRASP_SERVICES, and returns its response (or None
-    on failure/unknown type)."""
-    primitive_type = est.primitive_type
-    entry = GRASP_SERVICES.get(primitive_type)
-    if entry is None:
-        rospy.logwarn(f"No grasp planner registered for primitive_type '{primitive_type}' "
-                       f"(known types: {list(GRASP_SERVICES.keys())})")
-        return None
-
-    service_topic, service_type, request_type = entry
-
-    rospy.wait_for_service(service_topic)
-    get_grasp = rospy.ServiceProxy(service_topic, service_type)
-
-    grasp_req = request_type()
-    grasp_req.estimate = est
-    return get_grasp, grasp_req
-
 def add_collision_object(scene, est, object_name="target_object"):
     """Adds the perceived primitive estimate into the MoveIt planning scene."""
     p_type = est.primitive_type
@@ -105,22 +72,20 @@ def plan_grasp():
     rospy.wait_for_service('/perception/get_stable_estimate')
     get_estimate = rospy.ServiceProxy('/perception/get_stable_estimate', GetStableEstimate)
 
+    rospy.wait_for_service("/grasp_planning/get_grasp_pose")
+    get_grasp = rospy.ServiceProxy("/grasp_planning/get_grasp_pose", GetGraspPose)
     grasp_response = None
-    target_est = None
+
     try:
         est = get_estimate()
         if not est.success:
             rospy.logerr(f"Perception failed. Reason: {est.reason}")
             return
 
-        target_est = est.estimate
-        dispatch = get_grasp_for_estimate(target_est)
-        if dispatch is None:
-            return
-        get_grasp, grasp_req = dispatch
-        grasp_req.cloud = est.cloud
-
-        grasp_response = get_grasp(grasp_req)
+        get_grasp_req = GetGraspPoseRequest()
+        get_grasp_req.estimate = est.estimate
+        get_grasp_req.cloud = est.cloud  # Pass the point cloud to the grasp planning service
+        grasp_response = get_grasp(get_grasp_req)
 
     except rospy.ServiceException as e:
         rospy.logerr(f"Service call failed: {e}")
@@ -146,7 +111,7 @@ def plan_grasp():
     try:
         # Step 1: Add collision object for the approach phase
         rospy.loginfo(f"Adding collision object '{obj_name}' to the planning scene.")
-        add_collision_object(scene, target_est, object_name=obj_name)
+        add_collision_object(scene, est.estimate, object_name=obj_name)
         rospy.sleep(0.5)  # Small delay to ensure the scene updates over ROS topics
 
         # Set higher speed limits for approach : 
