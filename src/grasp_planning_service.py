@@ -77,7 +77,7 @@ SPHERE_R0 = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
 APPROACH_OFFSETS = {
     "CYLINDER": np.array([-0.15, 0.0, -0.05]),
     "FLAT_BOX": np.array([-0.12, 0.05, 0.0]),
-    "SPHERE": np.array([-0.12, 0.0, 0.0]),
+    "SPHERE": np.array([0.0, 0.0, -0.12]),
 }
 
 MEDIUM_WRAP_PRESHAPE = {"rh_THJ4": 1.2}
