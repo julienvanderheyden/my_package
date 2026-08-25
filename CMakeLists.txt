@@ -65,6 +65,7 @@ add_service_files(
   GetFlatBoxGraspPose.srv
   GetSphereGraspPose.srv
   GetGraspPose.srv
+  MoveToPose.srv
 )
 
 ## Generate actions in the 'action' folder
