@@ -1,5 +1,5 @@
 # Request
-geometry_msgs/PoseStamped target_pose
+geometry_msgs/Pose target_pose
 pcl_package/PrimitiveEstimate estimate
 bool wait_for_confirmation
 float64 velocity_scaling
