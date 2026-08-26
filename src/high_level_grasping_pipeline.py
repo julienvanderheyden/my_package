@@ -395,7 +395,7 @@ class GraspingOrchestrator:
         outcome = self._call_move_to_pose(
             target_pose=lift_pose,
             estimate=None,
-            wait_for_confirmation=True, #TODO : change this to false once we are confident in the grasping
+            wait_for_confirmation=False, 
             velocity_scaling=self._lift_velocity_scaling,
         )
         if outcome != MOVE_SUCCESS:
@@ -412,7 +412,7 @@ class GraspingOrchestrator:
         outcome = self._call_move_to_pose(
             target_pose=self._drop_pose,
             estimate=None,
-            wait_for_confirmation=True,  # TODO: change this to false once we are confident in the grasping
+            wait_for_confirmation=False,  
             velocity_scaling=self._drop_velocity_scaling,
         )
         if outcome != MOVE_SUCCESS:
@@ -432,7 +432,7 @@ class GraspingOrchestrator:
         outcome = self._call_move_to_pose(
             target_pose=self._home_pose,
             estimate=None,
-            wait_for_confirmation=True,  # TODO: change this to false once we are confident in the grasping
+            wait_for_confirmation=False, 
             velocity_scaling=self._home_velocity_scaling,
         )
         if outcome != MOVE_SUCCESS:
