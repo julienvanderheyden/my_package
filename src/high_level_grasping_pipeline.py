@@ -490,6 +490,7 @@ class GraspingOrchestrator:
         module docstring. Returns True if the full sequence (through
         HOME) completed successfully, False if the object was abandoned
         (retry budget exhausted or the user declined a plan)."""
+        self._home()  # ensure we start from a known pose
         for attempt in range(1, self._max_retries + 1):
             rospy.loginfo(
                 f"[grasping_orchestrator] --- Object attempt {attempt}/{self._max_retries} ---"
