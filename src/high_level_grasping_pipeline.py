@@ -141,7 +141,7 @@ class GraspingOrchestrator:
         self._approach_velocity_scaling = rospy.get_param("~approach_velocity_scaling", 0.5)
         self._grasp_velocity_scaling = rospy.get_param("~grasp_velocity_scaling", 0.1)
 
-        self._grasp_status_timeout = rospy.get_param("~grasp_status_timeout", 10.0)
+        self._grasp_status_timeout = rospy.get_param("~grasp_status_timeout", 40.0)
 
         self._lift_height = rospy.get_param("~lift_height", 0.5)
         self._lift_velocity_scaling = rospy.get_param("~lift_velocity_scaling", 0.2)
