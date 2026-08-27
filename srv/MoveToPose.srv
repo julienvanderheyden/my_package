@@ -1,19 +1,33 @@
 # Request
 #
-# Two mutually-exclusive target modes, selected by `use_joint_target`:
-#   - use_joint_target == false (default): move to `target_pose` (Cartesian,
-#     ra_flange frame), as before.
-#   - use_joint_target == true: move to the explicit joint target given by
-#     the six ra_* fields below, ignoring `target_pose` and `estimate`
-#     entirely (no Cartesian collision-object scoping applies to a joint
-#     goal). Named fields are used instead of a float64[6] array so a
-#     mis-ordered joint list can't silently swap two joints - each value is
-#     bound to its joint by name, not by position.
+# Three mutually-exclusive motion modes, selected by `motion_mode`. Exactly
+# one payload section below applies per call; the others are ignored.
+uint8 MOTION_POSE = 0        # sampling-based planner (RRTConnect) to target_pose - default
+uint8 MOTION_JOINT = 1       # sampling-based planner (RRTConnect) to an explicit joint target
+uint8 MOTION_CARTESIAN = 2   # straight-line Cartesian path (compute_cartesian_path) to
+                              # target_pose - avoids "crazy" large joint-swing plans by
+                              # construction (it's a short interpolated path, not a sampled
+                              # one), at the cost of flexibility: it fails outright (low
+                              # fraction_complete) if a straight line isn't reachable.
+uint8 motion_mode
 
+# --- MOTION_POSE / MOTION_CARTESIAN payload ---
+# Always expressed in ra_flange. Already transformed from whatever frame
+# the grasp planner worked in (e.g. rh_palm) upstream of this service -
+# this node does NOT re-apply any palm/manipulator -> flange transform
+# itself, for either motion mode.
 geometry_msgs/Pose target_pose
+
+# Collision-object scoping. Respected identically by all three motion
+# modes - collision checking does not depend on how the goal is
+# represented, so this is NOT skipped for MOTION_CARTESIAN. Leave
+# primitive_type empty for none (e.g. once the object is already grasped
+# and moving with the hand, as during LIFT/DROP).
 pcl_package/PrimitiveEstimate estimate
 
-bool use_joint_target
+# --- MOTION_JOINT payload ---
+# Named fields rather than a float64[6] array so a mis-ordered list can't
+# silently swap two joints - each value is bound to its joint by name.
 float64 ra_shoulder_pan_joint
 float64 ra_shoulder_lift_joint
 float64 ra_elbow_joint
@@ -21,10 +35,17 @@ float64 ra_wrist_1_joint
 float64 ra_wrist_2_joint
 float64 ra_wrist_3_joint
 
+# --- MOTION_CARTESIAN-only tuning ---
+float64 eef_step   # waypoint spacing in meters along the path; <= 0 -> node default
+
 bool wait_for_confirmation
-float64 velocity_scaling
+float64 velocity_scaling   # fraction of max speed, in (0, 1]. SAME meaning/direction in
+                            # every motion mode: smaller = slower, 1.0 = full speed.
 ---
 # Response
 bool success
 string outcome
 string reason
+float64 fraction_complete   # MOTION_CARTESIAN: achieved path fraction (0-1). Other modes:
+                             # 1.0 on success, 0.0 on failure - kept for a uniform response
+                             # shape rather than left meaningless in the non-Cartesian case.

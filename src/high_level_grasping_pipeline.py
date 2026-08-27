@@ -65,6 +65,8 @@ Services:
     /perception/get_stable_estimate   (pcl_package/GetStableEstimate)
     /grasp_planning/get_grasp_pose    (my_package/GetGraspPose)
     /arm_motion/move_to_pose          (my_package/MoveToPose)
+                                       [APPROACH/GRASP: MOTION_POSE; HOME: MOTION_JOINT;
+                                        LIFT/DROP: MOTION_CARTESIAN]
     /segmentation/set_active          (std_srvs/SetBool)          [optional]
 
 Topics:
@@ -116,7 +118,7 @@ GRASP_STATUS_SUCCESS = 0
 # /grasp_command string. This table also defines which keys are valid -
 # _load_grasp_dimension_corrections() rejects anything not listed here.
 DEFAULT_GRASP_DIMENSION_CORRECTIONS = {
-    "CYLINDER": {"radius": -0.01},
+    "CYLINDER": {"radius": 0.0},
     "SPHERE": {"radius": 0.0},
     "FLAT_BOX": {"half_width": 0.0, "half_thickness": 0.0},
 }
@@ -546,13 +548,18 @@ class GraspingOrchestrator:
         return True
 
     def _lift(self, grasp_response):
-        """Lift straight up by `lift_height` from the grasp pose, then dwell."""
+        """Lift straight up by `lift_height` from the grasp pose, then dwell.
+        Uses a Cartesian path (not the sampling planner) so the motion is
+        guaranteed to actually go straight up rather than whatever route
+        RRTConnect happens to find - important here since the object is
+        held in the hand and an unpredictable path risks bumping it into
+        something."""
         lift_pose = offset_pose(grasp_response.grasp_pose_flange, dz=self._lift_height)
-        rospy.loginfo(f"[grasping_orchestrator] LIFT: moving +{self._lift_height}m in Z...")
-        outcome = self._call_move_to_pose(
+        rospy.loginfo(f"[grasping_orchestrator] LIFT: moving +{self._lift_height}m in Z "
+                       f"(Cartesian path)...")
+        outcome = self._call_move_to_cartesian(
             target_pose=lift_pose,
-            estimate=None,
-            wait_for_confirmation=False, 
+            wait_for_confirmation=False,
             velocity_scaling=self._lift_velocity_scaling,
         )
         if outcome != MOVE_SUCCESS:
@@ -564,12 +571,14 @@ class GraspingOrchestrator:
         return True
 
     def _drop(self):
-        """Move to the pre-defined drop pose."""
-        rospy.loginfo("[grasping_orchestrator] DROP: moving to configured drop pose...")
-        outcome = self._call_move_to_pose(
+        """Move to the pre-defined drop pose via a Cartesian path, for the
+        same reason as LIFT - a predictable straight-line route while an
+        object is still held in the hand."""
+        rospy.loginfo("[grasping_orchestrator] DROP: moving to configured drop pose "
+                       "(Cartesian path)...")
+        outcome = self._call_move_to_cartesian(
             target_pose=self._drop_pose,
-            estimate=None,
-            wait_for_confirmation=False,  
+            wait_for_confirmation=False,
             velocity_scaling=self._drop_velocity_scaling,
         )
         if outcome != MOVE_SUCCESS:
@@ -622,11 +631,12 @@ class GraspingOrchestrator:
     # ------------------------------------------------------------------ #
 
     def _call_move_to_pose(self, target_pose, estimate, wait_for_confirmation, velocity_scaling):
-        """Wraps /arm_motion/move_to_pose in Cartesian mode, returning the
-        outcome string (or MOVE_FAILED on a service-level exception)."""
+        """Wraps /arm_motion/move_to_pose in MOTION_POSE mode (sampling
+        planner), returning the outcome string (or MOVE_FAILED on a
+        service-level exception)."""
         req = MoveToPoseRequest()
+        req.motion_mode = MoveToPoseRequest.MOTION_POSE
         req.target_pose = target_pose
-        req.use_joint_target = False
         if estimate is not None:
             req.estimate = estimate
         req.wait_for_confirmation = wait_for_confirmation
@@ -635,14 +645,14 @@ class GraspingOrchestrator:
         return self._send_move_request(req)
 
     def _call_move_to_joint_target(self, joint_target, wait_for_confirmation, velocity_scaling):
-        """Wraps /arm_motion/move_to_pose in joint-space mode. `joint_target`
+        """Wraps /arm_motion/move_to_pose in MOTION_JOINT mode. `joint_target`
         is a dict keyed by the six ra_* joint names (see MoveToPose.srv) -
         using named fields rather than a positional array means a missing
         or misspelled key raises immediately instead of silently sending a
         value to the wrong joint. Returns the outcome string (or
         MOVE_FAILED on a service-level exception)."""
         req = MoveToPoseRequest()
-        req.use_joint_target = True
+        req.motion_mode = MoveToPoseRequest.MOTION_JOINT
         req.ra_shoulder_pan_joint = joint_target["ra_shoulder_pan_joint"]
         req.ra_shoulder_lift_joint = joint_target["ra_shoulder_lift_joint"]
         req.ra_elbow_joint = joint_target["ra_elbow_joint"]
@@ -654,8 +664,32 @@ class GraspingOrchestrator:
 
         return self._send_move_request(req)
 
+    def _call_move_to_cartesian(self, target_pose, wait_for_confirmation, velocity_scaling, eef_step=0.0):
+        """Wraps /arm_motion/move_to_pose in MOTION_CARTESIAN mode - a
+        straight-line interpolated path (compute_cartesian_path) rather
+        than a sampled plan, which is what rules out "crazy" large
+        joint-swing motions in the first place. Used for LIFT and DROP.
+
+        No collision object is attached here: by the time LIFT/DROP run,
+        the object is already grasped and moving with the hand, so it
+        must never be treated as a scene obstacle to avoid (same
+        reasoning that already applied to these two calls before they
+        switched motion modes). `eef_step` defaults to 0.0, meaning
+        "use the arm_motion_node's configured default" - left as 0.0
+        here rather than duplicating that tuning knob at the orchestrator
+        level. Returns the outcome string (or MOVE_FAILED on a
+        service-level exception)."""
+        req = MoveToPoseRequest()
+        req.motion_mode = MoveToPoseRequest.MOTION_CARTESIAN
+        req.target_pose = target_pose
+        req.eef_step = eef_step
+        req.wait_for_confirmation = wait_for_confirmation
+        req.velocity_scaling = velocity_scaling
+
+        return self._send_move_request(req)
+
     def _send_move_request(self, req):
-        """Shared request/response handling for both move modes."""
+        """Shared request/response handling for all three motion modes."""
         try:
             res = self._move_to_pose(req)
         except rospy.ServiceException as e:
@@ -663,7 +697,10 @@ class GraspingOrchestrator:
             return MOVE_FAILED
 
         if not res.success:
-            rospy.logwarn(f"[grasping_orchestrator] MoveToPose reported failure: {res.reason}")
+            rospy.logwarn(
+                f"[grasping_orchestrator] MoveToPose reported failure: {res.reason} "
+                f"(fraction_complete={res.fraction_complete:.2f})"
+            )
         return res.outcome
 
     # ------------------------------------------------------------------ #

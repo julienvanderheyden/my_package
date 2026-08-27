@@ -16,23 +16,36 @@ never left lingering for a later call. This lets the SAME service serve
 both the "avoid the object en route" case (APPROACH) and the "allow
 contact" case (FINAL GRASP, DROP, HOME) - the caller just includes or omits
 the estimate. Collision checking is independent of goal representation, so
-this applies whether the request carries a Cartesian pose or a joint-space
-target (see below) - MoveIt still avoids scene objects when planning to a
-joint goal.
+this applies whether the request carries a Cartesian pose, a joint-space
+target, or a Cartesian-path target (see below) - MoveIt still avoids scene
+objects in every case.
 
-Two target modes, selected by req.use_joint_target:
-  - False (default): plan to req.target_pose (Cartesian, via set_pose_target).
-  - True: plan to the explicit joint configuration given by the six ra_*
-    fields on the request (via set_joint_value_target), ignoring
+Three motion modes, selected by req.motion_mode:
+  - MOTION_POSE (default): plan to req.target_pose with the sampling-based
+    planner (set_pose_target + RRTConnect).
+  - MOTION_JOINT: plan to the explicit joint configuration given by the six
+    named ra_* fields on the request (set_joint_value_target), ignoring
     target_pose entirely. Used for HOME, where a single known, repeatable
     joint configuration is wanted rather than whichever IK solution MoveIt
     happens to pick for a Cartesian goal.
+  - MOTION_CARTESIAN: plan a straight-line interpolated path to
+    req.target_pose (compute_cartesian_path) instead of sampling. This is
+    what rules out "crazy" large joint-swing plans in the first place -
+    there's no random tree to produce one - at the cost of flexibility: a
+    straight line that isn't reachable just fails (low fraction_complete)
+    rather than finding some other way around. Used for LIFT and DROP,
+    where the motion is short, the path shape matters (straight up, then a
+    direct line to the drop point), and an object may be held in the hand.
+    NOTE: compute_cartesian_path times its output trajectory at full speed
+    and ignores set_max_velocity_scaling_factor, so this node re-times it
+    manually afterwards (see _rescale_cartesian_trajectory) using the same
+    velocity_scaling convention as every other mode (smaller = slower).
 
 Outer retries (e.g. "if planning keeps failing, ask the grasp planner for
 a different candidate pose") are deliberately NOT handled here - that's
 sequencing logic that belongs to the orchestrator, not the arm. This node
-only replans the SAME target a bounded number of times before giving up
-and reporting PLAN_FAILED.
+only replans/re-attempts the SAME target a bounded number of times before
+giving up and reporting PLAN_FAILED.
 """
 
 import sys
@@ -49,6 +62,9 @@ from my_package.srv import MoveToPose, MoveToPoseResponse
 OBJECT_NAME = "target_object"
 MAX_REPLAN_ATTEMPTS_DEFAULT = 3
 DEFAULT_VELOCITY_SCALING = 0.5
+DEFAULT_CARTESIAN_EEF_STEP = 0.005
+DEFAULT_CARTESIAN_MIN_FRACTION = 0.95
+MIN_VELOCITY_SCALING = 1e-3  # guards the Cartesian re-timing division against a bad/zero request
 
 PLAN_SUCCESS = "success"
 PLAN_FAILED = "planning_failed"
@@ -70,6 +86,8 @@ class ArmMotionNode(object):
         self.planner_id = rospy.get_param("~planner_id", "RRTConnectkConfigDefault")
         self.num_planning_attempts = rospy.get_param("~num_planning_attempts", 5)
         self.max_replan_attempts = rospy.get_param("~max_replan_attempts", MAX_REPLAN_ATTEMPTS_DEFAULT)
+        self.cartesian_eef_step = rospy.get_param("~cartesian_eef_step", DEFAULT_CARTESIAN_EEF_STEP)
+        self.cartesian_min_fraction = rospy.get_param("~cartesian_min_fraction", DEFAULT_CARTESIAN_MIN_FRACTION)
 
         moveit_commander.roscpp_initialize(sys.argv)
         self.mgc = moveit_commander.MoveGroupCommander(self.planning_group)
@@ -115,20 +133,79 @@ class ArmMotionNode(object):
     def _remove_collision_object(self):
         self.scene.remove_world_object(OBJECT_NAME)
 
-    # -- Plan/execute, with replanning + optional confirmation --------------
-    def _plan_and_execute(self, req, wait_for_confirmation, max_attempts):
-        """replans up to max_attempts times (motion planners like RRTConnect are
-        stochastic, so a fresh attempt can succeed where the last one didn't), 
-        then either executes immediately or blocks for a y/N confirmation depending 
-        on wait_for_confirmation. Returns (outcome, reason).
+    # -- Cartesian-path re-timing ---------------------------------------
+    def _rescale_cartesian_trajectory(self, plan, velocity_scaling):
+        """compute_cartesian_path times its output trajectory at full
+        speed and does NOT consult set_max_velocity_scaling_factor, so
+        the timing has to be adjusted manually here, after planning.
 
-        req.use_joint_target selects the goal representation: a Cartesian
-        target_pose (set_pose_target) or an explicit joint configuration
-        (set_joint_value_target) built from the six named ra_* fields on
-        the request. NEVER pass a Pose to set_joint_value_target or a
-        joint dict to set_pose_target - MoveIt won't raise, it'll just
-        silently produce a nonsensical plan."""
-        if req.use_joint_target:
+        velocity_scaling follows the SAME convention as every other
+        motion mode in this node: smaller = slower, 1.0 = full speed.
+        Concretely, we divide time_from_start by velocity_scaling
+        (stretching a slow request out in time) and scale
+        velocities/accelerations down to match - so a value like 0.1 (as
+        used for the delicate FINAL GRASP move elsewhere in this
+        pipeline) means "10% speed", not "10x speed". A naive port of the
+        original prototype's `time_from_start *= speed_factor` would have
+        inverted this: multiplying time directly by a small scaling
+        factor makes the motion FASTER, not slower - exactly backwards
+        from how velocity_scaling is used everywhere else in this node,
+        and a dangerous mismatch for a motion (LIFT) that's meant to be
+        slow because it may be carrying a grasped object."""
+        scale = max(min(velocity_scaling, 1.0), MIN_VELOCITY_SCALING)
+        inv_scale = 1.0 / scale
+        for point in plan.joint_trajectory.points:
+            point.time_from_start *= inv_scale
+            point.velocities = [v * scale for v in point.velocities]
+            point.accelerations = [a * scale * scale for a in point.accelerations]
+        return plan
+
+    # -- Plan/execute, with replanning + optional confirmation --------------
+    def _plan_attempt(self, req, joint_goal, velocity_scaling):
+        """Runs ONE planning attempt for whichever motion mode the request
+        selects. Returns (valid, plan, fraction, diagnostic):
+          - `fraction` is the achieved Cartesian path fraction for
+            MOTION_CARTESIAN, and 1.0 for the sampling-based modes (there's
+            no partial-completion concept for those).
+          - `diagnostic` is a short human-readable string for the retry log.
+
+        NEVER pass a Pose to set_joint_value_target or a joint dict to
+        set_pose_target - MoveIt won't raise, it'll just silently produce
+        a nonsensical plan."""
+        self.mgc.set_start_state_to_current_state()
+
+        if req.motion_mode == req.MOTION_CARTESIAN:
+            eef_step = req.eef_step if req.eef_step > 0.0 else self.cartesian_eef_step
+            plan, fraction = self.mgc.compute_cartesian_path(
+                [req.target_pose], eef_step=eef_step, jump_threshold=0.0)
+            valid = fraction >= self.cartesian_min_fraction and not is_crazy_plan(plan)
+            diagnostic = (f"Cartesian path {fraction * 100:.1f}% complete "
+                          f"(need >= {self.cartesian_min_fraction * 100:.0f}%)")
+            if valid:
+                plan = self._rescale_cartesian_trajectory(plan, velocity_scaling)
+            return valid, plan, fraction, diagnostic
+
+        if req.motion_mode == req.MOTION_JOINT:
+            self.mgc.set_joint_value_target(joint_goal)
+        else:
+            self.mgc.set_pose_target(req.target_pose)
+
+        success, plan, planning_time, error_code = self.mgc.plan()
+        self.mgc.clear_pose_targets()  # no-op for MOTION_JOINT (nothing to clear); kept
+                                        # unconditional so cleanup doesn't depend on mode
+        valid = success and not is_crazy_plan(plan)
+        diagnostic = f"error_code={error_code}"
+        return valid, plan, 1.0, diagnostic
+
+    def _plan_and_execute(self, req, wait_for_confirmation, velocity_scaling, max_attempts):
+        """Replans/re-attempts up to max_attempts times (RRTConnect is
+        stochastic, so a fresh attempt can succeed where the last one
+        didn't; a Cartesian path is deterministic given the same start
+        state, but retrying is harmless), then either executes immediately
+        or blocks for a y/N confirmation depending on wait_for_confirmation.
+        Returns (outcome, reason, fraction_complete)."""
+        joint_goal = None
+        if req.motion_mode == req.MOTION_JOINT:
             joint_goal = {
                 "ra_shoulder_pan_joint": req.ra_shoulder_pan_joint,
                 "ra_shoulder_lift_joint": req.ra_shoulder_lift_joint,
@@ -138,41 +215,36 @@ class ArmMotionNode(object):
                 "ra_wrist_3_joint": req.ra_wrist_3_joint,
             }
             rospy.loginfo("Target: joint configuration %s", joint_goal)
+        elif req.motion_mode == req.MOTION_CARTESIAN:
+            rospy.loginfo("Target: Cartesian path to pose %s", req.target_pose)
         else:
-            rospy.loginfo("Target: Cartesian pose %s", req.target_pose)
+            rospy.loginfo("Target: Cartesian pose (sampling planner) %s", req.target_pose)
 
         for attempt in range(1, max_attempts + 1):
             rospy.loginfo("--- Planning move (attempt %d/%d) ---", attempt, max_attempts)
-            self.mgc.set_start_state_to_current_state()
+            valid, plan, fraction, diagnostic = self._plan_attempt(req, joint_goal, velocity_scaling)
 
-            if req.use_joint_target:
-                self.mgc.set_joint_value_target(joint_goal)
-            else:
-                self.mgc.set_pose_target(req.target_pose)
-
-            success, plan, planning_time, error_code = self.mgc.plan()
-            self.mgc.clear_pose_targets()  # no-op when a joint target was used (nothing to clear);
-                                            # kept unconditional so cleanup doesn't depend on mode
-
-            if success and not is_crazy_plan(plan):
-                rospy.loginfo("Valid plan found (attempt %d/%d).", attempt, max_attempts)
+            if valid:
+                rospy.loginfo("Valid plan found (attempt %d/%d): %s", attempt, max_attempts, diagnostic)
 
                 if wait_for_confirmation:
                     user_input = input("Execute this plan? [y/N]: ").strip().lower()
                     if user_input not in ('y', 'yes'):
                         rospy.loginfo("Execution declined by user.")
-                        return PLAN_DECLINED, "User declined to execute the planned motion."
+                        return PLAN_DECLINED, "User declined to execute the planned motion.", fraction
 
                 rospy.loginfo("Executing move...")
                 self.mgc.execute(plan, wait=True)
+                self.mgc.stop()
+                self.mgc.clear_pose_targets()
                 rospy.loginfo("Move execution complete.")
-                return PLAN_SUCCESS, ""
+                return PLAN_SUCCESS, "", fraction
 
-            rospy.logwarn(f"Planning failed or produced an invalid trajectory (attempt {attempt}/{max_attempts}). Error code: {error_code}")
+            rospy.logwarn(f"Planning failed (attempt {attempt}/{max_attempts}): {diagnostic}")
 
-        reason = f"No valid plan found after {max_attempts} attempts."
+        reason = f"No valid plan/path found after {max_attempts} attempts."
         rospy.logerr(reason)
-        return PLAN_FAILED, reason
+        return PLAN_FAILED, reason, 0.0
 
     # -- Service handler -----------------------------------------------------
     def handle_move_to_pose(self, req):
@@ -190,8 +262,8 @@ class ArmMotionNode(object):
         self.mgc.set_max_acceleration_scaling_factor(velocity_scaling)
 
         try:
-            outcome, reason = self._plan_and_execute(
-                req, req.wait_for_confirmation, self.max_replan_attempts)
+            outcome, reason, fraction = self._plan_and_execute(
+                req, req.wait_for_confirmation, velocity_scaling, self.max_replan_attempts)
         finally:
             # Always clean up, regardless of success/failure/decline, so a
             # stale collision object never leaks into the next call.
@@ -201,6 +273,7 @@ class ArmMotionNode(object):
         res.success = (outcome == PLAN_SUCCESS)
         res.outcome = outcome
         res.reason = reason
+        res.fraction_complete = fraction
         return res
 
 
