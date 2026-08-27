@@ -167,11 +167,20 @@ class GraspingOrchestrator:
             default_xyz=(-0.011, 0.383, 0.965),
             default_xyzw=(0.742, 0.670, -0.014, 0.013),
         )
-        self._home_pose = self._pose_from_param(
-            "~home_pose",
-            default_xyz=(0.228, 0.176, 1.436),
-            default_xyzw=(-0.71, 0.011, 0.016, 0.704),
-        )
+        # HOME is a joint-space target rather than a Cartesian pose: it's
+        # meant to be a known, repeatable configuration the arm can always
+        # reach and grasp easily from, independent of any particular
+        # object/approach geometry - a Cartesian target could be satisfied
+        # by more than one IK solution (e.g. elbow-up vs elbow-down), which
+        # a fixed joint target rules out entirely.
+        self._home_joint_target = rospy.get_param("~home_joint_target", {
+            "ra_shoulder_pan_joint": 0.0208,
+            "ra_shoulder_lift_joint": -2.3648,
+            "ra_elbow_joint": 2.137,
+            "ra_wrist_1_joint": 0.2641,
+            "ra_wrist_2_joint": 1.581,
+            "ra_wrist_3_joint": -1.5738,
+        })
         self._home_velocity_scaling = rospy.get_param("~home_velocity_scaling", 0.3)
         self._drop_velocity_scaling = rospy.get_param("~drop_velocity_scaling", 0.3)
 
@@ -494,12 +503,16 @@ class GraspingOrchestrator:
         rospy.sleep(0.5)  # brief settle time; preshaping is non-blocking on the topic side
 
     def _home(self):
-        """Return the arm to the pre-defined home pose."""
-        rospy.loginfo("[grasping_orchestrator] HOME: moving to configured home pose...")
-        outcome = self._call_move_to_pose(
-            target_pose=self._home_pose,
-            estimate=None,
-            wait_for_confirmation=False, 
+        """Return the arm to the pre-defined HOME joint configuration
+        (not a Cartesian pose) - this pins the robot to one known,
+        repeatable posture with a single unambiguous IK solution, rather
+        than whichever elbow-up/elbow-down solution MoveIt happens to pick
+        for a Cartesian goal, so every grasp attempt starts from an
+        identical, known-good arm shape."""
+        rospy.loginfo("[grasping_orchestrator] HOME: moving to configured home joint target...")
+        outcome = self._call_move_to_joint_target(
+            joint_target=self._home_joint_target,
+            wait_for_confirmation=False,
             velocity_scaling=self._home_velocity_scaling,
         )
         if outcome != MOVE_SUCCESS:
@@ -528,15 +541,40 @@ class GraspingOrchestrator:
     # ------------------------------------------------------------------ #
 
     def _call_move_to_pose(self, target_pose, estimate, wait_for_confirmation, velocity_scaling):
-        """Wraps /arm_motion/move_to_pose, returning the outcome string
-        (or MOVE_FAILED on a service-level exception)."""
+        """Wraps /arm_motion/move_to_pose in Cartesian mode, returning the
+        outcome string (or MOVE_FAILED on a service-level exception)."""
         req = MoveToPoseRequest()
         req.target_pose = target_pose
+        req.use_joint_target = False
         if estimate is not None:
             req.estimate = estimate
         req.wait_for_confirmation = wait_for_confirmation
         req.velocity_scaling = velocity_scaling
 
+        return self._send_move_request(req)
+
+    def _call_move_to_joint_target(self, joint_target, wait_for_confirmation, velocity_scaling):
+        """Wraps /arm_motion/move_to_pose in joint-space mode. `joint_target`
+        is a dict keyed by the six ra_* joint names (see MoveToPose.srv) -
+        using named fields rather than a positional array means a missing
+        or misspelled key raises immediately instead of silently sending a
+        value to the wrong joint. Returns the outcome string (or
+        MOVE_FAILED on a service-level exception)."""
+        req = MoveToPoseRequest()
+        req.use_joint_target = True
+        req.ra_shoulder_pan_joint = joint_target["ra_shoulder_pan_joint"]
+        req.ra_shoulder_lift_joint = joint_target["ra_shoulder_lift_joint"]
+        req.ra_elbow_joint = joint_target["ra_elbow_joint"]
+        req.ra_wrist_1_joint = joint_target["ra_wrist_1_joint"]
+        req.ra_wrist_2_joint = joint_target["ra_wrist_2_joint"]
+        req.ra_wrist_3_joint = joint_target["ra_wrist_3_joint"]
+        req.wait_for_confirmation = wait_for_confirmation
+        req.velocity_scaling = velocity_scaling
+
+        return self._send_move_request(req)
+
+    def _send_move_request(self, req):
+        """Shared request/response handling for both move modes."""
         try:
             res = self._move_to_pose(req)
         except rospy.ServiceException as e:

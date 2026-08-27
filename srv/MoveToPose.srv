@@ -1,6 +1,26 @@
 # Request
+#
+# Two mutually-exclusive target modes, selected by `use_joint_target`:
+#   - use_joint_target == false (default): move to `target_pose` (Cartesian,
+#     ra_flange frame), as before.
+#   - use_joint_target == true: move to the explicit joint target given by
+#     the six ra_* fields below, ignoring `target_pose` and `estimate`
+#     entirely (no Cartesian collision-object scoping applies to a joint
+#     goal). Named fields are used instead of a float64[6] array so a
+#     mis-ordered joint list can't silently swap two joints - each value is
+#     bound to its joint by name, not by position.
+
 geometry_msgs/Pose target_pose
 pcl_package/PrimitiveEstimate estimate
+
+bool use_joint_target
+float64 ra_shoulder_pan_joint
+float64 ra_shoulder_lift_joint
+float64 ra_elbow_joint
+float64 ra_wrist_1_joint
+float64 ra_wrist_2_joint
+float64 ra_wrist_3_joint
+
 bool wait_for_confirmation
 float64 velocity_scaling
 ---

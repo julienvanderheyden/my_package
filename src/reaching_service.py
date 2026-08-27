@@ -15,7 +15,18 @@ and removed again immediately afterwards - success, failure, or decline -
 never left lingering for a later call. This lets the SAME service serve
 both the "avoid the object en route" case (APPROACH) and the "allow
 contact" case (FINAL GRASP, DROP, HOME) - the caller just includes or omits
-the estimate.
+the estimate. Collision checking is independent of goal representation, so
+this applies whether the request carries a Cartesian pose or a joint-space
+target (see below) - MoveIt still avoids scene objects when planning to a
+joint goal.
+
+Two target modes, selected by req.use_joint_target:
+  - False (default): plan to req.target_pose (Cartesian, via set_pose_target).
+  - True: plan to the explicit joint configuration given by the six ra_*
+    fields on the request (via set_joint_value_target), ignoring
+    target_pose entirely. Used for HOME, where a single known, repeatable
+    joint configuration is wanted rather than whichever IK solution MoveIt
+    happens to pick for a Cartesian goal.
 
 Outer retries (e.g. "if planning keeps failing, ask the grasp planner for
 a different candidate pose") are deliberately NOT handled here - that's
@@ -105,18 +116,43 @@ class ArmMotionNode(object):
         self.scene.remove_world_object(OBJECT_NAME)
 
     # -- Plan/execute, with replanning + optional confirmation --------------
-    def _plan_and_execute(self, target_pose, wait_for_confirmation, max_attempts):
+    def _plan_and_execute(self, req, wait_for_confirmation, max_attempts):
         """replans up to max_attempts times (motion planners like RRTConnect are
         stochastic, so a fresh attempt can succeed where the last one didn't), 
         then either executes immediately or blocks for a y/N confirmation depending 
-        on wait_for_confirmation. Returns (outcome, reason)."""
+        on wait_for_confirmation. Returns (outcome, reason).
+
+        req.use_joint_target selects the goal representation: a Cartesian
+        target_pose (set_pose_target) or an explicit joint configuration
+        (set_joint_value_target) built from the six named ra_* fields on
+        the request. NEVER pass a Pose to set_joint_value_target or a
+        joint dict to set_pose_target - MoveIt won't raise, it'll just
+        silently produce a nonsensical plan."""
+        if req.use_joint_target:
+            joint_goal = {
+                "ra_shoulder_pan_joint": req.ra_shoulder_pan_joint,
+                "ra_shoulder_lift_joint": req.ra_shoulder_lift_joint,
+                "ra_elbow_joint": req.ra_elbow_joint,
+                "ra_wrist_1_joint": req.ra_wrist_1_joint,
+                "ra_wrist_2_joint": req.ra_wrist_2_joint,
+                "ra_wrist_3_joint": req.ra_wrist_3_joint,
+            }
+            rospy.loginfo("Target: joint configuration %s", joint_goal)
+        else:
+            rospy.loginfo("Target: Cartesian pose %s", req.target_pose)
+
         for attempt in range(1, max_attempts + 1):
             rospy.loginfo("--- Planning move (attempt %d/%d) ---", attempt, max_attempts)
             self.mgc.set_start_state_to_current_state()
-            self.mgc.set_pose_target(target_pose)
+
+            if req.use_joint_target:
+                self.mgc.set_joint_value_target(joint_goal)
+            else:
+                self.mgc.set_pose_target(req.target_pose)
 
             success, plan, planning_time, error_code = self.mgc.plan()
-            self.mgc.clear_pose_targets()
+            self.mgc.clear_pose_targets()  # no-op when a joint target was used (nothing to clear);
+                                            # kept unconditional so cleanup doesn't depend on mode
 
             if success and not is_crazy_plan(plan):
                 rospy.loginfo("Valid plan found (attempt %d/%d).", attempt, max_attempts)
@@ -155,7 +191,7 @@ class ArmMotionNode(object):
 
         try:
             outcome, reason = self._plan_and_execute(
-                req.target_pose, req.wait_for_confirmation, self.max_replan_attempts)
+                req, req.wait_for_confirmation, self.max_replan_attempts)
         finally:
             # Always clean up, regardless of success/failure/decline, so a
             # stale collision object never leaks into the next call.
