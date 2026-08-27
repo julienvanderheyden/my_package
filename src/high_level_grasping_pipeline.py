@@ -48,6 +48,17 @@ orchestrator calls `/segmentation/set_active` (std_srvs/SetBool) to:
 This service is treated as best-effort: if it's unavailable, the pipeline
 still runs correctly, just without the compute savings while the arm moves.
 
+Grasp-time dimension corrections
+----------------------------------
+`~grasp_dimension_corrections` (rosparam, e.g. {"CYLINDER": {"radius":
+-0.01}}) lets a systematic per-primitive dimension bias be handed to the
+closed-loop grasp controller (VMC, via /grasp_command) without touching
+the PrimitiveEstimate anywhere else in the pipeline - perception, grasp
+planning, preshaping, and collision-object scoping all still use the raw,
+uncorrected dimensions. Only the radius/half-width/half-thickness value
+sent on /grasp_command at CLOSED_LOOP_GRASP is adjusted. See
+format_grasp_command / _load_grasp_dimension_corrections.
+
 Interfaces
 ----------
 Services:
@@ -63,6 +74,7 @@ Topics:
 """
 
 import threading
+import copy
 
 import rospy
 from std_msgs.msg import Int32, String
@@ -99,6 +111,16 @@ PRESHAPE_OPEN_CODE = 0  # sent during RELEASE to return the hand to its open pos
 
 GRASP_STATUS_SUCCESS = 0
 
+# Grasp-time-only dimension corrections (see format_grasp_command). Keyed
+# by primitive_type, then by the exact dimension name used in the
+# /grasp_command string. This table also defines which keys are valid -
+# _load_grasp_dimension_corrections() rejects anything not listed here.
+DEFAULT_GRASP_DIMENSION_CORRECTIONS = {
+    "CYLINDER": {"radius": -0.01},
+    "SPHERE": {"radius": 0.0},
+    "FLAT_BOX": {"half_width": 0.0, "half_thickness": 0.0},
+}
+
 
 # --------------------------------------------------------------------------- #
 # Small pose helper - kept free of tf/PyKDL so this file has no extra deps.
@@ -118,19 +140,33 @@ def offset_pose(pose, dx=0.0, dy=0.0, dz=0.0):
     return new_pose
 
 
-def format_grasp_command(primitive_type, estimate):
+def format_grasp_command(primitive_type, estimate, corrections=None):
     """Build the '<code>, <dims...>' string expected on /grasp_command,
-    from the dimension fields populated in a PrimitiveEstimate."""
+    from the dimension fields populated in a PrimitiveEstimate.
+
+    `corrections` is an optional {dimension_name: signed_offset_m} dict,
+    applied AFTER computing the nominal radius / half-width / half-
+    thickness. This is how a systematic bias gets handed to VMC (e.g. a
+    cylinder radius correction of -0.01 means "grasp as if the cylinder
+    were 1cm smaller in radius") WITHOUT touching the PrimitiveEstimate
+    itself - perception, grasp planning, preshaping, and collision-object
+    scoping all still see the raw, uncorrected dimensions; only the
+    values sent to the closed-loop grasp controller are adjusted. Results
+    are clamped to be non-negative - a correction large enough to flip
+    the sign would otherwise silently send VMC a nonsensical negative
+    dimension."""
+    corrections = corrections or {}
     code = PRESHAPE_CODES[primitive_type]
+
     if primitive_type == "CYLINDER":
-        radius = estimate.diameter / 2.0
+        radius = max(estimate.diameter / 2.0 + corrections.get("radius", 0.0), 0.0)
         return f"{code}, {radius:.5f}"
     if primitive_type == "SPHERE":
-        radius = estimate.diameter / 2.0
+        radius = max(estimate.diameter / 2.0 + corrections.get("radius", 0.0), 0.0)
         return f"{code}, {radius:.5f}"
     if primitive_type == "FLAT_BOX":
-        half_width = estimate.width / 2.0
-        half_thickness = estimate.thickness / 2.0
+        half_width = max(estimate.width / 2.0 + corrections.get("half_width", 0.0), 0.0)
+        half_thickness = max(estimate.thickness / 2.0 + corrections.get("half_thickness", 0.0), 0.0)
         return f"{code}, {half_width:.5f}, {half_thickness:.5f}"
     raise ValueError(f"Unsupported primitive_type '{primitive_type}' for /grasp_command")
 
@@ -157,6 +193,10 @@ class GraspingOrchestrator:
         self._grasp_velocity_scaling = rospy.get_param("~grasp_velocity_scaling", 0.1)
 
         self._grasp_status_timeout = rospy.get_param("~grasp_status_timeout", 40.0)
+
+        # Grasp-time-only dimension corrections sent to VMC via
+        # /grasp_command - see format_grasp_command / _load_grasp_dimension_corrections.
+        self._grasp_dimension_corrections = self._load_grasp_dimension_corrections()
 
         self._lift_height = rospy.get_param("~lift_height", 0.5)
         self._lift_velocity_scaling = rospy.get_param("~lift_velocity_scaling", 0.2)
@@ -259,6 +299,44 @@ class GraspingOrchestrator:
         pose.orientation.z = d.get("qz", default_xyzw[2])
         pose.orientation.w = d.get("qw", default_xyzw[3])
         return pose
+
+    @staticmethod
+    def _load_grasp_dimension_corrections():
+        """Reads ~grasp_dimension_corrections, a nested rosparam dict of
+        {primitive_type: {dimension_name: signed_offset_m}} (e.g.
+        {"CYLINDER": {"radius": -0.01}}). Applied ONLY at grasp time (see
+        format_grasp_command) - never to the PrimitiveEstimate itself, so
+        perception, planning, preshaping, and collision-object scoping are
+        unaffected. Unknown primitive types or dimension names are logged
+        and ignored rather than silently accepted, since a typo here (e.g.
+        "CYLINDERS" or "raduis") would otherwise leave the intended
+        correction quietly un-applied. Missing entries default to 0.0."""
+        configured = rospy.get_param("~grasp_dimension_corrections", {})
+        corrections = copy.deepcopy(DEFAULT_GRASP_DIMENSION_CORRECTIONS)
+
+        for primitive_type, dims in configured.items():
+            if primitive_type not in corrections:
+                rospy.logwarn(
+                    f"[grasping_orchestrator] Ignoring grasp_dimension_corrections for "
+                    f"unknown primitive_type '{primitive_type}' (expected one of "
+                    f"{list(corrections.keys())})."
+                )
+                continue
+            for dim_name, value in dims.items():
+                if dim_name not in corrections[primitive_type]:
+                    rospy.logwarn(
+                        f"[grasping_orchestrator] Ignoring unknown dimension '{dim_name}' "
+                        f"for primitive_type '{primitive_type}' (expected one of "
+                        f"{list(corrections[primitive_type].keys())})."
+                    )
+                    continue
+                corrections[primitive_type][dim_name] = float(value)
+
+        non_zero = {p: d for p, d in corrections.items() if any(v != 0.0 for v in d.values())}
+        if non_zero:
+            rospy.loginfo(f"[grasping_orchestrator] Active grasp dimension corrections: {non_zero}")
+
+        return corrections
 
     def _on_grasp_status(self, msg):
         self._last_grasp_status = msg.data
@@ -442,7 +520,10 @@ class GraspingOrchestrator:
         via /grasp_command and block on /grasp_status == 0 up to a timeout."""
         primitive_type = grasp_response.primitive_type
         try:
-            command_str = format_grasp_command(primitive_type, estimate)
+            command_str = format_grasp_command(
+                primitive_type, estimate,
+                corrections=self._grasp_dimension_corrections.get(primitive_type, {}),
+            )
         except ValueError as e:
             rospy.logerr(f"[grasping_orchestrator] {e}")
             return False
