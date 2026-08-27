@@ -201,7 +201,7 @@ class GraspingOrchestrator:
         self._grasp_dimension_corrections = self._load_grasp_dimension_corrections()
 
         self._lift_height = rospy.get_param("~lift_height", 0.5)
-        self._lift_velocity_scaling = rospy.get_param("~lift_velocity_scaling", 0.4)
+        self._lift_velocity_scaling = rospy.get_param("~lift_velocity_scaling", 0.7)
         self._lift_dwell = rospy.get_param("~lift_dwell", 5.0)
 
         self._drop_pose = self._pose_from_param(
@@ -224,7 +224,7 @@ class GraspingOrchestrator:
             "ra_wrist_3_joint": -1.5738,
         })
         self._home_velocity_scaling = rospy.get_param("~home_velocity_scaling", 0.3)
-        self._drop_velocity_scaling = rospy.get_param("~drop_velocity_scaling", 0.5)
+        self._drop_velocity_scaling = rospy.get_param("~drop_velocity_scaling", 0.7)
 
         # ---- Nested retry-loop params (per target object) -----------------
         self._max_retries = rospy.get_param("~max_retries", 3)
