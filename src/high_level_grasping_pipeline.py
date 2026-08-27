@@ -209,12 +209,16 @@ class GraspingOrchestrator:
             default_xyz=(-0.011, 0.383, 0.965),
             default_xyzw=(0.742, 0.670, -0.014, 0.013),
         )
-        # HOME is a joint-space target rather than a Cartesian pose: it's
-        # meant to be a known, repeatable configuration the arm can always
-        # reach and grasp easily from, independent of any particular
-        # object/approach geometry - a Cartesian target could be satisfied
-        # by more than one IK solution (e.g. elbow-up vs elbow-down), which
-        # a fixed joint target rules out entirely.
+
+        self._drop_joint_target = rospy.get_param("~drop_joint_target", {
+            "ra_shoulder_pan_joint": 2.7584,
+            "ra_shoulder_lift_joint": -1.5927,
+            "ra_elbow_joint": 0.9564,
+            "ra_wrist_1_joint": -1.1259,
+            "ra_wrist_2_joint": 1.0640,
+            "ra_wrist_3_joint": -3.1578,
+        })
+
         self._home_joint_target = rospy.get_param("~home_joint_target", {
             "ra_shoulder_pan_joint": 0.0208,
             "ra_shoulder_lift_joint": -2.3648,
@@ -224,7 +228,7 @@ class GraspingOrchestrator:
             "ra_wrist_3_joint": -1.5738,
         })
         self._home_velocity_scaling = rospy.get_param("~home_velocity_scaling", 0.3)
-        self._drop_velocity_scaling = rospy.get_param("~drop_velocity_scaling", 0.7)
+        self._drop_velocity_scaling = rospy.get_param("~drop_velocity_scaling", 0.3)
 
         # ---- Nested retry-loop params (per target object) -----------------
         self._max_retries = rospy.get_param("~max_retries", 3)
@@ -571,13 +575,11 @@ class GraspingOrchestrator:
         return True
 
     def _drop(self):
-        """Move to the pre-defined drop pose via a Cartesian path, for the
-        same reason as LIFT - a predictable straight-line route while an
-        object is still held in the hand."""
-        rospy.loginfo("[grasping_orchestrator] DROP: moving to configured drop pose "
-                       "(Cartesian path)...")
-        outcome = self._call_move_to_cartesian(
-            target_pose=self._drop_pose,
+        """Move to the pre-defined drop joint configuration, for the
+        same reason as HOME """
+        rospy.loginfo("[grasping_orchestrator] DROP: moving to configured drop joint target...")
+        outcome = self._call_move_to_joint_target(
+            joint_target=self._drop_joint_target,
             wait_for_confirmation=False,
             velocity_scaling=self._drop_velocity_scaling,
         )
