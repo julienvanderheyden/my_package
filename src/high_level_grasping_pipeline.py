@@ -35,12 +35,26 @@ perception estimate and replanning from scratch is not meaningful (the
 object may now be occluded by the hand, or physically moved). A failure
 there ends the object cycle and returns to perception polling directly.
 
+Segmentation pause/resume
+--------------------------
+The segmentation node does real work (NaN removal, filtering, voxelization,
+clustering) on every incoming point cloud, which is wasted computation once
+we've committed to a candidate and no longer need fresh perception. The
+orchestrator calls `/segmentation/set_active` (std_srvs/SetBool) to:
+    - RESUME (data=True)  right before polling for a fresh estimate, at the
+      start of every candidate-generation attempt.
+    - PAUSE  (data=False) as soon as candidate generation succeeds (we now
+      have object info) and the "grasp action" - preshape onward - starts.
+This service is treated as best-effort: if it's unavailable, the pipeline
+still runs correctly, just without the compute savings while the arm moves.
+
 Interfaces
 ----------
 Services:
     /perception/get_stable_estimate   (pcl_package/GetStableEstimate)
     /grasp_planning/get_grasp_pose    (my_package/GetGraspPose)
     /arm_motion/move_to_pose          (my_package/MoveToPose)
+    /segmentation/set_active          (std_srvs/SetBool)          [optional]
 
 Topics:
     /preshape       (std_msgs/Int32)   - publish only, fire-and-forget
@@ -52,6 +66,7 @@ import threading
 
 import rospy
 from std_msgs.msg import Int32, String
+from std_srvs.srv import SetBool, SetBoolRequest
 from geometry_msgs.msg import Pose
 
 from my_package.srv import (
@@ -174,6 +189,12 @@ class GraspingOrchestrator:
         self._move_to_pose = self._connect_service(
             "/arm_motion/move_to_pose", MoveToPose
         )
+        # Best-effort: pauses/resumes the segmentation node to save compute
+        # while the arm is executing. Absence of this service must never
+        # block the grasp pipeline, so it's connected non-fatally.
+        self._segmentation_set_active = self._connect_optional_service(
+            "/segmentation/set_active", SetBool
+        )
 
         # ---- Publishers ------------------------------------------------
         self._preshape_pub = rospy.Publisher("/preshape", Int32, queue_size=1)
@@ -199,6 +220,22 @@ class GraspingOrchestrator:
             raise
         return rospy.ServiceProxy(name, srv_type)
 
+    def _connect_optional_service(self, name, srv_type, timeout=5.0):
+        """Like `_connect_service`, but a missing service only logs a
+        warning and returns None instead of raising - for auxiliary
+        services (like segmentation pause/resume) whose absence shouldn't
+        prevent the orchestrator from starting."""
+        try:
+            rospy.loginfo(f"[grasping_orchestrator] Waiting for optional service '{name}'...")
+            rospy.wait_for_service(name, timeout=timeout)
+        except rospy.ROSException:
+            rospy.logwarn(
+                f"[grasping_orchestrator] Optional service '{name}' unavailable - "
+                f"continuing without it."
+            )
+            return None
+        return rospy.ServiceProxy(name, srv_type)
+
     @staticmethod
     def _pose_from_param(param_name, default_xyz, default_xyzw):
         """Reads {x,y,z,qx,qy,qz,qw} from a rosparam dict, falling back to
@@ -218,6 +255,25 @@ class GraspingOrchestrator:
         self._last_grasp_status = msg.data
         if msg.data == GRASP_STATUS_SUCCESS:
             self._grasp_status_event.set()
+
+    def _set_segmentation_active(self, active):
+        """Best-effort pause/resume of the segmentation pipeline via
+        /segmentation/set_active. This is purely a compute-saving measure:
+        if the service isn't connected, or the call fails, we log and move
+        on rather than aborting the grasp cycle over it."""
+        if self._segmentation_set_active is None:
+            return
+        try:
+            res = self._segmentation_set_active(SetBoolRequest(data=active))
+            if not res.success:
+                rospy.logwarn(
+                    f"[grasping_orchestrator] /segmentation/set_active({active}) "
+                    f"reported failure: {res.message}"
+                )
+        except rospy.ServiceException as e:
+            rospy.logwarn(
+                f"[grasping_orchestrator] Failed to set segmentation active={active}: {e}"
+            )
 
     # ------------------------------------------------------------------ #
     # Candidate generation: perception + grasp planning
@@ -280,7 +336,17 @@ class GraspingOrchestrator:
     def _acquire_and_plan(self):
         """Runs one perception + planning pass. Returns
         (estimate, cloud, grasp_response), any/all of which are None if
-        that stage failed."""
+        that stage failed.
+
+        Wraps the segmentation pause/resume around this stage specifically:
+        we need live perception for `_wait_for_object`, so segmentation is
+        woken up first. As soon as we have a complete grasp candidate - the
+        "grasp action" is about to start and no further perceptual
+        information is required - segmentation is paused again. On any
+        failure here it is left running, since the caller will retry with
+        fresh perception and would just have to wake it back up anyway."""
+        self._set_segmentation_active(True)
+
         estimate, cloud = self._wait_for_object()
         if estimate is None:
             return None, None, None
@@ -289,6 +355,7 @@ class GraspingOrchestrator:
         if grasp_response is None:
             return None, None, None
 
+        self._set_segmentation_active(False)
         return estimate, cloud, grasp_response
 
     # ------------------------------------------------------------------ #
