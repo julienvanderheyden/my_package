@@ -211,9 +211,9 @@ class GraspingOrchestrator:
         )
 
         self._drop_joint_target = rospy.get_param("~drop_joint_target", {
-            "ra_shoulder_pan_joint": 2.7584,
+            "ra_shoulder_pan_joint": 0.9564,
             "ra_shoulder_lift_joint": -1.5927,
-            "ra_elbow_joint": 0.9564,
+            "ra_elbow_joint": 2.7584,
             "ra_wrist_1_joint": -1.1259,
             "ra_wrist_2_joint": 1.0640,
             "ra_wrist_3_joint": -3.1578,
@@ -574,28 +574,12 @@ class GraspingOrchestrator:
         rospy.sleep(self._lift_dwell)
         return True
 
-    # def _drop(self):
-    #     """Move to the pre-defined drop joint configuration, for the
-    #     same reason as HOME """
-    #     rospy.loginfo("[grasping_orchestrator] DROP: moving to configured drop joint target...")
-    #     outcome = self._call_move_to_joint_target(
-    #         joint_target=self._drop_joint_target,
-    #         wait_for_confirmation=False,
-    #         velocity_scaling=self._drop_velocity_scaling,
-    #     )
-    #     if outcome != MOVE_SUCCESS:
-    #         rospy.logerr(f"[grasping_orchestrator] DROP failed with outcome '{outcome}'.")
-    #         return False
-    #     return True
-
     def _drop(self):
-        """Move to the pre-defined drop pose via a Cartesian path, for the
-        same reason as LIFT - a predictable straight-line route while an
-        object is still held in the hand."""
-        rospy.loginfo("[grasping_orchestrator] DROP: moving to configured drop pose "
-                    "(Cartesian path)...")
-        outcome = self._call_move_to_cartesian(
-            target_pose=self._drop_pose,
+        """Move to the pre-defined drop joint configuration, for the
+        same reason as HOME """
+        rospy.loginfo("[grasping_orchestrator] DROP: moving to configured drop joint target...")
+        outcome = self._call_move_to_joint_target(
+            joint_target=self._drop_joint_target,
             wait_for_confirmation=False,
             velocity_scaling=self._drop_velocity_scaling,
         )
