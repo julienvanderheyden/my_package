@@ -574,12 +574,28 @@ class GraspingOrchestrator:
         rospy.sleep(self._lift_dwell)
         return True
 
+    # def _drop(self):
+    #     """Move to the pre-defined drop joint configuration, for the
+    #     same reason as HOME """
+    #     rospy.loginfo("[grasping_orchestrator] DROP: moving to configured drop joint target...")
+    #     outcome = self._call_move_to_joint_target(
+    #         joint_target=self._drop_joint_target,
+    #         wait_for_confirmation=False,
+    #         velocity_scaling=self._drop_velocity_scaling,
+    #     )
+    #     if outcome != MOVE_SUCCESS:
+    #         rospy.logerr(f"[grasping_orchestrator] DROP failed with outcome '{outcome}'.")
+    #         return False
+    #     return True
+
     def _drop(self):
-        """Move to the pre-defined drop joint configuration, for the
-        same reason as HOME """
-        rospy.loginfo("[grasping_orchestrator] DROP: moving to configured drop joint target...")
-        outcome = self._call_move_to_joint_target(
-            joint_target=self._drop_joint_target,
+        """Move to the pre-defined drop pose via a Cartesian path, for the
+        same reason as LIFT - a predictable straight-line route while an
+        object is still held in the hand."""
+        rospy.loginfo("[grasping_orchestrator] DROP: moving to configured drop pose "
+                    "(Cartesian path)...")
+        outcome = self._call_move_to_cartesian(
+            target_pose=self._drop_pose,
             wait_for_confirmation=False,
             velocity_scaling=self._drop_velocity_scaling,
         )
