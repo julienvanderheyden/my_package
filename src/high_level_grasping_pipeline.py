@@ -490,9 +490,8 @@ class GraspingOrchestrator:
         since this motion is expected to run to completion automatically.
         Returns the move outcome string."""
         rospy.loginfo("[grasping_orchestrator] GRASP: moving to grasp_pose_flange...")
-        return self._call_move_to_pose(
+        return self._call_move_to_cartesian(
             target_pose=grasp_response.grasp_pose_flange,
-            estimate=None,
             wait_for_confirmation=False,
             velocity_scaling=self._grasp_velocity_scaling,
         )
