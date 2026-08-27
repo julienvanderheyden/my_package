@@ -192,7 +192,11 @@ class GraspingOrchestrator:
             "~approach_wait_for_confirmation", True
         )
         self._approach_velocity_scaling = rospy.get_param("~approach_velocity_scaling", 0.5)
-        self._grasp_velocity_scaling = rospy.get_param("~grasp_velocity_scaling", 0.1)
+        self._grasp_velocity_scaling = rospy.get_param("~grasp_velocity_scaling", 0.4)
+
+        # Something worth paying attentin : the cartesian motion and standard MoveIt motion
+        # do NOT use the same velocity scaling method. So the numbers are not directly comparable
+        # at similar values, the cartesian will be slower than the standard MoveIt motion
 
         self._grasp_status_timeout = rospy.get_param("~grasp_status_timeout", 40.0)
 
