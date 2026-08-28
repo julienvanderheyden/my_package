@@ -442,8 +442,7 @@ class GraspingOrchestrator:
         information is required - segmentation is paused again. On any
         failure here it is left running, since the caller will retry with
         fresh perception and would just have to wake it back up anyway."""
-        self._set_segmentation_active(True)
-
+        
         estimate, cloud = self._wait_for_object()
         if estimate is None:
             return None, None, None
@@ -452,7 +451,6 @@ class GraspingOrchestrator:
         if grasp_response is None:
             return None, None, None
 
-        self._set_segmentation_active(False)
         return estimate, cloud, grasp_response
 
     # ------------------------------------------------------------------ #
@@ -621,6 +619,7 @@ class GraspingOrchestrator:
         (see module docstring for rationale). Returns True only if every
         step completes; RELEASE always fires regardless so the hand isn't
         left closed on an early return."""
+        self._set_segmentation_active(False)
         if not self._closed_loop_grasp(estimate, grasp_response):
             return False
         if not self._lift(grasp_response):
@@ -720,6 +719,7 @@ class GraspingOrchestrator:
         (retry budget exhausted or the user declined a plan)."""
         self._home()  # ensure we start from a known pose
         for attempt in range(1, self._max_retries + 1):
+            self._set_segmentation_active(True)
             rospy.loginfo(
                 f"[grasping_orchestrator] --- Object attempt {attempt}/{self._max_retries} ---"
             )
