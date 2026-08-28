@@ -643,7 +643,7 @@ class GraspPlanner(object):
         reference candidate orientation (forearm-to-ball, forearm-local
         coordinates). The clearance (0.021) is already folded in.
         """
-        return np.array([0.01, -radius - BALL_APPROACH_CLEARANCE, 0.33])
+        return np.array([0.02, -radius - BALL_APPROACH_CLEARANCE, 0.33])
 
     def _generate_sphere_candidates(self, estimate):
         """
