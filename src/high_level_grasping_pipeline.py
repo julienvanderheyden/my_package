@@ -119,7 +119,7 @@ GRASP_STATUS_SUCCESS = 0
 # _load_grasp_dimension_corrections() rejects anything not listed here.
 DEFAULT_GRASP_DIMENSION_CORRECTIONS = {
     "CYLINDER": {"radius": -0.01},
-    "SPHERE": {"radius": 0.0},
+    "SPHERE": {"radius": -0.005},
     "FLAT_BOX": {"half_width": 0.0, "half_thickness": -0.0025},
 }
 
