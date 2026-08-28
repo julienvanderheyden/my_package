@@ -205,7 +205,8 @@ class GraspingOrchestrator:
         self._grasp_dimension_corrections = self._load_grasp_dimension_corrections()
 
         self._lift_height = rospy.get_param("~lift_height", 0.5)
-        self._lift_velocity_scaling = rospy.get_param("~lift_velocity_scaling", 0.7)
+        self._lift_height_fallback = rospy.get_param("~lift_height_fallback", 0.2)
+        self._lift_velocity_scaling = rospy.get_param("~lift_velocity_scaling", 0.2)
         self._lift_dwell = rospy.get_param("~lift_dwell", 5.0)
 
         self._drop_pose = self._pose_from_param(
@@ -442,7 +443,7 @@ class GraspingOrchestrator:
         information is required - segmentation is paused again. On any
         failure here it is left running, since the caller will retry with
         fresh perception and would just have to wake it back up anyway."""
-        
+
         estimate, cloud = self._wait_for_object()
         if estimate is None:
             return None, None, None
@@ -553,27 +554,43 @@ class GraspingOrchestrator:
         return True
 
     def _lift(self, grasp_response):
-        """Lift straight up by `lift_height` from the grasp pose, then dwell.
-        Uses a Cartesian path (not the sampling planner) so the motion is
-        guaranteed to actually go straight up rather than whatever route
-        RRTConnect happens to find - important here since the object is
-        held in the hand and an unpredictable path risks bumping it into
-        something."""
-        lift_pose = offset_pose(grasp_response.grasp_pose_flange, dz=self._lift_height)
-        rospy.loginfo(f"[grasping_orchestrator] LIFT: moving +{self._lift_height}m in Z "
-                       f"(Cartesian path)...")
-        outcome = self._call_move_to_cartesian(
-            target_pose=lift_pose,
-            wait_for_confirmation=False,
-            velocity_scaling=self._lift_velocity_scaling,
-        )
-        if outcome != MOVE_SUCCESS:
-            rospy.logerr(f"[grasping_orchestrator] LIFT failed with outcome '{outcome}'.")
-            return False
+        """Lift straight up from the grasp pose via a Cartesian path, then
+        dwell. Uses a Cartesian path (not the sampling planner) so the
+        motion is guaranteed to actually go straight up rather than
+        whatever route RRTConnect happens to find - important here since
+        the object is held in the hand and an unpredictable path risks
+        bumping it into something.
 
-        rospy.loginfo(f"[grasping_orchestrator] Dwelling for {self._lift_dwell}s at lift height.")
-        rospy.sleep(self._lift_dwell)
-        return True
+        If motion planning fails at `lift_height` (default 0.5m), retries
+        ONCE at the shorter `lift_height_fallback` (default 0.2m) before
+        giving up on LIFT entirely. A full-height lift can fail purely on
+        reachability (approaching a joint limit or the edge of the
+        workspace) even though a shorter lift from the exact same grasp
+        pose is fine - and a shorter lift is still enough to clear the
+        object off the table before DROP, so it's worth trying rather
+        than abandoning the object outright."""
+        for height, label in ((self._lift_height, "primary"), (self._lift_height_fallback, "fallback")):
+            lift_pose = offset_pose(grasp_response.grasp_pose_flange, dz=height)
+            rospy.loginfo(f"[grasping_orchestrator] LIFT ({label}): moving +{height}m in Z "
+                           f"(Cartesian path)...")
+            outcome = self._call_move_to_cartesian(
+                target_pose=lift_pose,
+                wait_for_confirmation=False,
+                velocity_scaling=self._lift_velocity_scaling,
+            )
+            if outcome == MOVE_SUCCESS:
+                rospy.loginfo(f"[grasping_orchestrator] Dwelling for {self._lift_dwell}s at lift height.")
+                rospy.sleep(self._lift_dwell)
+                return True
+
+            rospy.logwarn(f"[grasping_orchestrator] LIFT ({label}, +{height}m) failed "
+                           f"with outcome '{outcome}'.")
+
+        rospy.logerr(
+            f"[grasping_orchestrator] LIFT failed at both {self._lift_height}m and "
+            f"{self._lift_height_fallback}m."
+        )
+        return False
 
     def _drop(self):
         """Move to the pre-defined drop joint configuration, for the

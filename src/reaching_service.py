@@ -33,9 +33,16 @@ Three motion modes, selected by req.motion_mode:
     what rules out "crazy" large joint-swing plans in the first place -
     there's no random tree to produce one - at the cost of flexibility: a
     straight line that isn't reachable just fails (low fraction_complete)
-    rather than finding some other way around. Used for LIFT and DROP,
-    where the motion is short, the path shape matters (straight up, then a
-    direct line to the drop point), and an object may be held in the hand.
+    rather than finding some other way around. A Cartesian path CAN still
+    occasionally produce a crazy trajectory of its own (e.g. threading a
+    near-singularity to stay on the line), so it's checked with the same
+    is_crazy_plan guard as the other two modes; if the Cartesian result is
+    invalid for either reason (incomplete OR crazy), this node falls back
+    to the sampling-based planner for the same target_pose within the same
+    attempt, rather than treating the whole attempt as failed outright.
+    Used for LIFT and DROP, where the motion is short, the path shape
+    matters (straight up, then a direct line to the drop point), and an
+    object may be held in the hand.
     NOTE: compute_cartesian_path times its output trajectory at full speed
     and ignores set_max_velocity_scaling_factor, so this node re-times it
     manually afterwards (see _rescale_cartesian_trajectory) using the same
@@ -166,8 +173,19 @@ class ArmMotionNode(object):
         selects. Returns (valid, plan, fraction, diagnostic):
           - `fraction` is the achieved Cartesian path fraction for
             MOTION_CARTESIAN, and 1.0 for the sampling-based modes (there's
-            no partial-completion concept for those).
+            no partial-completion concept for those) - including when
+            MOTION_CARTESIAN falls back to sampling-based planning (see
+            below) and that fallback succeeds.
           - `diagnostic` is a short human-readable string for the retry log.
+
+        MOTION_CARTESIAN never executes a bad trajectory: if the straight-
+        line path is incomplete OR is_crazy_plan flags it (a Cartesian path
+        CAN still swing a joint unreasonably far, e.g. threading a
+        near-singularity to stay on the line), this same attempt falls
+        back to the sampling-based planner (set_pose_target) for the
+        identical target_pose before giving up. The fallback plan is
+        itself checked with is_crazy_plan too - it is not exempt just for
+        being the fallback.
 
         NEVER pass a Pose to set_joint_value_target or a joint dict to
         set_pose_target - MoveIt won't raise, it'll just silently produce
@@ -178,12 +196,40 @@ class ArmMotionNode(object):
             eef_step = req.eef_step if req.eef_step > 0.0 else self.cartesian_eef_step
             plan, fraction = self.mgc.compute_cartesian_path(
                 [req.target_pose], eef_step=eef_step, jump_threshold=0.0)
-            valid = fraction >= self.cartesian_min_fraction and not is_crazy_plan(plan)
-            diagnostic = (f"Cartesian path {fraction * 100:.1f}% complete "
-                          f"(need >= {self.cartesian_min_fraction * 100:.0f}%)")
-            if valid:
+            cartesian_crazy = is_crazy_plan(plan)
+            cartesian_valid = fraction >= self.cartesian_min_fraction and not cartesian_crazy
+
+            if cartesian_valid:
                 plan = self._rescale_cartesian_trajectory(plan, velocity_scaling)
-            return valid, plan, fraction, diagnostic
+                diagnostic = f"Cartesian path {fraction * 100:.1f}% complete"
+                return True, plan, fraction, diagnostic
+
+            # The straight-line path is either incomplete or - even if it
+            # completed - swings a joint further than is_crazy_plan allows
+            # (e.g. it snakes through a near-singularity to stay on the
+            # line). Either way it's not safe to execute, so fall back to
+            # the sampling-based planner for this SAME target_pose within
+            # this same attempt, rather than treating it as an outright
+            # failure. This still goes through is_crazy_plan itself - the
+            # fallback is not exempt from the same sanity check.
+            rospy.logwarn(
+                "Cartesian path invalid (fraction=%.2f, crazy=%s) - falling back to "
+                "sampling-based planning for this attempt.", fraction, cartesian_crazy
+            )
+            self.mgc.set_start_state_to_current_state()
+            self.mgc.set_pose_target(req.target_pose)
+            success, fallback_plan, planning_time, error_code = self.mgc.plan()
+            self.mgc.clear_pose_targets()
+
+            valid = success and not is_crazy_plan(fallback_plan)
+            if valid:
+                diagnostic = (f"Cartesian path invalid (fraction={fraction:.2f}, "
+                               f"crazy={cartesian_crazy}); sampling-based fallback succeeded")
+                return True, fallback_plan, 1.0, diagnostic
+
+            diagnostic = (f"Cartesian path invalid (fraction={fraction:.2f}, crazy={cartesian_crazy}); "
+                           f"sampling-based fallback also failed (error_code={error_code})")
+            return False, fallback_plan, fraction, diagnostic
 
         if req.motion_mode == req.MOTION_JOINT:
             self.mgc.set_joint_value_target(joint_goal)
@@ -216,7 +262,8 @@ class ArmMotionNode(object):
             }
             rospy.loginfo("Target: joint configuration %s", joint_goal)
         elif req.motion_mode == req.MOTION_CARTESIAN:
-            rospy.loginfo("Target: Cartesian path to pose %s", req.target_pose)
+            rospy.loginfo("Target: Cartesian path to pose %s (falls back to sampling-based "
+                           "planning if the path is invalid)", req.target_pose)
         else:
             rospy.loginfo("Target: Cartesian pose (sampling planner) %s", req.target_pose)
 
