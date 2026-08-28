@@ -195,7 +195,7 @@ class ArmMotionNode(object):
         if req.motion_mode == req.MOTION_CARTESIAN:
             eef_step = req.eef_step if req.eef_step > 0.0 else self.cartesian_eef_step
             plan, fraction = self.mgc.compute_cartesian_path(
-                [req.target_pose], eef_step=eef_step, jump_threshold=0.0)
+                [req.target_pose], eef_step=eef_step, jump_threshold=4.0)
             cartesian_crazy = is_crazy_plan(plan)
             cartesian_valid = fraction >= self.cartesian_min_fraction and not cartesian_crazy
 
