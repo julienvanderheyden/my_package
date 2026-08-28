@@ -204,9 +204,9 @@ class GraspingOrchestrator:
         # /grasp_command - see format_grasp_command / _load_grasp_dimension_corrections.
         self._grasp_dimension_corrections = self._load_grasp_dimension_corrections()
 
-        self._lift_height = rospy.get_param("~lift_height", 0.5)
-        self._lift_height_fallback = rospy.get_param("~lift_height_fallback", 0.2)
-        self._lift_velocity_scaling = rospy.get_param("~lift_velocity_scaling", 0.2)
+        self._lift_height = rospy.get_param("~lift_height", 0.3)
+        self._lift_height_fallback = rospy.get_param("~lift_height_fallback", 0.15)
+        self._lift_velocity_scaling = rospy.get_param("~lift_velocity_scaling", 0.4)
         self._lift_dwell = rospy.get_param("~lift_dwell", 5.0)
 
         self._drop_pose = self._pose_from_param(
