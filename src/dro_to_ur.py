@@ -283,7 +283,7 @@ class DROArmExecutor:
             lift_xyz = np.array([
                 current_pose.position.x,
                 current_pose.position.y,
-                current_pose.position.z + 0.20  # +20 cm along Z axis
+                current_pose.position.z + 0.10  # +10 cm along Z axis
             ])
             
             lift_quat = np.array([
