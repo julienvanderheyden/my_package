@@ -245,6 +245,8 @@ class DROArmExecutor:
         if not self.move_arm_cartesian(offset_xyz, offset_quat):
             rospy.logerr("Failed to apply offset arm motion.")
             return False
+        
+        rospy.sleep(1.5)
 
         # ---------------------------------------------------------------------
         # STEP 5: Run three grasp sequences with 1.5s interval
