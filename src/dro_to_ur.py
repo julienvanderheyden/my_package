@@ -349,7 +349,7 @@ def main():
 
     print_reconstruction_diagnostic(grasp)
 
-    object_xyz = [1.279, 0.14, 0.74 + 0.085]  # add cylinder height to center the xyz
+    object_xyz = [1.279, 0.16, 0.74 + 0.085]  # add cylinder height to center the xyz
     object_rpy = [0.0, 0.0, 0.0]
 
     T_world_object = xyz_rpy_to_matrix(
