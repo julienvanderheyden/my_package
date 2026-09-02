@@ -361,6 +361,12 @@ def main():
     
     grasps = test_cylinder_5cm
 
+    predicted_grasps_path = "../../../../IROS 2026/baseline/dro/dgn/DexGraspNet/grasp_generation/predicted_grasps.npy"
+    all_grasps = np.load(predicted_grasps_path)
+    grasp_index = 3
+    grasp_index = grasp_index -1 #for python indexing 
+    grasps = all_grasps[grasp_index]
+
     grasp = grasps[0]
     grasp_outer = grasps[1]
     grasp_inner = grasps[2]
