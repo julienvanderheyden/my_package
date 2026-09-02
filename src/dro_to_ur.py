@@ -338,7 +338,7 @@ def main():
     all_grasps = np.load(predicted_grasps_path)
     print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
     
-    grasp_index = 19
+    grasp_index = 20
     grasp_index = grasp_index - 1  # 1-indexed to 0-indexed
 
 
