@@ -17,7 +17,6 @@ import tf.transformations as tft
 from geometry_msgs.msg import Pose
 from std_msgs.msg import Float64MultiArray
 from std_srvs.srv import Trigger, TriggerResponse
-from sensor_msgs.msg import JointState
 
 from my_package.srv import MoveToPose, MoveToPoseRequest
 
@@ -222,29 +221,6 @@ class DROArmExecutor:
             rospy.logerr(f"MoveToPose call failed: {e}")
             return False
 
-    def move_arm_joint(self, joint_values):
-        """Helper to send a Joint Space move command to reaching_service."""
-        req = MoveToPoseRequest()
-        req.motion_mode = req.MOTION_JOINT
-        req.ra_elbow_joint = float(joint_values["ra_elbow_joint"])
-        req.ra_shoulder_lift_joint = float(joint_values["ra_shoulder_lift_joint"])
-        req.ra_shoulder_pan_joint = float(joint_values["ra_shoulder_pan_joint"])
-        req.ra_wrist_1_joint = float(joint_values["ra_wrist_1_joint"])
-        req.ra_wrist_2_joint = float(joint_values["ra_wrist_2_joint"])
-        req.ra_wrist_3_joint = float(joint_values["ra_wrist_3_joint"])
-        req.velocity_scaling = 0.5
-        req.wait_for_confirmation = False
-
-        try:
-            resp = self._move_arm(req)
-            if not resp.success:
-                rospy.logwarn(f"Joint motion failed. Reason: {resp.reason}")
-                return False
-            return True
-        except rospy.ServiceException as e:
-            rospy.logerr(f"MoveToPose joint move failed: {e}")
-            return False
-
     def execute_grasp(self, q):
         # ---------------------------------------------------------------------
         # STEP 1: Place all hand joints to preshape
@@ -309,31 +285,16 @@ class DROArmExecutor:
         rospy.sleep(1.5)
 
         # ---------------------------------------------------------------------
-        # STEP 6: Lift the object
+        # STEP 6: Lift object by moving current Cartesian pose +15cm upwards
         # ---------------------------------------------------------------------
-        rospy.loginfo("Step 6: Lifting object using joint space targets...")
-        try:
-            joint_state_msg = rospy.wait_for_message("/joint_states", JointState, timeout=5.0)
-            current_wrist_3 = 0.0
-            if "ra_wrist_3_joint" in joint_state_msg.name:
-                idx = joint_state_msg.name.index("ra_wrist_3_joint")
-                current_wrist_3 = joint_state_msg.position[idx]
-
-            lift_joint_values = {
-                "ra_elbow_joint": 1.6,
-                "ra_shoulder_lift_joint": -1.0,
-                "ra_shoulder_pan_joint": -0.09,
-                "ra_wrist_1_joint": -0.585,
-                "ra_wrist_2_joint": 1.48,
-                "ra_wrist_3_joint": current_wrist_3,
-            }
-
-            if not self.move_arm_joint(lift_joint_values):
-                rospy.logerr("Failed to execute joint lift motion.")
-                return False
-
-        except rospy.ROSException as e:
-            rospy.logerr(f"Failed to read current joint states for lift: {e}")
+        rospy.loginfo("Step 6: Lifting object +15cm vertically in Cartesian space...")
+        
+        # Take the current (or last targeted) flange position and shift Z by +0.15m
+        lift_xyz = offset_xyz.copy()
+        lift_xyz[2] += 0.15
+        
+        if not self.move_arm_cartesian(lift_xyz, offset_quat, velocity_scaling=0.1):
+            rospy.logerr("Failed to execute upward Cartesian lift motion.")
             return False
 
         rospy.loginfo("Grasp execution and lift completed successfully!")
@@ -377,13 +338,17 @@ def main():
     all_grasps = np.load(predicted_grasps_path)
     print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
     
-    grasp_index = 1
-    grasp_index = grasp_index - 1  # 1-indexed to 0-indexed
+    grasp_index = 14 - 1  # 1-indexed to 0-indexed
 
-    grasps = all_grasps[grasp_index]
-    grasp       = grasps[0]
-    grasp_outer = grasps[1]
-    grasp_inner = grasps[2]
+    if all_grasps.ndim == 3:
+        grasps = all_grasps[grasp_index]
+        grasp       = grasps[0]
+        grasp_outer = grasps[1]
+        grasp_inner = grasps[2]
+    else:
+        grasp       = all_grasps[grasp_index]
+        grasp_outer = grasp
+        grasp_inner = grasp
 
     print_reconstruction_diagnostic(grasp)
 
