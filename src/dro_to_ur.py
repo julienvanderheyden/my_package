@@ -233,7 +233,9 @@ class DROArmExecutor:
         # ---------------------------------------------------------------------
         rospy.loginfo("Step 1: Setting hand joints to zero for preshaping...")
         zero_joints = np.zeros(24)
-        self.publish_hand_joints(zero_joints)
+        medium_wrap_preshape = np.zeros(24)
+        medium_wrap_preshape[20] = 1.2
+        self.publish_hand_joints(medium_wrap_preshape)
         rospy.sleep(1.0)  # Short pause to let preshape complete
 
         # ---------------------------------------------------------------------
