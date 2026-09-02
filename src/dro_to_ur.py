@@ -7,8 +7,10 @@ the reaching_service interface.
 """
 
 import sys
+import os
 import numpy as np
 import rospy
+import rospkg
 import tf
 import tf.transformations as tft
 
@@ -361,7 +363,9 @@ def main():
     
     grasps = test_cylinder_5cm
 
-    predicted_grasps_path = "../data/predicted_grasps.npy"
+    rospack = rospkg.RosPack()
+    package_path = rospack.get_path("my_package")
+    predicted_grasps_path = os.path.join(package_path, "data", "predicted_grasps.npy")
     all_grasps = np.load(predicted_grasps_path)
     grasp_index = 19
     grasp_index = grasp_index -1 #for python indexing 
