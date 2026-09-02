@@ -182,7 +182,7 @@ class DROArmExecutor:
         msg.data = joints_cmd
         self._joint_pub.publish(msg)
 
-    def move_arm_cartesian(self, xyz, quat):
+    def move_arm_cartesian(self, xyz, quat, velocity_scaling= 0.3):
         """Helper to send a Cartesian move command to reaching_service."""
         req = MoveToPoseRequest()
         req.motion_mode = req.MOTION_POSE
@@ -193,7 +193,7 @@ class DROArmExecutor:
         req.target_pose.orientation.y = float(quat[1])
         req.target_pose.orientation.z = float(quat[2])
         req.target_pose.orientation.w = float(quat[3])
-        req.velocity_scaling = 0.5
+        req.velocity_scaling = velocity_scaling
         req.wait_for_confirmation = False
 
         try:
@@ -253,8 +253,12 @@ class DROArmExecutor:
             return False
 
         # ---------------------------------------------------------------------
-        # STEP 3: Wait 10 seconds for user placement
+        # STEP 3: dro preshape and waits 10 seconds for user placement
         # ---------------------------------------------------------------------
+        _, _, joints_outer = dro_q_to_world_manipulator(self.grasp_outer, self.T_world_obj, self.T_forearm_manipulator)
+        # Grasp 1: Outer
+        rospy.loginfo("  Executing outer grasp...")
+        self.publish_hand_joints(joints_outer)
         rospy.loginfo("Step 3: Waiting 10 seconds for user to place the object...")
         rospy.sleep(10.0)
 
@@ -265,7 +269,7 @@ class DROArmExecutor:
         offset_xyz, offset_quat = apply_offset(xyz, quat, OFFSET_XYZ, OFFSET_RPY)
         rospy.loginfo(f"  Target Offset xyz: {np.round(offset_xyz, 4)}\n  Target Offset quat: {np.round(offset_quat, 4)}")
 
-        if not self.move_arm_cartesian(offset_xyz, offset_quat):
+        if not self.move_arm_cartesian(offset_xyz, offset_quat, velocity_scaling=0.1):
             rospy.logerr("Failed to apply offset arm motion.")
             return False
         
@@ -276,14 +280,11 @@ class DROArmExecutor:
         # ---------------------------------------------------------------------
         rospy.loginfo("Step 5: Executing sequential grasps (Outer -> Mid -> Inner)...")
         
-        _, _, joints_outer = dro_q_to_world_manipulator(self.grasp_outer, self.T_world_obj, self.T_forearm_manipulator)
+        
         _, _, joints_mid   = dro_q_to_world_manipulator(self.grasp,       self.T_world_obj, self.T_forearm_manipulator)
         _, _, joints_inner = dro_q_to_world_manipulator(self.grasp_inner, self.T_world_obj, self.T_forearm_manipulator)
 
-        # Grasp 1: Outer
-        rospy.loginfo("  Executing outer grasp...")
-        self.publish_hand_joints(joints_outer)
-        rospy.sleep(1.5)
+
 
         # Grasp 2: Mid
         rospy.loginfo("  Executing mid grasp...")
@@ -368,7 +369,7 @@ def main():
     predicted_grasps_path = os.path.join(package_path, "data", "predicted_grasps.npy")
     all_grasps = np.load(predicted_grasps_path)
     print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
-    grasp_index = 17
+    grasp_index = 14
     grasp_index = grasp_index -1 #for python indexing 
     grasps = all_grasps[grasp_index]
 
