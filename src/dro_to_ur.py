@@ -38,7 +38,7 @@ T_FLANGE_TO_MANIPULATOR_RPY = [-1.575, 0.000, -1.563]  # Euler angles rads
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Specify exact translation offsets [dx, dy, dz] in meters
-OFFSET_XYZ = np.array([-0.06, 0.00, 0.000])  
+OFFSET_XYZ = np.array([-0.065, 0.00, 0.000])  
 
 # Specify exact rotation offsets [roll, pitch, yaw] in radians (or use np.radians(deg))
 OFFSET_RPY = np.array([np.radians(0.0), np.radians(0.0), np.radians(0.0)]) 
