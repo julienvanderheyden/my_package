@@ -2,7 +2,8 @@
 """
 dro_to_ur.py
 ============
-Bridges D(R,O) Grasp inference output to the real ShadowHand + arm.
+Bridges D(R,O) Grasp inference output to the real ShadowHand + arm using
+the reaching_service interface.
 """
 
 import sys
@@ -14,11 +15,9 @@ import tf.transformations as tft
 from geometry_msgs.msg import Pose
 from std_msgs.msg import Float64MultiArray
 from std_srvs.srv import Trigger, TriggerResponse
+from sensor_msgs.msg import JointState
 
-from my_package.srv import (
-    MoveCartesian, MoveCartesianRequest,
-    GetPose,       GetPoseRequest,
-)
+from my_package.srv import MoveToPose, MoveToPoseRequest
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Constant: rh_forearm → rh_manipulator  (from URDF / live tf)
@@ -133,10 +132,8 @@ def dro_q_to_world_manipulator(q, T_world_object, T_forearm_manipulator):
 
 def apply_offset(xyz, quat, delta_xyz, delta_rpy):
     """Applies exact deterministic positional and RPY rotational offsets."""
-    # Add translation offset
     offset_xyz = xyz + delta_xyz
 
-    # Apply rotational offset in local/world frame
     delta_R = tft.euler_matrix(delta_rpy[0], delta_rpy[1], delta_rpy[2], axes='sxyz')
     T_orig = tft.quaternion_matrix(quat)
     T_offset = T_orig @ delta_R
@@ -164,13 +161,9 @@ class DROArmExecutor:
 
         rospy.init_node("dro_arm_executor", anonymous=False)
 
-        rospy.loginfo("Waiting for /arm/move_cartesian …")
-        rospy.wait_for_service("/arm/move_cartesian")
-        self._move_arm = rospy.ServiceProxy("/arm/move_cartesian", MoveCartesian)
-
-        rospy.loginfo("Waiting for /arm/get_current_pose …")
-        rospy.wait_for_service("/arm/get_current_pose")
-        self._get_pose = rospy.ServiceProxy("/arm/get_current_pose", GetPose)
+        rospy.loginfo("Waiting for /arm_motion/move_to_pose service...")
+        rospy.wait_for_service("/arm_motion/move_to_pose")
+        self._move_arm = rospy.ServiceProxy("/arm_motion/move_to_pose", MoveToPose)
 
         self._joint_pub = rospy.Publisher(
             "/shadowhand_command_filtering",
@@ -188,24 +181,50 @@ class DROArmExecutor:
         self._joint_pub.publish(msg)
 
     def move_arm_cartesian(self, xyz, quat):
-        """Helper to send a Cartesian move command to the arm service."""
-        req = MoveCartesianRequest()
-        req.position.x    = float(xyz[0])
-        req.position.y    = float(xyz[1])
-        req.position.z    = float(xyz[2])
-        req.orientation.x = float(quat[0])
-        req.orientation.y = float(quat[1])
-        req.orientation.z = float(quat[2])
-        req.orientation.w = float(quat[3])
+        """Helper to send a Cartesian move command to reaching_service."""
+        req = MoveToPoseRequest()
+        req.motion_mode = req.MOTION_POSE
+        req.target_pose.position.x = float(xyz[0])
+        req.target_pose.position.y = float(xyz[1])
+        req.target_pose.position.z = float(xyz[2])
+        req.target_pose.orientation.x = float(quat[0])
+        req.target_pose.orientation.y = float(quat[1])
+        req.target_pose.orientation.z = float(quat[2])
+        req.target_pose.orientation.w = float(quat[3])
+        req.velocity_scaling = 0.5
+        req.wait_for_confirmation = False
 
         try:
             resp = self._move_arm(req)
             if not resp.success:
-                rospy.logwarn(f"Cartesian path {resp.fraction_complete*100:.1f}% complete. {resp.message}")
+                rospy.logwarn(f"Cartesian motion failed. Reason: {resp.reason}")
                 return False
             return True
         except rospy.ServiceException as e:
-            rospy.logerr(f"MoveCartesian call failed: {e}")
+            rospy.logerr(f"MoveToPose call failed: {e}")
+            return False
+
+    def move_arm_joint(self, joint_values):
+        """Helper to send a Joint Space move command to reaching_service."""
+        req = MoveToPoseRequest()
+        req.motion_mode = req.MOTION_JOINT
+        req.ra_elbow_joint = float(joint_values["ra_elbow_joint"])
+        req.ra_shoulder_lift_joint = float(joint_values["ra_shoulder_lift_joint"])
+        req.ra_shoulder_pan_joint = float(joint_values["ra_shoulder_pan_joint"])
+        req.ra_wrist_1_joint = float(joint_values["ra_wrist_1_joint"])
+        req.ra_wrist_2_joint = float(joint_values["ra_wrist_2_joint"])
+        req.ra_wrist_3_joint = float(joint_values["ra_wrist_3_joint"])
+        req.velocity_scaling = 0.5
+        req.wait_for_confirmation = False
+
+        try:
+            resp = self._move_arm(req)
+            if not resp.success:
+                rospy.logwarn(f"Joint motion failed. Reason: {resp.reason}")
+                return False
+            return True
+        except rospy.ServiceException as e:
+            rospy.logerr(f"MoveToPose joint move failed: {e}")
             return False
 
     def execute_grasp(self, q):
@@ -273,32 +292,32 @@ class DROArmExecutor:
         rospy.sleep(1.5)
 
         # ---------------------------------------------------------------------
-        # STEP 6: Lift the object by sending reference +20cm on Z axis
+        # STEP 6: Lift the object using explicit Joint Space targets
         # ---------------------------------------------------------------------
-        rospy.loginfo("Step 6: Lifting object +20cm along Z-axis...")
+        rospy.loginfo("Step 6: Lifting object using joint space targets...")
         try:
-            current_pose_resp = self._get_pose(GetPoseRequest())
-            current_pose = current_pose_resp.pose
-            
-            lift_xyz = np.array([
-                current_pose.position.x,
-                current_pose.position.y,
-                current_pose.position.z + 0.10  # +10 cm along Z axis
-            ])
-            
-            lift_quat = np.array([
-                current_pose.orientation.x,
-                current_pose.orientation.y,
-                current_pose.orientation.z,
-                current_pose.orientation.w
-            ])
+            # Get current joint states to preserve ra_wrist_3_joint angle
+            joint_state_msg = rospy.wait_for_message("/joint_states", JointState, timeout=5.0)
+            current_wrist_3 = 0.0
+            if "ra_wrist_3_joint" in joint_state_msg.name:
+                idx = joint_state_msg.name.index("ra_wrist_3_joint")
+                current_wrist_3 = joint_state_msg.position[idx]
 
-            if not self.move_arm_cartesian(lift_xyz, lift_quat):
-                rospy.logerr("Failed to execute lift motion.")
+            lift_joint_values = {
+                "ra_elbow_joint": 1.6,
+                "ra_shoulder_lift_joint": -1.0,
+                "ra_shoulder_pan_joint": -0.09,
+                "ra_wrist_1_joint": -0.585,
+                "ra_wrist_2_joint": 1.48,
+                "ra_wrist_3_joint": current_wrist_3,
+            }
+
+            if not self.move_arm_joint(lift_joint_values):
+                rospy.logerr("Failed to execute joint lift motion.")
                 return False
 
-        except rospy.ServiceException as e:
-            rospy.logerr(f"GetPose call failed: {e}")
+        except rospy.ROSException as e:
+            rospy.logerr(f"Failed to read current joint states for lift: {e}")
             return False
 
         rospy.loginfo("Grasp execution and lift completed successfully!")
