@@ -364,14 +364,14 @@ def main():
     
     grasps = test_cylinder_5cm
 
-    rospack = rospkg.RosPack()
-    package_path = rospack.get_path("my_package")
-    predicted_grasps_path = os.path.join(package_path, "data", "predicted_grasps.npy")
-    all_grasps = np.load(predicted_grasps_path)
-    print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
-    grasp_index = 14
-    grasp_index = grasp_index -1 #for python indexing 
-    grasps = all_grasps[grasp_index]
+    # rospack = rospkg.RosPack()
+    # package_path = rospack.get_path("my_package")
+    # predicted_grasps_path = os.path.join(package_path, "data", "predicted_grasps.npy")
+    # all_grasps = np.load(predicted_grasps_path)
+    # print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
+    # grasp_index = 14
+    # grasp_index = grasp_index -1 #for python indexing 
+    # grasps = all_grasps[grasp_index]
 
     grasp = grasps[0]
     grasp_outer = grasps[1]
