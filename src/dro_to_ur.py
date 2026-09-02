@@ -338,7 +338,7 @@ def main():
     all_grasps = np.load(predicted_grasps_path)
     print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
     
-    grasp_index = 19
+    grasp_index = 5
     grasp_index = grasp_index - 1  # 1-indexed to 0-indexed
 
 
@@ -349,7 +349,7 @@ def main():
 
     print_reconstruction_diagnostic(grasp)
 
-    object_xyz = [1.279, 0.16, 0.74 + 0.08]  # add cylinder height to center the xyz
+    object_xyz = [1.279, 0.16, 0.74 + 0.085]  # add cylinder height to center the xyz
     object_rpy = [0.0, 0.0, 0.0]
 
     T_world_object = xyz_rpy_to_matrix(
