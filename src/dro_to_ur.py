@@ -38,7 +38,7 @@ T_FLANGE_TO_MANIPULATOR_RPY = [-1.575, 0.000, -1.563]  # Euler angles rads
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Specify exact translation offsets [dx, dy, dz] in meters
-OFFSET_XYZ = np.array([-0.005, 0.00, 0.000])  
+OFFSET_XYZ = np.array([-0.01, 0.00, 0.000])  
 
 # Specify exact rotation offsets [roll, pitch, yaw] in radians (or use np.radians(deg))
 OFFSET_RPY = np.array([np.radians(0.0), np.radians(0.0), np.radians(0.0)]) 
@@ -239,7 +239,7 @@ class DROArmExecutor:
         )
 
         rospy.loginfo(f"Step 2: Reaching target arm flange pose...\n  xyz: {np.round(xyz_flange, 4)}\n  quat: {np.round(quat_flange, 4)}")
-        if not self.move_arm_cartesian(xyz_flange, quat_flange):
+        if not self.move_arm_cartesian(xyz_flange, quat_flange, velocity_scaling=0.1):
             rospy.logerr("Failed to reach target arm pose.")
             return False
 
