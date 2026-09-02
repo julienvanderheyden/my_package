@@ -22,11 +22,16 @@ from sensor_msgs.msg import JointState
 from my_package.srv import MoveToPose, MoveToPoseRequest
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Constant: rh_forearm → rh_manipulator  (from URDF / live tf)
+# Constant Transforms
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# 1. rh_forearm → rh_manipulator (from URDF / live tf)
 T_FOREARM_TO_MANIPULATOR_XYZ  = np.array([0.001, -0.002, 0.296])
 T_FOREARM_TO_MANIPULATOR_QUAT = np.array([-0.077, 0.003, 0.0, 0.997])  # [x,y,z,w]
+
+# 2. ra_flange → rh_manipulator (from arm_motion_service)
+T_FLANGE_TO_MANIPULATOR_XYZ = [0.297, 0.000, 0.010]
+T_FLANGE_TO_MANIPULATOR_RPY = [-1.575, 0.000, -1.563]  # Euler angles rads
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -110,7 +115,7 @@ def matrix_to_xyz_quat(T):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Core: reconstruct T_object_forearm from q[0:6]
+# Core: reconstruct T_object_forearm and T_world_flange
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def reconstruct_T_object_forearm(q):
@@ -123,13 +128,17 @@ def reconstruct_T_object_forearm(q):
     return T_trans @ T_rot
 
 
-def dro_q_to_world_manipulator(q, T_world_object, T_forearm_manipulator):
+def dro_q_to_world_flange(q, T_world_object, T_forearm_manipulator, T_manipulator_flange):
+    """Computes the target FLANGE pose in world frame required for reaching_service."""
     T_object_forearm    = reconstruct_T_object_forearm(q)
     T_world_forearm     = T_world_object @ T_object_forearm
     T_world_manipulator = T_world_forearm @ T_forearm_manipulator
+    
+    # Transform palm/manipulator pose to flange pose
+    T_world_flange = T_world_manipulator @ T_manipulator_flange
 
-    xyz, quat = matrix_to_xyz_quat(T_world_manipulator)
-    return xyz, quat, q[6:30]
+    xyz_flange, quat_flange = matrix_to_xyz_quat(T_world_flange)
+    return xyz_flange, quat_flange, q[6:30]
 
 
 def apply_offset(xyz, quat, delta_xyz, delta_rpy):
@@ -161,6 +170,13 @@ class DROArmExecutor:
             T_FOREARM_TO_MANIPULATOR_QUAT,
         )
 
+        # Compute T_manipulator_flange (Inverse of T_flange_manipulator)
+        T_flange_manipulator = xyz_rpy_to_matrix(
+            T_FLANGE_TO_MANIPULATOR_XYZ,
+            T_FLANGE_TO_MANIPULATOR_RPY
+        )
+        self.T_manipulator_flange = tft.inverse_matrix(T_flange_manipulator)
+
         rospy.init_node("dro_arm_executor", anonymous=False)
 
         rospy.loginfo("Waiting for /arm_motion/move_to_pose service...")
@@ -182,8 +198,8 @@ class DROArmExecutor:
         msg.data = joints_cmd
         self._joint_pub.publish(msg)
 
-    def move_arm_cartesian(self, xyz, quat, velocity_scaling= 0.3):
-        """Helper to send a Cartesian move command to reaching_service."""
+    def move_arm_cartesian(self, xyz, quat, velocity_scaling=0.3):
+        """Helper to send a Cartesian move command (FLANGE POSE) to reaching_service."""
         req = MoveToPoseRequest()
         req.motion_mode = req.MOTION_POSE
         req.target_pose.position.x = float(xyz[0])
@@ -231,42 +247,42 @@ class DROArmExecutor:
 
     def execute_grasp(self, q):
         # ---------------------------------------------------------------------
-        # STEP 1: Place all hand joints to zero for preshaping
+        # STEP 1: Place all hand joints to preshape
         # ---------------------------------------------------------------------
-        rospy.loginfo("Step 1: Setting hand joints to zero for preshaping...")
-        zero_joints = np.zeros(24)
+        rospy.loginfo("Step 1: Setting hand joints to preshape...")
         medium_wrap_preshape = np.zeros(24)
         medium_wrap_preshape[20] = 1.2
         self.publish_hand_joints(medium_wrap_preshape)
         rospy.sleep(1.0)  # Short pause to let preshape complete
 
         # ---------------------------------------------------------------------
-        # STEP 2: Reach the correct pose for the arm
+        # STEP 2: Reach the target FLANGE pose for the arm
         # ---------------------------------------------------------------------
-        xyz, quat, _ = dro_q_to_world_manipulator(
-            q, self.T_world_obj, self.T_forearm_manipulator
+        xyz_flange, quat_flange, _ = dro_q_to_world_flange(
+            q, self.T_world_obj, self.T_forearm_manipulator, self.T_manipulator_flange
         )
 
-        rospy.loginfo(f"Step 2: Reaching target arm pose...\n  xyz: {np.round(xyz, 4)}\n  quat: {np.round(quat, 4)}")
-        if not self.move_arm_cartesian(xyz, quat):
+        rospy.loginfo(f"Step 2: Reaching target arm flange pose...\n  xyz: {np.round(xyz_flange, 4)}\n  quat: {np.round(quat_flange, 4)}")
+        if not self.move_arm_cartesian(xyz_flange, quat_flange):
             rospy.logerr("Failed to reach target arm pose.")
             return False
 
         # ---------------------------------------------------------------------
-        # STEP 3: dro preshape and waits 10 seconds for user placement
+        # STEP 3: Outer grasp and 10s wait for user placement
         # ---------------------------------------------------------------------
-        _, _, joints_outer = dro_q_to_world_manipulator(self.grasp_outer, self.T_world_obj, self.T_forearm_manipulator)
-        # Grasp 1: Outer
+        _, _, joints_outer = dro_q_to_world_flange(
+            self.grasp_outer, self.T_world_obj, self.T_forearm_manipulator, self.T_manipulator_flange
+        )
         rospy.loginfo("  Executing outer grasp...")
         self.publish_hand_joints(joints_outer)
         rospy.loginfo("Step 3: Waiting 10 seconds for user to place the object...")
         rospy.sleep(10.0)
 
         # ---------------------------------------------------------------------
-        # STEP 4: Apply controlled deterministic perturbation on the arm position
+        # STEP 4: Apply controlled offset on the arm position
         # ---------------------------------------------------------------------
         rospy.loginfo(f"Step 4: Applying configured offset:\n  XYZ Delta: {OFFSET_XYZ}\n  RPY Delta (rad): {OFFSET_RPY}")
-        offset_xyz, offset_quat = apply_offset(xyz, quat, OFFSET_XYZ, OFFSET_RPY)
+        offset_xyz, offset_quat = apply_offset(xyz_flange, quat_flange, OFFSET_XYZ, OFFSET_RPY)
         rospy.loginfo(f"  Target Offset xyz: {np.round(offset_xyz, 4)}\n  Target Offset quat: {np.round(offset_quat, 4)}")
 
         if not self.move_arm_cartesian(offset_xyz, offset_quat, velocity_scaling=0.1):
@@ -276,15 +292,11 @@ class DROArmExecutor:
         rospy.sleep(1.5)
 
         # ---------------------------------------------------------------------
-        # STEP 5: Run three grasp sequences with 1.5s interval
+        # STEP 5: Sequential grasps (Mid -> Inner)
         # ---------------------------------------------------------------------
-        rospy.loginfo("Step 5: Executing sequential grasps (Outer -> Mid -> Inner)...")
-        
-        
-        _, _, joints_mid   = dro_q_to_world_manipulator(self.grasp,       self.T_world_obj, self.T_forearm_manipulator)
-        _, _, joints_inner = dro_q_to_world_manipulator(self.grasp_inner, self.T_world_obj, self.T_forearm_manipulator)
-
-
+        rospy.loginfo("Step 5: Executing sequential grasps (Mid -> Inner)...")
+        _, _, joints_mid   = dro_q_to_world_flange(self.grasp,       self.T_world_obj, self.T_forearm_manipulator, self.T_manipulator_flange)
+        _, _, joints_inner = dro_q_to_world_flange(self.grasp_inner, self.T_world_obj, self.T_forearm_manipulator, self.T_manipulator_flange)
 
         # Grasp 2: Mid
         rospy.loginfo("  Executing mid grasp...")
@@ -297,11 +309,10 @@ class DROArmExecutor:
         rospy.sleep(1.5)
 
         # ---------------------------------------------------------------------
-        # STEP 6: Lift the object using explicit Joint Space targets
+        # STEP 6: Lift the object
         # ---------------------------------------------------------------------
         rospy.loginfo("Step 6: Lifting object using joint space targets...")
         try:
-            # Get current joint states to preserve ra_wrist_3_joint angle
             joint_state_msg = rospy.wait_for_message("/joint_states", JointState, timeout=5.0)
             current_wrist_3 = 0.0
             if "ra_wrist_3_joint" in joint_state_msg.name:
@@ -337,7 +348,7 @@ class DROArmExecutor:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Diagnostic: print the reconstructed forearm pose for a given q
+# Diagnostic: print the reconstructed pose for a given q
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def print_reconstruction_diagnostic(q):
@@ -360,26 +371,23 @@ def print_reconstruction_diagnostic(q):
 
 def main():
 
-    test_cylinder_5cm = np.array([[0.0741, 0.3093, 0.1152, 1.5283, -0.4392, 0.2012, 0.0456, 0.3773, -0.3491, 0.6304, 0.2911, 0.0, -0.2684, 0.255, 1.261, -0.0, -0.3117, 0.4097, 1.4692, 0.6834, 0.2742, -0.3491, 0.9381, 1.2706, 1.1324, -0.4138, 0.8833, 0.1824, -0.099, 1.0868], [0.0741, 0.3093, 0.1152, 1.5283, -0.4392, 0.2012, 0.0456, 0.3773, -0.3491, 0.4073, 0.2184, 0.0, -0.114, 0.1258, 0.9458, -0.0, -0.321, 0.2418, 1.1019, 0.9053, 0.2057, -0.3491, 0.6381, 1.3456, 1.242, -0.5721, 0.9679, 0.1892, -0.2488, 0.7496], [0.0741, 0.3093, 0.1152, 1.5283, -0.4392, 0.2012, 0.0456, 0.3773, -0.2444, 0.7714, 0.4831, 0.2356, -0.2805, 0.4524, 1.3075, 0.2356, -0.2126, 0.5838, 1.4845, 0.5809, 0.3509, -0.2444, 1.033, 1.08, 0.9625, -0.1946, 0.7508, 0.1236, 0.0206, 1.1594]])
+    rospack = rospkg.RosPack()
+    package_path = rospack.get_path("my_package")
+    predicted_grasps_path = os.path.join(package_path, "data", "predicted_grasps.npy")
+    all_grasps = np.load(predicted_grasps_path)
+    print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
     
-    grasps = test_cylinder_5cm
+    grasp_index = 14 
+    grasp_index = grasp_index - 1  # 1-indexed to 0-indexed
 
-    # rospack = rospkg.RosPack()
-    # package_path = rospack.get_path("my_package")
-    # predicted_grasps_path = os.path.join(package_path, "data", "predicted_grasps.npy")
-    # all_grasps = np.load(predicted_grasps_path)
-    # print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
-    # grasp_index = 14
-    # grasp_index = grasp_index -1 #for python indexing 
-    # grasps = all_grasps[grasp_index]
-
-    grasp = grasps[0]
+    grasps = all_grasps[grasp_index]
+    grasp       = grasps[0]
     grasp_outer = grasps[1]
     grasp_inner = grasps[2]
 
     print_reconstruction_diagnostic(grasp)
 
-    object_xyz = [1.279, 0.14, 0.74+0.085] # add cylinder height to center the xyz
+    object_xyz = [1.279, 0.14, 0.74 + 0.085]  # add cylinder height to center the xyz
     object_rpy = [0.0, 0.0, 0.0]
 
     T_world_object = xyz_rpy_to_matrix(
