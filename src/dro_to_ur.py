@@ -338,17 +338,14 @@ def main():
     all_grasps = np.load(predicted_grasps_path)
     print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
     
-    grasp_index = 14 - 1  # 1-indexed to 0-indexed
+    grasp_index = 8
+    grasp_index = grasp_index - 1  # 1-indexed to 0-indexed
 
-    if all_grasps.ndim == 3:
-        grasps = all_grasps[grasp_index]
-        grasp       = grasps[0]
-        grasp_outer = grasps[1]
-        grasp_inner = grasps[2]
-    else:
-        grasp       = all_grasps[grasp_index]
-        grasp_outer = grasp
-        grasp_inner = grasp
+
+    grasps = all_grasps[grasp_index]
+    grasp       = grasps[0]
+    grasp_outer = grasps[1]
+    grasp_inner = grasps[2]
 
     print_reconstruction_diagnostic(grasp)
 
