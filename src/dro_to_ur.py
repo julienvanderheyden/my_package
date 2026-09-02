@@ -367,7 +367,7 @@ def main():
     package_path = rospack.get_path("my_package")
     predicted_grasps_path = os.path.join(package_path, "data", "predicted_grasps.npy")
     all_grasps = np.load(predicted_grasps_path)
-    grasp_index = 19
+    grasp_index = 17
     grasp_index = grasp_index -1 #for python indexing 
     grasps = all_grasps[grasp_index]
 
