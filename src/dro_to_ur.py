@@ -38,7 +38,7 @@ T_FLANGE_TO_MANIPULATOR_RPY = [-1.575, 0.000, -1.563]  # Euler angles rads
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Specify exact translation offsets [dx, dy, dz] in meters
-OFFSET_XYZ = np.array([0.01 , 0.00, 0.000])  
+OFFSET_XYZ = np.array([0.02 , 0.00, 0.000])  
 
 # Specify exact rotation offsets [roll, pitch, yaw] in radians (or use np.radians(deg))
 OFFSET_RPY = np.array([np.radians(0.0), np.radians(0.0), np.radians(0.0)]) 
@@ -252,7 +252,7 @@ class DROArmExecutor:
         rospy.loginfo("  Executing outer grasp...")
         self.publish_hand_joints(joints_outer)
         rospy.loginfo("Step 3: Waiting 10 seconds for user to place the object...")
-        rospy.sleep(10.0)
+        rospy.sleep(5.0)
 
         # ---------------------------------------------------------------------
         # STEP 4: Apply controlled offset on the arm position
