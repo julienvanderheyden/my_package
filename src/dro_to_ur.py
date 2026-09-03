@@ -38,7 +38,7 @@ T_FLANGE_TO_MANIPULATOR_RPY = [-1.575, 0.000, -1.563]  # Euler angles rads
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Specify exact translation offsets [dx, dy, dz] in meters
-OFFSET_XYZ = np.array([0.0 , -0.015, 0.000])  
+OFFSET_XYZ = np.array([0.0 , 0.0, 0.000])  
 
 # Specify exact rotation offsets [roll, pitch, yaw] in radians (or use np.radians(deg))
 OFFSET_RPY = np.array([np.radians(0.0), np.radians(0.0), np.radians(0.0)]) 
@@ -338,7 +338,7 @@ def main():
     all_grasps = np.load(predicted_grasps_path)
     print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
     
-    grasp_index = 3
+    grasp_index = 16
     grasp_index = grasp_index - 1  # 1-indexed to 0-indexed
 
 
