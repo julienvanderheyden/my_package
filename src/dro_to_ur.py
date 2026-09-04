@@ -13,6 +13,7 @@ import rospy
 import rospkg
 import tf
 import tf.transformations as tft
+import tf2_ros
 
 from geometry_msgs.msg import Pose
 from std_msgs.msg import Float64MultiArray
@@ -25,12 +26,22 @@ from my_package.srv import MoveToPose, MoveToPoseRequest
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # 1. rh_forearm → rh_manipulator (from URDF / live tf)
+#    This is a rigid mounting offset (arm flange <-> hand base), independent of joints.
 T_FOREARM_TO_MANIPULATOR_XYZ  = np.array([0.001, -0.002, 0.296])
 T_FOREARM_TO_MANIPULATOR_QUAT = np.array([-0.077, 0.003, 0.0, 0.997])  # [x,y,z,w]
 
 # 2. ra_flange → rh_manipulator (from arm_motion_service)
 T_FLANGE_TO_MANIPULATOR_XYZ = [0.297, 0.000, 0.010]
 T_FLANGE_TO_MANIPULATOR_RPY = [-1.575, 0.000, -1.563]  # Euler angles rads
+
+# NOTE: rh_forearm -> rh_palm is NOT a constant transform: it is crossed by
+# rh_WRJ2 then rh_WRJ1, which are not necessarily zeroed. Rather than
+# forward-kinematting it from commanded joint angles, it is looked up LIVE
+# from tf at the moment it's needed -- this reflects the hand's actual
+# measured wrist configuration (tendon friction/backlash included), not the
+# idealized commanded one.
+HAND_BASE_FRAME = "rh_forearm"
+EE_FRAME        = "rh_palm"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -113,6 +124,19 @@ def matrix_to_xyz_quat(T):
     return T[0:3, 3].copy(), tft.quaternion_from_matrix(T)
 
 
+def apply_local_offset(xyz, quat, delta_xyz, delta_rpy):
+    """Applies a translation+rotation offset expressed in the LOCAL frame of (xyz, quat).
+
+    T_new = T_orig @ T_delta, so delta_xyz/delta_rpy are interpreted along the
+    axes of the frame being perturbed (e.g. rh_palm), not world axes.
+    """
+    T_orig  = xyz_quat_to_matrix(xyz, quat)
+    T_delta = xyz_rpy_to_matrix(np.asarray(delta_xyz, dtype=float),
+                                 np.asarray(delta_rpy, dtype=float))
+    T_new = T_orig @ T_delta
+    return matrix_to_xyz_quat(T_new)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Core: reconstruct T_object_forearm and T_world_flange
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -140,18 +164,6 @@ def dro_q_to_world_flange(q, T_world_object, T_forearm_manipulator, T_manipulato
     return xyz_flange, quat_flange, q[6:30]
 
 
-def apply_offset(xyz, quat, delta_xyz, delta_rpy):
-    """Applies exact deterministic positional and RPY rotational offsets."""
-    offset_xyz = xyz + delta_xyz
-
-    delta_R = tft.euler_matrix(delta_rpy[0], delta_rpy[1], delta_rpy[2], axes='sxyz')
-    T_orig = tft.quaternion_matrix(quat)
-    T_offset = T_orig @ delta_R
-    offset_quat = tft.quaternion_from_matrix(T_offset)
-
-    return offset_xyz, offset_quat
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROS executor
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -177,6 +189,11 @@ class DROArmExecutor:
         self.T_manipulator_flange = tft.inverse_matrix(T_flange_manipulator)
 
         rospy.init_node("dro_arm_executor", anonymous=False)
+
+        # Live TF lookup for rh_forearm -> rh_palm (crosses rh_WRJ2/rh_WRJ1,
+        # so it is only valid at a specific, actually-measured wrist config).
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
         rospy.loginfo("Waiting for /arm_motion/move_to_pose service...")
         rospy.wait_for_service("/arm_motion/move_to_pose")
@@ -221,6 +238,30 @@ class DROArmExecutor:
             rospy.logerr(f"MoveToPose call failed: {e}")
             return False
 
+    def lookup_T_forearm_palm(self, timeout=2.0):
+        """Live TF lookup of rh_forearm -> rh_palm.
+
+        Reflects the hand's ACTUAL measured wrist configuration right now
+        (tendon friction / tracking error included), rather than an FK
+        computed from commanded joint angles.
+        """
+        try:
+            ts = self.tf_buffer.lookup_transform(
+                HAND_BASE_FRAME, EE_FRAME, rospy.Time(0), rospy.Duration(timeout)
+            )
+        except (tf2_ros.LookupException,
+                tf2_ros.ConnectivityException,
+                tf2_ros.ExtrapolationException) as e:
+            rospy.logerr(f"TF lookup {HAND_BASE_FRAME} -> {EE_FRAME} failed: {e}")
+            raise
+
+        t = ts.transform.translation
+        q = ts.transform.rotation
+        return xyz_quat_to_matrix(
+            np.array([t.x, t.y, t.z]),
+            np.array([q.x, q.y, q.z, q.w]),
+        )
+
     def execute_grasp(self, q):
         # ---------------------------------------------------------------------
         # STEP 1: Place all hand joints to preshape
@@ -255,10 +296,34 @@ class DROArmExecutor:
         rospy.sleep(5.0)
 
         # ---------------------------------------------------------------------
-        # STEP 4: Apply controlled offset on the arm position
+        # STEP 4: Apply controlled offset on the arm position, along rh_palm axes
         # ---------------------------------------------------------------------
-        rospy.loginfo(f"Step 4: Applying configured offset:\n  XYZ Delta: {OFFSET_XYZ}\n  RPY Delta (rad): {OFFSET_RPY}")
-        offset_xyz, offset_quat = apply_offset(xyz_flange, quat_flange, OFFSET_XYZ, OFFSET_RPY)
+        rospy.loginfo(f"Step 4: Applying configured offset in {EE_FRAME} frame:\n"
+                       f"  XYZ Delta: {OFFSET_XYZ}\n  RPY Delta (rad): {OFFSET_RPY}")
+
+        # The hand is currently holding the OUTER-grasp preshape (published in
+        # Step 3, settled for 5s), so read the wrist transform LIVE off tf --
+        # this is the real, measured rh_forearm -> rh_palm pose right now.
+        T_forearm_palm = self.lookup_T_forearm_palm()
+
+        T_object_forearm = reconstruct_T_object_forearm(self.grasp)
+        T_world_forearm  = self.T_world_obj @ T_object_forearm
+        T_world_palm     = T_world_forearm @ T_forearm_palm
+        palm_xyz, palm_quat = matrix_to_xyz_quat(T_world_palm)
+
+        # Perturb in the palm's own frame (translation AND rotation are both
+        # expressed along rh_palm's local axes).
+        offset_palm_xyz, offset_palm_quat = apply_local_offset(
+            palm_xyz, palm_quat, OFFSET_XYZ, OFFSET_RPY
+        )
+
+        # Map the perturbed palm pose back down to a flange target:
+        # world_palm_offset -> world_forearm_offset -> world_flange_offset
+        T_world_palm_offset    = xyz_quat_to_matrix(offset_palm_xyz, offset_palm_quat)
+        T_world_forearm_offset = T_world_palm_offset @ tft.inverse_matrix(T_forearm_palm)
+        T_world_flange_offset  = T_world_forearm_offset @ self.T_forearm_manipulator @ self.T_manipulator_flange
+
+        offset_xyz, offset_quat = matrix_to_xyz_quat(T_world_flange_offset)
         rospy.loginfo(f"  Target Offset xyz: {np.round(offset_xyz, 4)}\n  Target Offset quat: {np.round(offset_quat, 4)}")
 
         if not self.move_arm_cartesian(offset_xyz, offset_quat, velocity_scaling=0.1):
