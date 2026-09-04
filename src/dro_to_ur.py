@@ -52,7 +52,7 @@ EE_FRAME        = "rh_palm"
 OFFSET_XYZ = np.array([0.0 , 0.0, 0.0])  
 
 # Specify exact rotation offsets [around x, around y, around z] in radians (or use np.radians(deg))
-OFFSET_RPY = np.array([np.radians(0.0), np.radians(0.0), np.radians(-40.0)]) 
+OFFSET_RPY = np.array([np.radians(0.0), np.radians(0.0), np.radians(0.0)]) 
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
