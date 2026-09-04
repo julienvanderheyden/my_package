@@ -49,10 +49,10 @@ EE_FRAME        = "rh_palm"
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Specify exact translation offsets [dx, dy, dz] in meters
-OFFSET_XYZ = np.array([0.0 , -0.05, 0.0])  
+OFFSET_XYZ = np.array([0.0 , 0.0, 0.0])  
 
 # Specify exact rotation offsets [around x, around y, around z] in radians (or use np.radians(deg))
-OFFSET_RPY = np.array([np.radians(0.0), np.radians(0.0), np.radians(0.0)]) 
+OFFSET_RPY = np.array([np.radians(0.0), np.radians(0.0), np.radians(10.0)]) 
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
