@@ -49,7 +49,7 @@ EE_FRAME        = "rh_palm"
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Specify exact translation offsets [dx, dy, dz] in meters
-OFFSET_XYZ = np.array([0.0 , 0.0,  0.02])  
+OFFSET_XYZ = np.array([0.0 , 0.0,  0.01])  
 
 # Specify exact rotation offsets [around x, around y, around z] in radians (or use np.radians(deg))
 OFFSET_RPY = np.array([np.radians(0.0), np.radians(0.0), np.radians(0.0)]) 
@@ -416,7 +416,7 @@ def main():
 
     sphere_diameter = 0.06
     table_height = 0.74
-    support_height = 0.16
+    support_height = 0.165
     object_height = 1/6 * sphere_diameter
     object_z = table_height + support_height + object_height
     object_xyz = [1.279, 0.16, object_z] 
