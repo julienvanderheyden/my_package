@@ -49,7 +49,7 @@ EE_FRAME        = "rh_palm"
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Specify exact translation offsets [dx, dy, dz] in meters
-OFFSET_XYZ = np.array([-0.045 , 0.0, 0.0])  
+OFFSET_XYZ = np.array([0.0 , 0.0, 0.0])  
 
 # Specify exact rotation offsets [around x, around y, around z] in radians (or use np.radians(deg))
 OFFSET_RPY = np.array([np.radians(0.0), np.radians(0.0), np.radians(0.0)]) 
@@ -403,7 +403,7 @@ def main():
     all_grasps = np.load(predicted_grasps_path)
     print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
     
-    grasp_index = 18
+    grasp_index = 2
     grasp_index = grasp_index - 1  # 1-indexed to 0-indexed
 
 
