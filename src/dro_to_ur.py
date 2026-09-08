@@ -416,7 +416,7 @@ def main():
 
     sphere_diameter = 0.09
     table_height = 0.74
-    support_height = 0.165
+    support_height = 0.16
     object_height = 1/6 * sphere_diameter
     object_z = table_height + support_height + object_height
     object_xyz = [1.279, 0.16, object_z] 
