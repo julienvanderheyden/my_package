@@ -484,7 +484,7 @@ def main():
     support_height = 0.17
     table_height = 0.71
     object_z = table_height + support_height + plate_height
-    shifted_object_x = 1.279 - 0.085 
+    shifted_object_x = 1.279 - 0.113 
     object_xyz = [shifted_object_x, 0.16, object_z]
     object_rpy = [0.0, 0.0, 0.0]
 
