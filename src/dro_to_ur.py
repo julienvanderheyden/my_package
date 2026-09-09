@@ -45,7 +45,7 @@ HAND_BASE_FRAME = "rh_forearm"
 EE_FRAME        = "rh_palm"
 
 # World/robot-base frame that T_world_object is expressed in (adjust if different)
-WORLD_FRAME = "ra_base_link"
+WORLD_FRAME = "world"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Object visualization (sanity-check marker for the hardcoded object pose)
@@ -54,7 +54,7 @@ WORLD_FRAME = "ra_base_link"
 # Box dims [x, y, z] in meters, in the OBJECT's own frame (before T_world_object
 # rotation is applied). Edit the axis assignment below if your 7.5/10/1cm plate
 # is oriented differently than assumed here.
-OBJECT_BOX_DIMS = np.array([0.075, 0.10, 0.01])  # [length_x, width_y, thickness_z]
+OBJECT_BOX_DIMS = np.array([0.10, 0.075, 0.01])  # [length_x, width_y, thickness_z]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
