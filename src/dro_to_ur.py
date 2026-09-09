@@ -49,7 +49,7 @@ EE_FRAME        = "rh_palm"
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Specify exact translation offsets [dx, dy, dz] in meters
-OFFSET_XYZ = np.array([-0.03, 0.0, 0.0])  
+OFFSET_XYZ = np.array([0.0, 0.0, 0.0])  
 
 # Specify exact rotation offsets [around x, around y, around z] in radians (or use np.radians(deg))
 OFFSET_RPY = np.array([np.radians(0.0), np.radians(0.0), np.radians(0.0)]) 
@@ -403,7 +403,7 @@ def main():
     all_grasps = np.load(predicted_grasps_path)
     print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
     
-    grasp_index = 14
+    grasp_index = 10
     grasp_index = grasp_index - 1  # 1-indexed to 0-indexed
 
 
@@ -414,13 +414,21 @@ def main():
 
     print_reconstruction_diagnostic(grasp)
 
-    sphere_diameter = 0.09
-    table_height = 0.74
-    support_height = 0.16
-    object_height = 1/6 * sphere_diameter
-    object_z = table_height + support_height + object_height
-    object_xyz = [1.279, 0.16, object_z] 
+    # sphere_diameter = 0.09
+    # table_height = 0.74
+    # support_height = 0.16
+    # object_height = 1/6 * sphere_diameter
+    # object_z = table_height + support_height + object_height
+    # object_xyz = [1.279, 0.16, object_z] 
+    # object_rpy = [0.0, 0.0, 0.0]
+
+    plate_thickness = 0.01
+    plate_height = plate_thickness/2.0
+    support_height = 0.17
+    object_z = support_height + plate_height
+    object_xyz = [1.279, 0.16, object_z]
     object_rpy = [0.0, 0.0, 0.0]
+
 
     T_world_object = xyz_rpy_to_matrix(
         np.array(object_xyz, dtype=float),
