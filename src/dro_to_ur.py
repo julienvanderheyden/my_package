@@ -18,6 +18,7 @@ import tf2_ros
 from geometry_msgs.msg import Pose
 from std_msgs.msg import Float64MultiArray
 from std_srvs.srv import Trigger, TriggerResponse
+from visualization_msgs.msg import Marker
 
 from my_package.srv import MoveToPose, MoveToPoseRequest
 
@@ -42,6 +43,18 @@ T_FLANGE_TO_MANIPULATOR_RPY = [-1.575, 0.000, -1.563]  # Euler angles rads
 # idealized commanded one.
 HAND_BASE_FRAME = "rh_forearm"
 EE_FRAME        = "rh_palm"
+
+# World/robot-base frame that T_world_object is expressed in (adjust if different)
+WORLD_FRAME = "ra_base_link"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Object visualization (sanity-check marker for the hardcoded object pose)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Box dims [x, y, z] in meters, in the OBJECT's own frame (before T_world_object
+# rotation is applied). Edit the axis assignment below if your 7.5/10/1cm plate
+# is oriented differently than assumed here.
+OBJECT_BOX_DIMS = np.array([0.075, 0.10, 0.01])  # [length_x, width_y, thickness_z]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -205,7 +218,56 @@ class DROArmExecutor:
         )
 
         rospy.Service("/dro/execute_grasp", Trigger, self._cb_execute_grasp)
+
+        # ---------------------------------------------------------------
+        # Object pose sanity-check marker
+        # ---------------------------------------------------------------
+        self._object_marker_pub = rospy.Publisher(
+            "/dro/object_marker", Marker, queue_size=1, latch=True
+        )
+        obj_xyz, obj_quat = matrix_to_xyz_quat(self.T_world_obj)
+        self.publish_object_marker(obj_xyz, obj_quat)
+        # Republish periodically too -- latching alone can miss late RViz
+        # subscribers depending on transport/QoS quirks.
+        self._object_marker_timer = rospy.Timer(
+            rospy.Duration(1.0),
+            lambda evt: self.publish_object_marker(obj_xyz, obj_quat),
+        )
+
         rospy.loginfo("DROArmExecutor ready.")
+
+    def publish_object_marker(self, xyz, quat, dims=OBJECT_BOX_DIMS, frame_id=WORLD_FRAME):
+        """Publishes a CUBE marker at the given pose so the hardcoded object
+        position/orientation can be checked visually against the real object
+        in RViz, without needing perception or a grasp execution cycle."""
+        marker = Marker()
+        marker.header.frame_id = frame_id
+        marker.header.stamp = rospy.Time.now()
+        marker.ns = "dro_object"
+        marker.id = 0
+        marker.type = Marker.CUBE
+        marker.action = Marker.ADD
+
+        marker.pose.position.x = float(xyz[0])
+        marker.pose.position.y = float(xyz[1])
+        marker.pose.position.z = float(xyz[2])
+        marker.pose.orientation.x = float(quat[0])
+        marker.pose.orientation.y = float(quat[1])
+        marker.pose.orientation.z = float(quat[2])
+        marker.pose.orientation.w = float(quat[3])
+
+        marker.scale.x = float(dims[0])
+        marker.scale.y = float(dims[1])
+        marker.scale.z = float(dims[2])
+
+        marker.color.r = 0.1
+        marker.color.g = 0.8
+        marker.color.b = 0.2
+        marker.color.a = 0.5  # semi-transparent so it doesn't hide the real object
+
+        marker.lifetime = rospy.Duration(0)  # forever, until overwritten/deleted
+
+        self._object_marker_pub.publish(marker)
 
     def publish_hand_joints(self, joints_dro_order):
         """Reorders and publishes joint angles to the hand command topic."""
