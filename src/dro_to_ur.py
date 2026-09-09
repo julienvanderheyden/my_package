@@ -482,7 +482,7 @@ def main():
     plate_thickness = 0.01
     plate_height = plate_thickness/2.0
     support_height = 0.17
-    table_height = 0.71
+    table_height = 0.72
     object_z = table_height + support_height + plate_height
     shifted_object_x = 1.279 - 0.113 
     object_xyz = [shifted_object_x, 0.16, object_z]
