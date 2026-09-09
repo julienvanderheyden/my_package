@@ -26,14 +26,17 @@ from my_package.srv import MoveToPose, MoveToPoseRequest
 # Constant Transforms
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# 1. rh_forearm → rh_manipulator (from URDF / live tf)
-#    This is a rigid mounting offset (arm flange <-> hand base), independent of joints.
-T_FOREARM_TO_MANIPULATOR_XYZ  = np.array([0.001, -0.002, 0.296])
-T_FOREARM_TO_MANIPULATOR_QUAT = np.array([-0.077, 0.003, 0.0, 0.997])  # [x,y,z,w]
-
-# 2. ra_flange → rh_manipulator (from arm_motion_service)
-T_FLANGE_TO_MANIPULATOR_XYZ = [0.297, 0.000, 0.010]
-T_FLANGE_TO_MANIPULATOR_RPY = [-1.575, 0.000, -1.563]  # Euler angles rads
+# 1. rh_forearm → ra_flange (rigid, directly measured via live tf when the arm
+#    is stationary at any pose -- both frames are on the rigid arm+forearm
+#    assembly, upstream of the wrist joints WRJ1/WRJ2, so this is a true
+#    constant with no need to go through an intermediate "manipulator" frame.
+#
+#    Obtain with (arm holding still, at ANY pose):
+#      rosrun tf tf_echo rh_forearm ra_flange
+#    This prints the pose of ra_flange EXPRESSED IN rh_forearm, i.e. exactly
+#    T_forearm_flange as used below -- no inversion needed.
+T_FOREARM_TO_FLANGE_XYZ  = np.array([0.0, 0.0, 0.0])   # <-- replace with tf_echo output
+T_FOREARM_TO_FLANGE_QUAT = np.array([-0.5, 0.5, -0.5, -0.5])  # [x,y,z,w] <-- replace with tf_echo output
 
 # NOTE: rh_forearm -> rh_palm is NOT a constant transform: it is crossed by
 # rh_WRJ2 then rh_WRJ1, which are not necessarily zeroed. Rather than
@@ -164,14 +167,13 @@ def reconstruct_T_object_forearm(q):
     return T_trans @ T_rot
 
 
-def dro_q_to_world_flange(q, T_world_object, T_forearm_manipulator, T_manipulator_flange):
+def dro_q_to_world_flange(q, T_world_object, T_forearm_flange):
     """Computes the target FLANGE pose in world frame required for reaching_service."""
-    T_object_forearm    = reconstruct_T_object_forearm(q)
-    T_world_forearm     = T_world_object @ T_object_forearm
-    T_world_manipulator = T_world_forearm @ T_forearm_manipulator
-    
-    # Transform palm/manipulator pose to flange pose
-    T_world_flange = T_world_manipulator @ T_manipulator_flange
+    T_object_forearm = reconstruct_T_object_forearm(q)
+    T_world_forearm  = T_world_object @ T_object_forearm
+
+    # Directly to flange -- no intermediate manipulator frame.
+    T_world_flange = T_world_forearm @ T_forearm_flange
 
     xyz_flange, quat_flange = matrix_to_xyz_quat(T_world_flange)
     return xyz_flange, quat_flange, q[6:30]
@@ -189,17 +191,10 @@ class DROArmExecutor:
         self.grasp_inner = grasp_inner       # (30,)
         self.T_world_obj = T_world_object    # (4,4)
 
-        self.T_forearm_manipulator = xyz_quat_to_matrix(
-            T_FOREARM_TO_MANIPULATOR_XYZ,
-            T_FOREARM_TO_MANIPULATOR_QUAT,
+        self.T_forearm_flange = xyz_quat_to_matrix(
+            T_FOREARM_TO_FLANGE_XYZ,
+            T_FOREARM_TO_FLANGE_QUAT,
         )
-
-        # Compute T_manipulator_flange (Inverse of T_flange_manipulator)
-        T_flange_manipulator = xyz_rpy_to_matrix(
-            T_FLANGE_TO_MANIPULATOR_XYZ,
-            T_FLANGE_TO_MANIPULATOR_RPY
-        )
-        self.T_manipulator_flange = tft.inverse_matrix(T_flange_manipulator)
 
         rospy.init_node("dro_arm_executor", anonymous=False)
 
@@ -338,7 +333,7 @@ class DROArmExecutor:
         # STEP 2: Reach the target FLANGE pose for the arm
         # ---------------------------------------------------------------------
         xyz_flange, quat_flange, _ = dro_q_to_world_flange(
-            q, self.T_world_obj, self.T_forearm_manipulator, self.T_manipulator_flange
+            q, self.T_world_obj, self.T_forearm_flange
         )
 
         rospy.loginfo(f"Step 2: Reaching target arm flange pose...\n  xyz: {np.round(xyz_flange, 4)}\n  quat: {np.round(quat_flange, 4)}")
@@ -350,7 +345,7 @@ class DROArmExecutor:
         # STEP 3: Outer grasp and 10s wait for user placement
         # ---------------------------------------------------------------------
         _, _, joints_outer = dro_q_to_world_flange(
-            self.grasp_outer, self.T_world_obj, self.T_forearm_manipulator, self.T_manipulator_flange
+            self.grasp_outer, self.T_world_obj, self.T_forearm_flange
         )
         rospy.loginfo("  Executing outer grasp...")
         self.publish_hand_joints(joints_outer)
@@ -383,7 +378,7 @@ class DROArmExecutor:
         # world_palm_offset -> world_forearm_offset -> world_flange_offset
         T_world_palm_offset    = xyz_quat_to_matrix(offset_palm_xyz, offset_palm_quat)
         T_world_forearm_offset = T_world_palm_offset @ tft.inverse_matrix(T_forearm_palm)
-        T_world_flange_offset  = T_world_forearm_offset @ self.T_forearm_manipulator @ self.T_manipulator_flange
+        T_world_flange_offset  = T_world_forearm_offset @ self.T_forearm_flange
 
         offset_xyz, offset_quat = matrix_to_xyz_quat(T_world_flange_offset)
         rospy.loginfo(f"  Target Offset xyz: {np.round(offset_xyz, 4)}\n  Target Offset quat: {np.round(offset_quat, 4)}")
@@ -398,8 +393,8 @@ class DROArmExecutor:
         # STEP 5: Sequential grasps (Mid -> Inner)
         # ---------------------------------------------------------------------
         rospy.loginfo("Step 5: Executing sequential grasps (Mid -> Inner)...")
-        _, _, joints_mid   = dro_q_to_world_flange(self.grasp,       self.T_world_obj, self.T_forearm_manipulator, self.T_manipulator_flange)
-        _, _, joints_inner = dro_q_to_world_flange(self.grasp_inner, self.T_world_obj, self.T_forearm_manipulator, self.T_manipulator_flange)
+        _, _, joints_mid   = dro_q_to_world_flange(self.grasp,       self.T_world_obj, self.T_forearm_flange)
+        _, _, joints_inner = dro_q_to_world_flange(self.grasp_inner, self.T_world_obj, self.T_forearm_flange)
 
         # Grasp 2: Mid
         rospy.loginfo("  Executing mid grasp...")
