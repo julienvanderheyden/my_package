@@ -476,7 +476,7 @@ def main():
 
     print_reconstruction_diagnostic(grasp)
 
-    sphere_diameter = 0.05
+    sphere_diameter = 0.065
     table_height = 0.74
     support_height = 0.16
     object_height = 1/6 * sphere_diameter
