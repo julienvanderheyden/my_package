@@ -465,7 +465,7 @@ def main():
     all_grasps = np.load(predicted_grasps_path)
     print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
     
-    grasp_index = 15
+    grasp_index = 8
     grasp_index = grasp_index - 1  # 1-indexed to 0-indexed
 
 
@@ -484,7 +484,7 @@ def main():
     # object_xyz = [1.279, 0.16, object_z] 
     # object_rpy = [0.0, 0.0, 0.0]
 
-    plate_thickness = 0.04
+    plate_thickness = 0.025
     plate_height = plate_thickness/2.0
     support_height = 0.17
     table_height = 0.73
