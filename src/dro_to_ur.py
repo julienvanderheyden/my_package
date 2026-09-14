@@ -341,6 +341,8 @@ class DROArmExecutor:
             rospy.logerr("Failed to reach target arm pose.")
             return False
 
+        rospy.sleep(5.0)
+
         # ---------------------------------------------------------------------
         # STEP 3: Outer grasp and 10s wait for user placement
         # ---------------------------------------------------------------------
