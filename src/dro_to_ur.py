@@ -465,7 +465,7 @@ def main():
     all_grasps = np.load(predicted_grasps_path)
     print(f"DEBUG - Array shape: {all_grasps.shape}, dtype: {all_grasps.dtype}")
     
-    grasp_index = 6
+    grasp_index = 10
     grasp_index = grasp_index - 1  # 1-indexed to 0-indexed
 
 
@@ -476,22 +476,22 @@ def main():
 
     print_reconstruction_diagnostic(grasp)
 
-    sphere_diameter = 0.055
-    table_height = 0.74
-    support_height = 0.16
-    object_height = 1/6 * sphere_diameter
-    object_z = table_height + support_height + object_height
-    object_xyz = [1.279, 0.16, object_z] 
-    object_rpy = [0.0, 0.0, 0.0]
-
-    # plate_thickness = 0.01
-    # plate_height = plate_thickness/2.0
-    # support_height = 0.17
+    # sphere_diameter = 0.055
     # table_height = 0.74
-    # object_z = table_height + support_height + plate_height
-    # shifted_object_x = 1.279 - 0.113 
-    # object_xyz = [shifted_object_x, 0.16, object_z]
+    # support_height = 0.16
+    # object_height = 1/6 * sphere_diameter
+    # object_z = table_height + support_height + object_height
+    # object_xyz = [1.279, 0.16, object_z] 
     # object_rpy = [0.0, 0.0, 0.0]
+
+    plate_thickness = 0.01
+    plate_height = plate_thickness/2.0
+    support_height = 0.17
+    table_height = 0.74
+    object_z = table_height + support_height + plate_height
+    shifted_object_x = 1.279 - 0.113 
+    object_xyz = [shifted_object_x, 0.16, object_z]
+    object_rpy = [0.0, 0.0, 0.0]
 
     # object_xyz = [1.279, 0.16, 0.75 + 0.085]
     # object_rpy = [0.0, 0.0, 0.0]
