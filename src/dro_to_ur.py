@@ -355,7 +355,7 @@ class DROArmExecutor:
         rospy.loginfo("  Executing outer grasp...")
         self.publish_hand_joints(joints_outer)
         rospy.loginfo("Step 3: Waiting 10 seconds for user to place the object...")
-        rospy.sleep(5.0)
+        rospy.sleep(1.0)
 
         # ---------------------------------------------------------------------
         # STEP 4: Apply controlled offset on the arm position, along rh_palm axes
