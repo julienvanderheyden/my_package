@@ -404,7 +404,7 @@ class DROArmExecutor:
         # Grasp 2: Mid
         rospy.loginfo("  Executing mid grasp...")
         self.publish_hand_joints(joints_mid)
-        rospy.sleep(1.5)
+        #rospy.sleep(1.5)
 
         # Grasp 3: Inner
         rospy.loginfo("  Executing inner grasp...")
