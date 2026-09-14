@@ -329,7 +329,7 @@ class DROArmExecutor:
         
         rospy.loginfo("Step 1: Setting hand joints to preshape...")
         medium_wrap_preshape = np.zeros(24)
-        medium_wrap_preshape[20] = 1.2
+        #medium_wrap_preshape[20] = 1.2
         medium_wrap_preshape[0] = joints_outer[0]  
         medium_wrap_preshape[1] = joints_outer[1]  
         self.publish_hand_joints(medium_wrap_preshape)
