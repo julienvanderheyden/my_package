@@ -323,9 +323,15 @@ class DROArmExecutor:
         # ---------------------------------------------------------------------
         # STEP 1: Place all hand joints to preshape
         # ---------------------------------------------------------------------
+        _, _, joints_outer = dro_q_to_world_flange(
+            self.grasp_outer, self.T_world_obj, self.T_forearm_flange
+            )
+        
         rospy.loginfo("Step 1: Setting hand joints to preshape...")
         medium_wrap_preshape = np.zeros(24)
         medium_wrap_preshape[20] = 1.2
+        medium_wrap_preshape[0] = joints_outer[0]  
+        medium_wrap_preshape[1] = joints_outer[1]  
         self.publish_hand_joints(medium_wrap_preshape)
         rospy.sleep(1.0)  # Short pause to let preshape complete
 
@@ -346,9 +352,6 @@ class DROArmExecutor:
         # ---------------------------------------------------------------------
         # STEP 3: Outer grasp and 10s wait for user placement
         # ---------------------------------------------------------------------
-        _, _, joints_outer = dro_q_to_world_flange(
-            self.grasp_outer, self.T_world_obj, self.T_forearm_flange
-        )
         rospy.loginfo("  Executing outer grasp...")
         self.publish_hand_joints(joints_outer)
         rospy.loginfo("Step 3: Waiting 10 seconds for user to place the object...")
