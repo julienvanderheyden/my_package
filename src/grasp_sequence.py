@@ -77,7 +77,7 @@ class GraspOrchestrator:
             # {'position_idx': 2, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
             #{'position_idx': 3, 'grasp_type': 1, 'dimension': 0.02, 'parameters': 0.02},
             #{'position_idx': 4, 'grasp_type': 1, 'dimension': 0.0225, 'parameters': 0.0225},
-            {'position_idx': 5, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
+            # {'position_idx': 5, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
             #{'position_idx': 6, 'grasp_type': 1, 'dimension': 0.0275, 'parameters': 0.0275},
             #{'position_idx': 7, 'grasp_type': 1, 'dimension': 0.03, 'parameters': 0.03},
             {'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.0175], 'parameters':  [0.0375, 0.0175]},
