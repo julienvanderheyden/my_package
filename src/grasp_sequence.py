@@ -334,16 +334,16 @@ class GraspOrchestrator:
                 self.positions[target_idx][2]
             ]
         else:
-            phase2_pos = [
-                self.positions[target_idx][0],
-                self.positions[target_idx][1],
-                self.positions[starting_idx][2] + 0.2
-            ]
             # phase2_pos = [
-            #     self.positions[0][0],
+            #     self.positions[target_idx][0],
             #     self.positions[target_idx][1],
-            #     self.positions[target_idx][2]
+            #     self.positions[starting_idx][2] + 0.2
             # ]
+            phase2_pos = [
+                self.positions[0][0],
+                self.positions[target_idx][1],
+                self.positions[target_idx][2]
+            ]
         
         if not self.move_to_pose(phase2_pos, self.orientations[target_idx]):
             return False
