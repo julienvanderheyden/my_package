@@ -262,7 +262,7 @@ class GraspOrchestrator:
             #     support_height = 0.19
             # else:
             #     support_height = 0.215
-            support_height = 0.17
+            support_height = 0.16
             
             palm_knuckle_dist = 0.033
             finger_width = 0.018
