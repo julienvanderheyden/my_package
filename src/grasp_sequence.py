@@ -74,13 +74,13 @@ class GraspOrchestrator:
         
         self.grasp_sequence = [
             #{'position_idx': 1, 'grasp_type': 1, 'dimension': 0.01, 'parameters': 0.01},
-            {'position_idx': 2, 'grasp_type': 3, 'dimension': 0.0375, 'parameters': 0.005},
+            {'position_idx': 2, 'grasp_type': 3, 'dimension': [0.0375, 0.005], 'parameters': [0.0375, 0.005]},
             #{'position_idx': 3, 'grasp_type': 1, 'dimension': 0.02, 'parameters': 0.02},
             #{'position_idx': 4, 'grasp_type': 1, 'dimension': 0.0225, 'parameters': 0.0225},
-            {'position_idx': 5, 'grasp_type': 3, 'dimension': 0.0375, 'parameters': 0.0125},
+            {'position_idx': 5, 'grasp_type': 3, 'dimension': [0.0375, 0.0125], 'parameters': [0.0375, 0.0125]},
             #{'position_idx': 6, 'grasp_type': 1, 'dimension': 0.0275, 'parameters': 0.0275},
             #{'position_idx': 7, 'grasp_type': 1, 'dimension': 0.03, 'parameters': 0.03},
-            {'position_idx': 8, 'grasp_type': 3, 'dimension': 0.0375, 'parameters': 0.02},
+            {'position_idx': 8, 'grasp_type': 3, 'dimension': [0.0375, 0.02], 'parameters':  [0.0375, 0.02]},
             #{'position_idx': 9, 'grasp_type': 1, 'dimension': 0.04, 'parameters': 0.04},
             # {'position_idx': 10, 'grasp_type': 3, 'dimension': [0.035, 0.015], 'parameters': [0.035, 0.015]},
             # {'position_idx': 11, 'grasp_type': 3, 'dimension': [0.035, 0.01], 'parameters': [0.035, 0.01]},
@@ -262,7 +262,7 @@ class GraspOrchestrator:
             #     support_height = 0.19
             # else:
             #     support_height = 0.215
-            support_height = 0.19
+            support_height = 0.17
             
             palm_knuckle_dist = 0.033
             finger_width = 0.018
