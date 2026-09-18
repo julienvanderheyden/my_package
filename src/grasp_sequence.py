@@ -197,8 +197,8 @@ class GraspOrchestrator:
             if grasp_info['grasp_type'] != 2:  # medium wrap, lateral pinch
                 euler = [pi, -pi/2, 0]
             else:  # power sphere
-                #euler = [pi, -pi/2, 0] # side approach
-                euler = [pi/2, 0, pi/2] # top approach
+                euler = [pi, -pi/2, 0] # side approach
+                #euler = [pi/2, 0, pi/2] # top approach
             
             quat = tf.quaternion_from_euler(*euler)
             orientations.append(quat.tolist())
@@ -225,7 +225,7 @@ class GraspOrchestrator:
             radius = dim
             stand_height = 0.17
             depth_ratio = 4/3
-            top_approach = True  # set to False for side approach, True for top approach
+            top_approach = False # set to False for side approach, True for top approach
             # remove power sphere parametric positioning for structured experiments 
             # if param[0] > 0.025:
             #     z = ref_position[2] + stand_height + depth_ratio * radius
